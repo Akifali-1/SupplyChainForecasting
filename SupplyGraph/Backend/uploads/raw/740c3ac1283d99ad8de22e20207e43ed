@@ -1,0 +1,5 @@
+source,target,source_type,target_type,product,demand
+FactoryA,WarehouseA,factory,warehouse,Widget,
+WarehouseA,StoreA,warehouse,store,Widget,150
+FactoryB,WarehouseB,factory,warehouse,Gadget,
+WarehouseB,StoreB,warehouse,store,Gadget,200

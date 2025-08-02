@@ -1,0 +1,5 @@
+source_id,target_id,edge_type,company,product
+FactoryA,WarehouseA,ship,688e086d27ef2b59258a10b9,Widget
+WarehouseA,StoreA,ship,688e086d27ef2b59258a10b9,Widget
+FactoryB,WarehouseB,ship,688e086d27ef2b59258a10b9,Gadget
+WarehouseB,StoreB,ship,688e086d27ef2b59258a10b9,Gadget

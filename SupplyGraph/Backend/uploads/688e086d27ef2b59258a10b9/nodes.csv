@@ -1,0 +1,7 @@
+node_id,node_type,company,product
+FactoryA,factory,688e086d27ef2b59258a10b9,Widget
+WarehouseA,warehouse,688e086d27ef2b59258a10b9,Widget
+StoreA,store,688e086d27ef2b59258a10b9,Widget
+FactoryB,factory,688e086d27ef2b59258a10b9,Gadget
+WarehouseB,warehouse,688e086d27ef2b59258a10b9,Gadget
+StoreB,store,688e086d27ef2b59258a10b9,Gadget

@@ -1,0 +1,7 @@
+node_id,type,connected_to,product,t1,t2,t3,t4,t5
+F1,factory,W1,Widget,100,110,105,108,115
+W1,warehouse,S1,Widget,90,92,88,91,93
+S1,store,,Widget,80,85,83,82,87
+F2,factory,W2,Gadget,120,125,130,128,132
+W2,warehouse,S2,Gadget,110,113,112,114,116
+S2,store,,Gadget,95,98,100,97,99

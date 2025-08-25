@@ -11,12 +11,20 @@ function processRawCSV(rawFilePath, companyId) {
     fs.createReadStream(rawFilePath)
       .pipe(csv())
       .on("data", (row) => {
-        const source = row.source;
-        const target = row.target;
-        const sourceType = row.source_type || "unknown";
-        const targetType = row.target_type || "unknown";
-        const product = row.product || "default";
-        const demandVal = row.demand;
+        console.log("Processing row:", row);
+        
+        // Handle different CSV formats
+        const source = row.source || row.source_id || row.from || row.id;
+        const target = row.target || row.target_id || row.to || row.node_id;
+        const sourceType = row.source_type || row.sourceType || row.type || "unknown";
+        const targetType = row.target_type || row.targetType || row.type || "unknown";
+        const product = row.product || row.product_id || "default";
+        const demandVal = row.demand || row.demand_value || row.value;
+
+        if (!source || !target) {
+          console.log("Skipping row - missing source or target:", row);
+          return;
+        }
 
         // Add nodes uniquely
         if (!nodesMap.has(source)) {
@@ -58,6 +66,11 @@ function processRawCSV(rawFilePath, companyId) {
         }
       })
       .on("end", () => {
+        console.log("CSV processing complete");
+        console.log("Nodes found:", nodesMap.size);
+        console.log("Edges found:", edges.length);
+        console.log("Demand records found:", demand.length);
+        
         const outputDir = path.join(__dirname, "../uploads", companyId);
         fs.mkdirSync(outputDir, { recursive: true });
 
@@ -73,7 +86,10 @@ function processRawCSV(rawFilePath, companyId) {
           demand: `uploads/${companyId}/demand.csv`,
         });
       })
-      .on("error", reject);
+      .on("error", (error) => {
+        console.error("CSV processing error:", error);
+        reject(error);
+      });
   });
 }
 

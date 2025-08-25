@@ -1,0 +1,7 @@
+source,target,source_type,target_type,product,demand
+warehouse_1,store_1,warehouse,store,product_a,50
+warehouse_1,store_2,warehouse,store,product_a,45
+warehouse_2,store_3,warehouse,store,product_b,40
+warehouse_2,store_4,warehouse,store,product_b,35
+supplier_1,warehouse_1,supplier,warehouse,product_a,
+supplier_2,warehouse_2,supplier,warehouse,product_b,

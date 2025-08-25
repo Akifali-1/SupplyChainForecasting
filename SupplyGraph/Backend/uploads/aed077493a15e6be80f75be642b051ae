@@ -1,0 +1,5 @@
+source_id,target_id,edge_type
+F1,W1,ship
+W1,S1,ship
+F2,W2,ship
+W2,S2,ship

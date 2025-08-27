@@ -24,7 +24,7 @@ export default function App() {
       ) : (
         <>
           <div className="section">
-            <h2>Welcome, {company.name}</h2>
+            <h2>Company: {company.name}</h2>
             <FileUpload companyId={company._id} />
           </div>
 

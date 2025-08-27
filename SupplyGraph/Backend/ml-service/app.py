@@ -93,6 +93,35 @@ def start_fine_tuning():
         traceback.print_exc()
         return jsonify({"error": str(e)}), 500
 
+@app.route('/training-status/<company_id>', methods=['GET'])
+def training_status(company_id):
+    try:
+        status = trainer.get_training_status(company_id)
+        return jsonify(status)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/model-info/<company_id>', methods=['GET'])
+def model_info(company_id):
+    try:
+        info = trainer.get_model_info(company_id)
+        return jsonify(info)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/validate-data/<company_id>', methods=['GET'])
+def validate_data(company_id):
+    try:
+        # Basic validation: base model exists and company model presence
+        base = trainer.check_base_model_exists()
+        company = trainer.check_company_model_exists(company_id)
+        return jsonify({
+            "base_model": base,
+            "company_model": company
+        })
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
 @app.route('/predict', methods=['POST'])
 def generate_prediction():
     try:

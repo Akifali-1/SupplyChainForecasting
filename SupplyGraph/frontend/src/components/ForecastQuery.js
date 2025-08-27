@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { forecastQuery } from "../services/api";
+import { predict } from "../services/api";
 
 export default function ForecastQuery({ companyId }) {
   const [nodeId, setNodeId] = useState("");
@@ -10,11 +10,12 @@ export default function ForecastQuery({ companyId }) {
   const handleSubmit = async () => {
     if (!nodeId || !productId) return alert("Enter node & product");
     try {
-      const { data } = await forecastQuery(companyId, { nodeId, productId, horizon });
-      setResult(data);
+      const data = await predict(companyId, { nodeId, productId, horizon });
+      // Backend returns { prediction: { company_id, prediction: [...], ... } }
+      setResult(data?.prediction || data);
     } catch (e) {
       console.error(e);
-      alert("Prediction failed (ensure backend /api/predict/:companyId exists)");
+      alert("Prediction failed (ensure backend /api/ml/predict/:companyId exists)");
     }
   };
 
@@ -43,8 +44,8 @@ export default function ForecastQuery({ companyId }) {
 
       {result && (
         <div className="result">
-          <h4>Forecast for {result.product} at {result.node}</h4>
-          <pre>{JSON.stringify(result.forecast, null, 2)}</pre>
+          <h4>Forecast Result</h4>
+          <pre>{JSON.stringify(result, null, 2)}</pre>
         </div>
       )}
     </div>

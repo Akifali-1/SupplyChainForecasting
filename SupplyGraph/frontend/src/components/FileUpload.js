@@ -1,36 +1,47 @@
 import React, { useState } from "react";
-import { uploadRawFile, uploadProcessedFiles } from "../services/api";
+import { uploadRawFile, createSample, fineTune } from "../services/api";
 
 export default function FileUpload({ companyId }) {
   const [rawFile, setRawFile] = useState(null);
-  const [nodesFile, setNodesFile] = useState(null);
-  const [edgesFile, setEdgesFile] = useState(null);
-  const [demandFile, setDemandFile] = useState(null);
+  const [nodesPath, setNodesPath] = useState("");
+  const [edgesPath, setEdgesPath] = useState("");
+  const [demandPath, setDemandPath] = useState("");
 
   const handleRawUpload = async () => {
     if (!rawFile) return alert("Select a raw CSV");
     try {
-      await uploadRawFile(companyId, rawFile);
-      alert("Raw file uploaded & processed into nodes/edges/demand");
+      const res = await uploadRawFile(companyId, rawFile);
+      setNodesPath(res.files.nodes);
+      setEdgesPath(res.files.edges);
+      setDemandPath(res.files.demand);
+      alert("Raw file processed. Paths populated.");
     } catch (e) {
       console.error(e);
       alert("Raw upload failed");
     }
   };
 
-  const handleProcessedUpload = async () => {
-    if (!nodesFile || !edgesFile || !demandFile)
-      return alert("Upload nodes.csv, edges.csv, demand.csv");
+  const handleCreateSample = async () => {
     try {
-      await uploadProcessedFiles(companyId, {
-        nodes: nodesFile,
-        edges: edgesFile,
-        demand: demandFile,
-      });
-      alert("Processed files uploaded");
+      const res = await createSample(companyId, "small");
+      setNodesPath(res.file_paths.nodes);
+      setEdgesPath(res.file_paths.edges);
+      setDemandPath(res.file_paths.demand);
+      alert("Sample created. Paths populated.");
     } catch (e) {
       console.error(e);
-      alert("Processed upload failed");
+      alert("Sample creation failed");
+    }
+  };
+
+  const handleFineTune = async () => {
+    if (!nodesPath || !edgesPath || !demandPath) return alert("Set nodes/edges/demand paths first");
+    try {
+      await fineTune(companyId, { nodes: nodesPath, edges: edgesPath, demand: demandPath });
+      alert("Fine-tuning started/completed. Check training status.");
+    } catch (e) {
+      console.error(e);
+      alert("Fine-tuning failed");
     }
   };
 
@@ -45,14 +56,15 @@ export default function FileUpload({ companyId }) {
       </div>
 
       <div className="panel">
-        <h4>Option 2: Upload Pre-processed Files</h4>
-        <label>nodes.csv</label>
-        <input type="file" accept=".csv" onChange={(e) => setNodesFile(e.target.files[0])} />
-        <label>edges.csv</label>
-        <input type="file" accept=".csv" onChange={(e) => setEdgesFile(e.target.files[0])} />
-        <label>demand.csv</label>
-        <input type="file" accept=".csv" onChange={(e) => setDemandFile(e.target.files[0])} />
-        <button onClick={handleProcessedUpload}>Upload All</button>
+        <h4>Option 2: Use Sample or Manual Paths</h4>
+        <button onClick={handleCreateSample}>Create Sample (small)</button>
+        <label>nodes path</label>
+        <input type="text" value={nodesPath} onChange={(e) => setNodesPath(e.target.value)} placeholder="uploads/<companyId>/nodes.csv" />
+        <label>edges path</label>
+        <input type="text" value={edgesPath} onChange={(e) => setEdgesPath(e.target.value)} placeholder="uploads/<companyId>/edges.csv" />
+        <label>demand path</label>
+        <input type="text" value={demandPath} onChange={(e) => setDemandPath(e.target.value)} placeholder="uploads/<companyId>/demand.csv" />
+        <button onClick={handleFineTune}>Start Fine-Tune</button>
       </div>
     </div>
   );

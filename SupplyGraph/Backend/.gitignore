@@ -1,5 +1,5 @@
 # Dependencies
-node_modules/
+/node_modules
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
@@ -22,14 +22,14 @@ pids
 *.pid.lock
 
 # Coverage directory used by tools like istanbul
-coverage/
+/coverage
 
 # nyc test coverage
 .nyc_output
 
 # Dependency directories
-node_modules/
-jspm_packages/
+/node_modules
+/jspm_packages
 
 # Optional npm cache directory
 .npm
@@ -62,7 +62,7 @@ ehthumbs.db
 Thumbs.db
 
 # Temporary files
-uploads/
+/uploads
 *.tmp
 *.temp
 

@@ -1,0 +1,71 @@
+const API_BASE = process.env.REACT_APP_API_BASE || "http://localhost:5000";
+
+export async function registerCompany(name) {
+  const res = await fetch(`${API_BASE}/api/company/register`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ name })
+  });
+  if (!res.ok) throw new Error("Failed to register company");
+  return res.json();
+}
+
+export async function convertRaw(companyId, file) {
+  const formData = new FormData();
+  formData.append("file", file);
+  const res = await fetch(`${API_BASE}/api/data/convert/${companyId}`, {
+    method: "POST",
+    body: formData
+  });
+  if (!res.ok) throw new Error("Failed to process file");
+  return res.json();
+}
+
+export async function fineTune(companyId, nodes, edges, demand) {
+  const res = await fetch(`${API_BASE}/api/ml/fine-tune/${companyId}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ nodes, edges, demand })
+  });
+  if (!res.ok) throw new Error("Failed to start fine-tuning");
+  return res.json();
+}
+
+export async function getTrainingStatus(companyId) {
+  const res = await fetch(`${API_BASE}/api/ml/training-status/${companyId}`);
+  if (!res.ok) throw new Error("Failed to get training status");
+  return res.json();
+}
+
+export async function predict(companyId, input_data) {
+  const res = await fetch(`${API_BASE}/api/ml/predict/${companyId}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ input_data })
+  });
+  if (!res.ok) throw new Error("Failed to generate prediction");
+  return res.json();
+}
+
+export async function getModelInfo(companyId) {
+  const res = await fetch(`${API_BASE}/api/ml/model-info/${companyId}`);
+  if (!res.ok) throw new Error("Failed to get model info");
+  return res.json();
+}
+
+export async function getHealth() {
+  const res = await fetch(`${API_BASE}/api/health`);
+  return res.json();
+}
+
+export async function createSample(companyId, size = "small") {
+  const res = await fetch(`${API_BASE}/api/ml/create-sample/${companyId}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ size })
+  });
+  if (!res.ok) throw new Error("Failed to create sample");
+  return res.json();
+}
+
+

@@ -31,18 +31,26 @@ app.use(
 app.use(passport.initialize());
 app.use(passport.session());
 
+// ✅ Mongoose connection for User model
+const mongooseUri = process.env.MONGO_URI || "mongodb+srv://akifaliparvez:Akifmongo1@cluster0.lg4jnnj.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0";
+mongoose.connect(mongooseUri, {
+  useNewUrlParser: true,
+  useUnifiedTopology: true,
+})
+.then(() => {
+  console.log("✅ Connected to MongoDB via Mongoose");
+})
+.catch((err) => {
+  console.error("❌ Mongoose connection failed:", err.message);
+});
+
 // ✅ Routes
 app.use("/api/data", dataRoutes);
 app.use("/api/ml", mlRoutes);
 app.use("/api/auth", authRoutes); // Google login/logout/me
 
-<<<<<<< HEAD
 // Mongo (Atlas) minimal client - using same connection string as ML service
 const mongoUri = process.env.MONGO_URI || "mongodb+srv://akifaliparvez:Akifmongo1@cluster0.lg4jnnj.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0";
-=======
-/* ------------------ Mongo (Atlas) minimal client ------------------ */
-const mongoUri = process.env.MONGO_URI;
->>>>>>> 9cafa585ea24df58569147057de6c1a7e39edeb5
 const mongoDbName = process.env.MONGO_DB || "supplychain";
 let mongoClient;
 let companiesCollection;
@@ -53,7 +61,6 @@ async function initMongo() {
     console.warn("⚠️ MONGO_URI not set; company registration disabled");
     return;
   }
-<<<<<<< HEAD
   
   try {
     console.log("Attempting to connect to MongoDB Atlas...");
@@ -74,31 +81,6 @@ async function initMongo() {
     mongoClient = null;
     companiesCollection = null;
   }
-=======
-
-  // MongoClient (for companies collection)
-  mongoClient = new MongoClient(mongoUri, {
-    tls: true,
-    tlsAllowInvalidCertificates: true,
-  });
-  await mongoClient.connect();
-  const db = mongoClient.db(mongoDbName);
-  companiesCollection = db.collection("companies");
-  companiesDbName = db.databaseName || mongoDbName;
-  console.log(
-    `✅ MongoClient connected. DB: ${companiesDbName}, collection: companies`
-  );
-
-  // ✅ Also connect Mongoose (for User model)
-  mongoose
-    .connect(mongoUri, {
-      useNewUrlParser: true,
-      useUnifiedTopology: true,
-      dbName: mongoDbName,
-    })
-    .then(() => console.log("✅ Mongoose connected for User model"))
-    .catch((err) => console.error("❌ Mongoose connection error:", err));
->>>>>>> 9cafa585ea24df58569147057de6c1a7e39edeb5
 }
 
 initMongo().catch((e) => console.error("Mongo init failed", e));
@@ -113,7 +95,6 @@ app.get("/api/debug/db", (req, res) => {
 // Company registration (name -> Atlas doc)
 app.post("/api/company/register", async (req, res) => {
   try {
-<<<<<<< HEAD
     if (!companiesCollection) {
       console.warn("MongoDB not available, using local fallback for company registration");
       const { name } = req.body || {};
@@ -129,10 +110,6 @@ app.post("/api/company/register", async (req, res) => {
       });
     }
     
-=======
-    if (!companiesCollection)
-      return res.status(500).json({ error: "Database not initialized" });
->>>>>>> 9cafa585ea24df58569147057de6c1a7e39edeb5
     const { name } = req.body || {};
     if (!name) return res.status(400).json({ error: "name is required" });
 

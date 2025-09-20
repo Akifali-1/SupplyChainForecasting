@@ -159,4 +159,20 @@ router.get("/validate-data/:companyId", async (req, res) => {
   }
 });
 
+// Get historical data for charts
+router.get("/historical-data/:companyId", async (req, res) => {
+  try {
+    const { companyId } = req.params;
+
+    const mlResponse = await axios.get(
+      `${ML_SERVICE_URL}/historical-data/${companyId}`
+    );
+
+    res.json(mlResponse.data);
+  } catch (error) {
+    console.error("Error getting historical data:", error);
+    res.status(500).json({ error: "Failed to get historical data" });
+  }
+});
+
 module.exports = router;

@@ -44,22 +44,7 @@ const Homepage = () => {
 
   return (
     <div className="min-h-screen">
-      {/* Project Info Section */}
-      <section className="py-16 px-4 sm:px-6 lg:px-8 bg-white">
-        <div className="max-w-4xl mx-auto text-center">
-          <div className="inline-flex items-center space-x-2 bg-blue-100 px-4 py-2 rounded-full mb-6">
-            <Brain className="h-4 w-4 text-blue-600" />
-            <span className="text-sm font-medium text-blue-700">Supply Chain AI Platform</span>
-          </div>
-          <h2 className="text-3xl md:text-4xl font-bold text-slate-900 mb-6">
-            Supply Chain Demand Prediction (GNN)
-          </h2>
-          <p className="text-xl text-slate-600 max-w-3xl mx-auto leading-relaxed">
-            Upload your supply chain data to generate nodes, edges, and demand files. 
-            A GCN/GNN model is fine-tuned per company to forecast demand and visualize results with cutting-edge AI technology.
-          </p>
-        </div>
-      </section>
+
 
       {/* Hero Section */}
       <section className="relative py-20 px-4 sm:px-6 lg:px-8 overflow-hidden">

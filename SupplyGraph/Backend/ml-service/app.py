@@ -5,6 +5,7 @@ import json
 from datetime import datetime
 from training.trainer import ModelTrainer
 from prediction.predictor import DemandPredictor
+from utils.data_loader import DataLoader
 
 app = Flask(__name__)
 CORS(app)
@@ -135,6 +136,37 @@ def generate_prediction():
         # Generate prediction
         prediction = predictor.predict(company_id, input_data)
         return jsonify({"prediction": prediction})
+    
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/historical-data/<company_id>', methods=['GET'])
+def get_historical_data(company_id):
+    try:
+        # Load company data
+        data_loader = DataLoader()
+        company_data = data_loader.load_company_data(company_id)
+        
+        if not company_data:
+            return jsonify({"error": "Company data not found"}), 404
+        
+        demand_df = company_data['demand']
+        
+        # Convert demand data to historical format
+        historical_data = []
+        for _, row in demand_df.iterrows():
+            historical_data.append({
+                'date': row.get('date', row.get('timestamp', '2024-01-01')),
+                'demand': float(row.get('demand', row.get('value', 0))),
+                'product': row.get('product', 'Unknown'),
+                'store': row.get('store', 'Unknown')
+            })
+        
+        return jsonify({
+            "company_id": company_id,
+            "historical_data": historical_data,
+            "total_records": len(historical_data)
+        })
     
     except Exception as e:
         return jsonify({"error": str(e)}), 500

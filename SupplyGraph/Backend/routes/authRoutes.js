@@ -8,10 +8,10 @@ router.get("/google", passport.authenticate("google", { scope: ["profile", "emai
 // Callback after Google OAuth
 router.get(
   "/google/callback",
-  passport.authenticate("google", { failureRedirect: "/" }),
+  passport.authenticate("google", { failureRedirect: "http://localhost:3000/login?error=oauth_failed" }),
   (req, res) => {
-    // Redirect to frontend with session
-    res.redirect("http://localhost:3000");
+    // Redirect to frontend OAuth callback handler
+    res.redirect("http://localhost:3000/oauth/callback");
   }
 );
 

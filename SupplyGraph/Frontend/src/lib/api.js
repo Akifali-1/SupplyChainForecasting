@@ -68,4 +68,36 @@ export async function createSample(companyId, size = "small") {
   return res.json();
 }
 
+// OAuth Authentication Functions
+export async function getCurrentUser() {
+  const res = await fetch(`${API_BASE}/api/auth/me`, {
+    method: "GET",
+    credentials: "include" // Important for session-based auth
+  });
+  if (!res.ok) throw new Error("Failed to get current user");
+  return res.json();
+}
+
+export async function logout() {
+  const res = await fetch(`${API_BASE}/api/auth/logout`, {
+    method: "GET",
+    credentials: "include"
+  });
+  if (!res.ok) throw new Error("Failed to logout");
+  return res.json();
+}
+
+export function getGoogleAuthUrl() {
+  return `${API_BASE}/api/auth/google`;
+}
+
+export async function getHistoricalData(companyId) {
+  const res = await fetch(`${API_BASE}/api/ml/historical-data/${companyId}`, {
+    method: "GET",
+    credentials: "include"
+  });
+  if (!res.ok) throw new Error("Failed to get historical data");
+  return res.json();
+}
+
 

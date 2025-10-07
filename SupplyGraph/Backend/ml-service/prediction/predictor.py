@@ -54,7 +54,10 @@ class DemandPredictor:
             raise
     
     def _prepare_input_data(self, input_data, feature_columns):
-        """Prepare input data for prediction"""
+        """Prepare input data for prediction using the expanded feature schema saved during training.
+        Categorical inputs are one-hot encoded with the same prefixes as training (e.g., node_type_*, product_*, company_*).
+        Unknown categories are encoded as all-zeros for their group.
+        """
         try:
             # Convert input to DataFrame
             if isinstance(input_data, dict):
@@ -62,23 +65,26 @@ class DemandPredictor:
             else:
                 df = pd.DataFrame(input_data)
             
-            # Ensure all required features are present (best-effort based on saved columns)
+            # Build an output dataframe with the exact training-time expanded columns, in-order
+            out = pd.DataFrame(index=df.index)
             for col in feature_columns:
-                if col not in df.columns:
-                    if 'type_' in col or 'product_' in col or 'company_' in col:
-                        df[col] = 0
+                # Handle one-hot columns such as node_type_store, product_itemA, company_123
+                if '_' in col and any(col.startswith(prefix) for prefix in ['node_type_', 'product_', 'company_']):
+                    prefix = col.split('_')[0]
+                    raw_col = prefix  # expected raw key in request
+                    expected_value = col[len(prefix) + 1:]
+                    # Compare case-insensitively and stringify
+                    val_series = df.get(raw_col, '').astype(str).str.lower()
+                    out[col] = (val_series == str(expected_value).lower()).astype(float)
+                else:
+                    # Numeric feature carried over by name if present; else zero
+                    if col in df.columns:
+                        out[col] = pd.to_numeric(df[col], errors='coerce').fillna(0.0)
                     else:
-                        df[col] = 0.0
-            
-            # If no feature_columns provided, just keep current order; else put known columns first
-            if feature_columns:
-                df = df[[c for c in feature_columns if c in df.columns] + [c for c in df.columns if c not in feature_columns]]
-            
-            # NEW: Coerce all values to numeric; non-numeric become NaN -> fill 0.0
-            df = df.apply(pd.to_numeric, errors='coerce').fillna(0.0)
-            
-            # Convert to tensor
-            x = torch.tensor(df.values, dtype=torch.float) if len(df.columns) > 0 else torch.zeros((len(df), 1), dtype=torch.float)
+                        out[col] = 0.0
+
+            # Convert to tensor in the exact column order
+            x = torch.tensor(out[feature_columns].values, dtype=torch.float) if len(feature_columns) > 0 else torch.zeros((len(df), 1), dtype=torch.float)
             
             return x
             

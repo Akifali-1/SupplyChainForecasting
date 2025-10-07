@@ -95,17 +95,20 @@ class ModelTrainer:
             # Prepare features
             feature_cols = [col for col in nodes.columns if col != 'node_id']
             features = []
+            expanded_feature_columns = []  # exact column names used to build the final feature matrix
             
             for col in feature_cols:
                 if nodes[col].dtype == 'object':
-                    # One-hot encode categorical
+                    # One-hot encode categorical and record expanded column names
                     dummies = pd.get_dummies(nodes[col], prefix=col)
                     features.append(dummies.values)
+                    expanded_feature_columns.extend(list(dummies.columns))
                 else:
                     # Normalize numerical
                     col_values = nodes[col].values.astype(float)
                     normalized = (col_values - col_values.mean()) / (col_values.std() + 1e-8)
                     features.append(normalized.reshape(-1, 1))
+                    expanded_feature_columns.append(col)
             
             # Stack features properly - ensure all features have the same number of rows
             if features:
@@ -129,16 +132,21 @@ class ModelTrainer:
                 except Exception as e:
                     print(f"Error stacking features: {e}")
                     # Fallback: create simple features
+                    # Fallback: create simple numeric features and names
                     x = np.zeros((len(nodes), len(feature_cols)))
+                    expanded_feature_columns = []
                     for i, col in enumerate(feature_cols):
                         if nodes[col].dtype == 'object':
                             x[:, i] = 0  # Default value for categorical
+                            expanded_feature_columns.append(f"{col}_unknown")
                         else:
                             col_values = nodes[col].values.astype(float)
                             x[:, i] = (col_values - col_values.mean()) / (col_values.std() + 1e-8)
+                            expanded_feature_columns.append(col)
             else:
                 # Fallback if no features
                 x = np.zeros((len(nodes), 1))
+                expanded_feature_columns = ["feature_0"]
             
             # Prepare edges
             edge_source = [node_to_idx.get(source, 0) for source in edges['source_id']]
@@ -164,7 +172,8 @@ class ModelTrainer:
             data.x_ids = torch.arange(len(nodes))
             data.y_store_ids = torch.tensor(np.where(y.squeeze() > 0)[0])
             
-            return data, feature_cols
+            # Return data and the exact expanded feature column names used to build x
+            return data, expanded_feature_columns
             
         except Exception as e:
             print(f"Error preparing training data: {e}")

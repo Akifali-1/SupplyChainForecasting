@@ -86,9 +86,16 @@ const Prediction = () => {
       };
       const resp = await predict(companyId, [inputRow]);
       console.log('Prediction response:', resp); // Debug log
+      const predObj = resp?.prediction ?? resp; // handle both {prediction:{...}} and flat {...}
       
-      // Parse the actual prediction from the backend response
-      const yhat = resp?.prediction?.[0] || 0;
+      // Parse and coerce the prediction to a safe number
+      const yhatRaw = Array.isArray(predObj?.prediction)
+        ? predObj.prediction[0]
+        : Array.isArray(resp?.prediction)
+          ? resp.prediction[0]
+          : undefined;
+      const yhatParsed = typeof yhatRaw === 'number' ? yhatRaw : Number(yhatRaw);
+      const yhat = Number.isFinite(yhatParsed) ? yhatParsed : 0;
       
       // Get historical data for charts
       let historicalData = [];
@@ -115,15 +122,17 @@ const Prediction = () => {
       
       const predictionPayload = {
         predictedDemand: Math.round(yhat),
+        displayPredicted: Number.isFinite(yhat) ? Number(yhat.toFixed(1)) : 0,
+        rawPredicted: yhat,
         confidence: `${Math.round(confidence)}%`,
         trend: trend,
         storeName: formData.storeName,
         productName: formData.productName,
         historicalData: historicalData,
         modelInfo: {
-          featureColumns: resp?.feature_columns_used || [],
-          timestamp: resp?.timestamp || new Date().toISOString(),
-          inputDim: resp?.actual_input_dim || 0
+          featureColumns: predObj?.feature_columns_used || [],
+          timestamp: predObj?.timestamp || new Date().toISOString(),
+          inputDim: predObj?.actual_input_dim || 0
         }
       };
       setPrediction(predictionPayload);
@@ -316,7 +325,12 @@ const Prediction = () => {
                   <div className="text-center group">
                     <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-2xl p-6 hover:from-blue-100 hover:to-blue-200 transition-all duration-300 hover:scale-105">
                       <div className="text-4xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent mb-2">
-                        {prediction.predictedDemand.toLocaleString()}
+                        {(() => {
+                          const primary = Number(prediction?.displayPredicted);
+                          const fallback = Number(prediction?.predictedDemand ?? prediction?.rawPredicted);
+                          const v = Number.isFinite(primary) && primary !== 0 ? primary : fallback;
+                          return Number.isFinite(v) ? v.toLocaleString(undefined, { maximumFractionDigits: 1 }) : '0.0';
+                        })()}
                       </div>
                       <p className="text-slate-600 font-medium">Predicted Units</p>
                       <div className="mt-2 h-1 bg-gradient-to-r from-blue-400 to-purple-400 rounded-full"></div>

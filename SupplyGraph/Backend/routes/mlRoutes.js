@@ -57,7 +57,7 @@ router.post("/create-sample/:companyId", async (req, res) => {
 router.post("/fine-tune/:companyId", async (req, res) => {
   try {
     const { companyId } = req.params;
-    const { nodes, edges, demand } = req.body;
+    const { nodes, edges, demand, force_retrain } = req.body;
 
     if (!nodes || !edges || !demand) {
       return res.status(400).json({ error: "nodes, edges, and demand paths are required" });
@@ -67,7 +67,8 @@ router.post("/fine-tune/:companyId", async (req, res) => {
       company_id: companyId,
       nodes: nodes,
       edges: edges,
-      demand: demand
+      demand: demand,
+      force_retrain: !!force_retrain
     });
 
     if (mlResponse.data.success) {

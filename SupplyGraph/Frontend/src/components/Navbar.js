@@ -51,6 +51,14 @@ const Navbar = () => {
                 >
                   Predictions
                 </Link>
+                <Link
+                  to="/demo"
+                  className={`font-medium transition-colors hover:text-slate-900 ${
+                    isActive('/demo') ? 'text-slate-900' : 'text-slate-600'
+                  }`}
+                >
+                  Charts Demo
+                </Link>
                 <div className="flex items-center space-x-4">
                   <div className="flex items-center space-x-2 text-sm text-slate-600">
                     <User className="h-4 w-4" />
@@ -69,6 +77,12 @@ const Navbar = () => {
               </>
             ) : (
               <div className="flex items-center space-x-4">
+                <Link
+                  to="/demo"
+                  className="font-medium text-slate-600 hover:text-slate-900 transition-colors"
+                >
+                  Charts Demo
+                </Link>
                 <Link
                   to="/login"
                   className="font-medium text-slate-600 hover:text-slate-900 transition-colors"

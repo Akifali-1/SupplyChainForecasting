@@ -8,6 +8,7 @@ import Registration from "./pages/Registration";
 import Login from "./pages/Login";
 import Upload from "./pages/Upload";
 import Prediction from "./pages/Prediction";
+import VisualizationDemo from "./components/charts/VisualizationDemo";
 import { Toaster } from "./components/ui/toaster";
 
 // OAuth Callback Handler
@@ -84,6 +85,7 @@ function App() {
                 <Prediction />
               </ProtectedRoute>
             } />
+            <Route path="/demo" element={<VisualizationDemo />} />
           </Routes>
           <Toaster />
         </BrowserRouter>

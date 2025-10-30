@@ -8,25 +8,26 @@ import Registration from "./pages/Registration";
 import Login from "./pages/Login";
 import Upload from "./pages/Upload";
 import Prediction from "./pages/Prediction";
+import InventoryManagement from "./pages/InventoryManagement";
 import { Toaster } from "./components/ui/toaster";
 
 // OAuth Callback Handler
 const OAuthCallback = () => {
   const { user, isAuthenticated, loading, register } = useAuth();
-  
+
   useEffect(() => {
     const handleOAuthCallback = async () => {
       // If user is authenticated after OAuth callback
       if (!loading && isAuthenticated && user) {
         // Check if this is a new user (no companyId in localStorage)
         const existingCompanyId = localStorage.getItem('companyId');
-        
+
         if (!existingCompanyId && user.email) {
           // This is a new OAuth user, create a company for them
           try {
             const companyName = user.name ? `${user.name}'s Company` : `${user.email.split('@')[0]}'s Company`;
             const result = await register(companyName, user.email, 'oauth_user');
-            
+
             if (result.success) {
               console.log('Company created for OAuth user:', result);
             }
@@ -34,7 +35,7 @@ const OAuthCallback = () => {
             console.log('Error creating company for OAuth user:', error);
           }
         }
-        
+
         // Redirect to upload page
         window.location.href = '/upload';
       } else if (!loading && !isAuthenticated) {
@@ -82,6 +83,11 @@ function App() {
             <Route path="/prediction" element={
               <ProtectedRoute>
                 <Prediction />
+              </ProtectedRoute>
+            } />
+            <Route path="/inventory" element={
+              <ProtectedRoute>
+                <InventoryManagement />
               </ProtectedRoute>
             } />
           </Routes>

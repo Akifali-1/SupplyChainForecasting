@@ -17,7 +17,13 @@ export async function convertRaw(companyId, file) {
     method: "POST",
     body: formData
   });
-  if (!res.ok) throw new Error("Failed to process file");
+  
+  if (!res.ok) {
+    const errorData = await res.json().catch(() => ({}));
+    const errorMessage = errorData.details || errorData.error || `HTTP ${res.status}: ${res.statusText}`;
+    throw new Error(errorMessage);
+  }
+  
   return res.json();
 }
 
@@ -27,13 +33,25 @@ export async function fineTune(companyId, nodes, edges, demand) {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ nodes, edges, demand })
   });
-  if (!res.ok) throw new Error("Failed to start fine-tuning");
+  
+  if (!res.ok) {
+    const errorData = await res.json().catch(() => ({}));
+    const errorMessage = errorData.details || errorData.error || `HTTP ${res.status}: ${res.statusText}`;
+    throw new Error(errorMessage);
+  }
+  
   return res.json();
 }
 
 export async function getTrainingStatus(companyId) {
   const res = await fetch(`${API_BASE}/api/ml/training-status/${companyId}`);
-  if (!res.ok) throw new Error("Failed to get training status");
+  
+  if (!res.ok) {
+    const errorData = await res.json().catch(() => ({}));
+    const errorMessage = errorData.details || errorData.error || `HTTP ${res.status}: ${res.statusText}`;
+    throw new Error(errorMessage);
+  }
+  
   return res.json();
 }
 
@@ -97,6 +115,37 @@ export async function getHistoricalData(companyId) {
     credentials: "include"
   });
   if (!res.ok) throw new Error("Failed to get historical data");
+  return res.json();
+}
+
+// Inventory Management APIs
+export async function getTrendingInventory(companyId, timeRange = '30d') {
+  const res = await fetch(`${API_BASE}/api/ml/inventory/trending/${companyId}?timeRange=${timeRange}`, {
+    method: "GET",
+    credentials: "include"
+  });
+  
+  if (!res.ok) {
+    const errorData = await res.json().catch(() => ({}));
+    const errorMessage = errorData.details || errorData.error || `HTTP ${res.status}: ${res.statusText}`;
+    throw new Error(errorMessage);
+  }
+  
+  return res.json();
+}
+
+export async function getInventoryAnalytics(companyId) {
+  const res = await fetch(`${API_BASE}/api/ml/inventory/analytics/${companyId}`, {
+    method: "GET",
+    credentials: "include"
+  });
+  
+  if (!res.ok) {
+    const errorData = await res.json().catch(() => ({}));
+    const errorMessage = errorData.details || errorData.error || `HTTP ${res.status}: ${res.statusText}`;
+    throw new Error(errorMessage);
+  }
+  
   return res.json();
 }
 

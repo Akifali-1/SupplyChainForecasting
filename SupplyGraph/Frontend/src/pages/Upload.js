@@ -37,6 +37,7 @@ const Upload = () => {
   const [fineTuningComplete, setFineTuningComplete] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [fineTuningProgress, setFineTuningProgress] = useState(0);
+  const [trainingStatusMessage, setTrainingStatusMessage] = useState('');
   const [convertedPaths, setConvertedPaths] = useState(null);
   const [manualPaths, setManualPaths] = useState({
     nodes: '',
@@ -162,19 +163,6 @@ const Upload = () => {
   const handleFineTuning = async () => {
     setFineTuning(true);
     setFineTuningProgress(0);
-    
-    // Simulate fine-tuning progress with different stages
-    const stages = [
-      { name: "Data Processing", progress: 25, delay: 800 },
-      { name: "Model Training", progress: 60, delay: 1000 },
-      { name: "Validation", progress: 85, delay: 600 },
-      { name: "Optimization", progress: 100, delay: 500 }
-    ];
-    
-    for (const stage of stages) {
-      await new Promise(resolve => setTimeout(resolve, stage.delay));
-      setFineTuningProgress(stage.progress);
-    }
 
     try {
       let companyId = localStorage.getItem('companyId');
@@ -202,25 +190,54 @@ const Upload = () => {
         }
       }
 
+      // Start fine-tuning
       await fineTune(companyId, nodesPath, edgesPath, demandPath);
 
-      // Poll training status briefly
+      // Poll training status with real-time updates
       const pollStart = Date.now();
       const poll = setInterval(async () => {
         try {
-          const status = await getTrainingStatus(companyId);
-          if (status?.ml_status?.status === 'completed') {
+          const statusResponse = await getTrainingStatus(companyId);
+          const status = statusResponse?.status || statusResponse?.ml_status?.status;
+          const progress = statusResponse?.progress || 0;
+          const message = statusResponse?.message || '';
+          const error = statusResponse?.error;
+
+          console.log('Training status:', { status, progress, message });
+
+          // Update progress bar and status message
+          setFineTuningProgress(progress);
+          if (message) {
+            setTrainingStatusMessage(message);
+          }
+
+          if (status === 'completed') {
             clearInterval(poll);
             setFineTuningComplete(true);
-            toast({ title: 'Success!', description: 'Fine-tuning completed.' });
-            setTimeout(() => navigate('/prediction'), 1200);
+            setFineTuningProgress(100);
+            toast({ 
+              title: 'Success!', 
+              description: 'Fine-tuning completed successfully!' 
+            });
+            setTimeout(() => navigate('/prediction'), 1500);
+          } else if (status === 'failed') {
+            clearInterval(poll);
+            throw new Error(error || 'Training failed');
           }
-        } catch (_) { /* ignore */ }
-        if (Date.now() - pollStart > 30000) {
-          clearInterval(poll);
+        } catch (pollError) {
+          console.log('Status polling error:', pollError);
+          // Don't break on polling errors, continue trying
         }
-      }, 2000);
+        
+        // Timeout after 5 minutes
+        if (Date.now() - pollStart > 300000) {
+          clearInterval(poll);
+          throw new Error('Training timeout - please check status manually');
+        }
+      }, 2000); // Poll every 2 seconds
+
     } catch (error) {
+      console.error('Fine-tuning error:', error);
       toast({
         title: "Error",
         description: error.message || "Fine-tuning failed. Please try again.",
@@ -626,10 +643,15 @@ const Upload = () => {
                       <div className="flex items-center justify-center space-x-2 text-sm text-slate-600">
                         <Brain className="h-4 w-4 animate-pulse text-purple-500" />
                         <span>
-                          {fineTuningProgress < 25 ? "Processing data patterns..." : 
-                           fineTuningProgress < 60 ? "Training neural networks..." :
-                           fineTuningProgress < 85 ? "Validating accuracy..." :
-                           "Optimizing predictions..."}
+                          {trainingStatusMessage || 
+                           (fineTuningProgress < 10 ? "Initializing training process..." : 
+                            fineTuningProgress < 20 ? "Validating input files..." :
+                            fineTuningProgress < 30 ? "Loading base model..." :
+                            fineTuningProgress < 40 ? "Preparing training data..." :
+                            fineTuningProgress < 50 ? "Checking model compatibility..." :
+                            fineTuningProgress < 90 ? "Training neural network..." :
+                            fineTuningProgress < 100 ? "Saving trained model..." :
+                            "Training completed!")}
                         </span>
                       </div>
                     </div>

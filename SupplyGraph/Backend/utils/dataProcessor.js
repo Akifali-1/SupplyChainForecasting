@@ -6,62 +6,134 @@ function processRawCSV(rawFilePath, companyId) {
   return new Promise((resolve, reject) => {
     const nodesMap = new Map();
     const edges = [];
-    const demand = [];
+    const salesData = [];
 
     fs.createReadStream(rawFilePath)
       .pipe(csv())
       .on("data", (row) => {
         console.log("Processing row:", row);
         
-        // Handle different CSV formats
-        const source = row.source || row.source_id || row.from || row.id;
-        const target = row.target || row.target_id || row.to || row.node_id;
-        const sourceType = row.source_type || row.sourceType || row.type || "unknown";
-        const targetType = row.target_type || row.targetType || row.type || "unknown";
-        const product = row.product || row.product_id || "default";
-        const demandVal = row.demand || row.demand_value || row.value;
+        // Flexible column mapping for different formats
+        const nodeId = row.Node || row.node || row.node_id || row.product || row.product_id;
+        const plant = row.Plant || row.plant || row.factory || row.supplier;
+        const node1 = row.node1 || row.source || row.source_id || row.from;
+        const node2 = row.node2 || row.target || row.target_id || row.to;
+        
+        // Extract time series sales data (t1, t2, t3, etc.)
+        const timeSeriesData = {};
+        let hasTimeSeriesData = false;
+        
+        // Look for time series columns (t1, t2, t3, ... or period1, period2, etc.)
+        Object.keys(row).forEach(key => {
+          if (key.match(/^t\d+$/i) || key.match(/^period\d+$/i) || key.match(/^sales\d+$/i) || key.match(/^month\d+$/i)) {
+            const value = parseFloat(row[key]);
+            if (!isNaN(value)) {
+              timeSeriesData[key.toLowerCase()] = value;
+              hasTimeSeriesData = true;
+            }
+          }
+        });
 
-        if (!source || !target) {
-          console.log("Skipping row - missing source or target:", row);
+        // Skip rows without essential data
+        if (!nodeId) {
+          console.log("Skipping row - missing node identifier:", row);
           return;
         }
 
-        // Add nodes uniquely
-        if (!nodesMap.has(source)) {
-          nodesMap.set(source, {
-            node_id: source,
-            node_type: sourceType,
+        // Add main node
+        if (!nodesMap.has(nodeId)) {
+          // Determine node type from naming patterns or explicit type column
+          let nodeType = row.type || row.node_type || "store"; // Default to store for products
+          if (nodeType === "unknown" || nodeType === "store") {
+            if (nodeId.toLowerCase().includes("store") || nodeId.toLowerCase().includes("retail")) {
+              nodeType = "store";
+            } else if (nodeId.toLowerCase().includes("fac") || nodeId.toLowerCase().includes("plant")) {
+              nodeType = "factory";
+            } else if (nodeId.toLowerCase().includes("sup") || nodeId.toLowerCase().includes("supplier")) {
+              nodeType = "supplier";
+            } else if (nodeId.toLowerCase().includes("dist") || nodeId.toLowerCase().includes("warehouse")) {
+              nodeType = "distributor";
+            } else {
+              // For product names, default to store (end consumer)
+              nodeType = "store";
+            }
+          }
+          
+          nodesMap.set(nodeId, {
+            node_id: nodeId,
+            node_type: nodeType,
             company: companyId,
-            product: product,
-          });
-        }
-        if (!nodesMap.has(target)) {
-          nodesMap.set(target, {
-            node_id: target,
-            node_type: targetType,
-            company: companyId,
-            product: product,
+            product: nodeId // Use node_id as product for now
           });
         }
 
-        // Add edge
-        edges.push({
-          source_id: source,
-          target_id: target,
-          edge_type: "ship",
-          company: companyId,
-          product: product,
-        });
+        // Add plant/supplier node if exists
+        if (plant && !nodesMap.has(plant)) {
+          nodesMap.set(plant, {
+            node_id: plant,
+            node_type: "supplier",
+            company: companyId,
+            product: nodeId
+          });
+        }
 
-        // Add demand if target is a store and demand value exists
-        if (
-          (targetType.toLowerCase() === "store" || target.toLowerCase().includes("store")) &&
-          demandVal
-        ) {
-          demand.push({
-            store_id: target,
-            product: product,
-            demand: demandVal,
+        // Add node1 if exists
+        if (node1 && !nodesMap.has(node1)) {
+          let node1Type = "supplier";
+          if (node1.toLowerCase().includes("fac")) node1Type = "factory";
+          if (node1.toLowerCase().includes("dist")) node1Type = "distributor";
+          
+          nodesMap.set(node1, {
+            node_id: node1,
+            node_type: node1Type,
+            company: companyId,
+            product: nodeId
+          });
+        }
+
+        // Add node2 if exists
+        if (node2 && !nodesMap.has(node2)) {
+          let node2Type = "store";
+          if (node2.toLowerCase().includes("fac")) node2Type = "factory";
+          if (node2.toLowerCase().includes("dist")) node2Type = "distributor";
+          
+          nodesMap.set(node2, {
+            node_id: node2,
+            node_type: node2Type,
+            company: companyId,
+            product: nodeId
+          });
+        }
+
+        // Create edges based on available relationships
+        if (plant && node1) {
+          edges.push({
+            source_id: plant,
+            target_id: node1,
+            edge_type: "supply"
+          });
+        }
+        if (node1 && node2) {
+          edges.push({
+            source_id: node1,
+            target_id: node2,
+            edge_type: "ship"
+          });
+        }
+        if (plant && nodeId && plant !== nodeId) {
+          edges.push({
+            source_id: plant,
+            target_id: nodeId,
+            edge_type: "produce"
+          });
+        }
+
+        // Add sales data if time series exists
+        if (hasTimeSeriesData) {
+          salesData.push({
+            node_id: nodeId,
+            type: nodesMap.get(nodeId).node_type,
+            ...timeSeriesData
           });
         }
       })
@@ -69,16 +141,17 @@ function processRawCSV(rawFilePath, companyId) {
         console.log("CSV processing complete");
         console.log("Nodes found:", nodesMap.size);
         console.log("Edges found:", edges.length);
-        console.log("Demand records found:", demand.length);
+        console.log("Sales records found:", salesData.length);
         
         const outputDir = path.join(__dirname, "../uploads", companyId);
         fs.mkdirSync(outputDir, { recursive: true });
 
         const nodes = Array.from(nodesMap.values());
 
+        // Write the three required files
         fs.writeFileSync(path.join(outputDir, "nodes.csv"), toCSV(nodes));
         fs.writeFileSync(path.join(outputDir, "edges.csv"), toCSV(edges));
-        fs.writeFileSync(path.join(outputDir, "demand.csv"), toCSV(demand));
+        fs.writeFileSync(path.join(outputDir, "demand.csv"), toCSV(salesData)); // Keep filename as demand.csv for compatibility
 
         resolve({
           nodes: `uploads/${companyId}/nodes.csv`,

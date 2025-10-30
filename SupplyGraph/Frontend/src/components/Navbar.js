@@ -51,6 +51,14 @@ const Navbar = () => {
                 >
                   Predictions
                 </Link>
+                <Link
+                  to="/inventory"
+                  className={`font-medium transition-colors hover:text-slate-900 ${
+                    isActive('/inventory') ? 'text-slate-900' : 'text-slate-600'
+                  }`}
+                >
+                  Inventory
+                </Link>
                 <div className="flex items-center space-x-4">
                   <div className="flex items-center space-x-2 text-sm text-slate-600">
                     <User className="h-4 w-4" />

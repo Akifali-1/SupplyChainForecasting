@@ -78,6 +78,12 @@ const Navbar = () => {
             ) : (
               <div className="flex items-center space-x-4">
                 <Link
+                  to="/demo"
+                  className="font-medium text-slate-600 hover:text-slate-900 transition-colors"
+                >
+                  Charts Demo
+                </Link>
+                <Link
                   to="/login"
                   className="font-medium text-slate-600 hover:text-slate-900 transition-colors"
                 >

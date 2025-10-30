@@ -7,6 +7,8 @@ import { Badge } from '../components/ui/badge';
 import { useToast } from '../hooks/use-toast';
 import { mockPrediction } from '../utils/mockData';
 import { predict, getModelInfo, getHistoricalData } from '../lib/api';
+import DemandChart from '../components/charts/DemandChart';
+import PredictionAnalytics from '../components/charts/PredictionAnalytics';
 import { 
   Loader2, 
   Store, 
@@ -19,7 +21,10 @@ import {
   Lightbulb,
   Sparkles,
   Brain,
-  Zap
+  Zap,
+  BarChart,
+  LineChart,
+  Activity
 } from 'lucide-react';
 
 const Prediction = () => {
@@ -170,30 +175,8 @@ const Prediction = () => {
     }
   };
 
-  // Simple chart visualization component
-  const MiniChart = ({ data = [] }) => {
-    const values = data.map(d => d?.demand ?? 0);
-    const maxValue = values.length ? Math.max(...values) : 1;
-    const minValue = values.length ? Math.min(...values) : 0;
-    
-    return (
-      <div className="flex items-end space-x-1 h-24">
-        {(data || []).slice(-15).map((item, index) => {
-          const val = typeof item?.demand === 'number' ? item.demand : 0;
-          const denom = (maxValue - minValue) || 1;
-          const height = ((val - minValue) / denom) * 80 + 10;
-          return (
-            <div
-              key={index}
-              className="bg-gradient-to-t from-blue-500 to-purple-500 rounded-t-sm flex-1 min-w-[2px] transition-all duration-300 hover:from-blue-600 hover:to-purple-600"
-              style={{ height: `${height}px` }}
-              title={`${item.date}: ${item.demand}`}
-            />
-          );
-        })}
-      </div>
-    );
-  };
+  // Chart view state
+  const [chartView, setChartView] = useState('analytics'); // 'simple' or 'analytics'
 
   return (
     <div className="min-h-screen py-12 px-4 sm:px-6 lg:px-8 bg-gradient-to-br from-slate-50 to-indigo-50">
@@ -386,37 +369,66 @@ const Prediction = () => {
               </CardContent>
             </Card>
 
-            {/* Historical Data with Chart */}
+            {/* Chart View Toggle */}
             <Card className="shadow-2xl border-0 bg-white/90 backdrop-blur-sm">
               <CardHeader className="bg-gradient-to-r from-indigo-50 to-purple-50 rounded-t-lg">
-                <CardTitle className="flex items-center space-x-2 text-slate-900">
-                  <BarChart3 className="h-6 w-6 text-indigo-600" />
-                  <span>Demand Trend Analysis</span>
+                <CardTitle className="flex items-center justify-between">
+                  <div className="flex items-center space-x-2 text-slate-900">
+                    <BarChart3 className="h-6 w-6 text-indigo-600" />
+                    <span>Demand Visualization</span>
+                  </div>
+                  <div className="flex space-x-2">
+                    <Button
+                      variant={chartView === 'simple' ? 'default' : 'outline'}
+                      size="sm"
+                      onClick={() => setChartView('simple')}
+                      className="flex items-center space-x-2"
+                    >
+                      <BarChart className="h-4 w-4" />
+                      <span>Simple</span>
+                    </Button>
+                    <Button
+                      variant={chartView === 'analytics' ? 'default' : 'outline'}
+                      size="sm"
+                      onClick={() => setChartView('analytics')}
+                      className="flex items-center space-x-2"
+                    >
+                      <Activity className="h-4 w-4" />
+                      <span>Analytics</span>
+                    </Button>
+                  </div>
                 </CardTitle>
               </CardHeader>
               <CardContent className="p-6">
-                <div className="mb-4">
-                  <h4 className="font-semibold text-slate-800 mb-2">Historical Data (Last 15 Days)</h4>
-                  <div className="bg-gradient-to-r from-blue-50 to-purple-50 rounded-lg p-4 border border-blue-200">
-                    <MiniChart data={prediction.historicalData} />
+                {chartView === 'simple' ? (
+                  <div className="space-y-6">
+                    {/* Simple Line Chart */}
+                    <DemandChart
+                      historicalData={prediction.historicalData}
+                      prediction={prediction}
+                      chartType="line"
+                      title="Demand Timeline"
+                      showPrediction={true}
+                    />
+                    
+                    {/* Simple Bar Chart */}
+                    <DemandChart
+                      historicalData={prediction.historicalData}
+                      prediction={prediction}
+                      chartType="bar"
+                      title="Demand Comparison"
+                      showPrediction={true}
+                    />
                   </div>
-                </div>
-                
-                <div className="grid grid-cols-5 gap-2 mb-4">
-                  {(prediction?.historicalData ?? []).slice(-10).map((data, index) => (
-                    <div key={index} className="text-center p-3 bg-gradient-to-br from-slate-50 to-slate-100 rounded-lg border border-slate-200 hover:from-blue-50 hover:to-purple-50 hover:border-blue-300 transition-all duration-300">
-                      <div className="text-xs text-slate-500 mb-1 font-medium">
-                        {new Date(data.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
-                      </div>
-                      <div className="text-sm font-bold text-slate-900">
-                        {data.demand}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-                <p className="text-sm text-slate-500 text-center">
-                  Interactive historical demand visualization
-                </p>
+                ) : (
+                  /* Comprehensive Analytics Dashboard */
+                  <PredictionAnalytics
+                    historicalData={prediction.historicalData}
+                    prediction={prediction}
+                    storeName={prediction.storeName}
+                    productName={prediction.productName}
+                  />
+                )}
               </CardContent>
             </Card>
 

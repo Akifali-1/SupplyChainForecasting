@@ -7,11 +7,86 @@ function processRawCSV(rawFilePath, companyId) {
     const nodesMap = new Map();
     const edges = [];
     const salesData = [];
+    const demandLongRows = [];
+    const rawRows = [];
+    let baseWideMode = false;
+    let productColumns = [];
 
     fs.createReadStream(rawFilePath)
       .pipe(csv())
       .on("data", (row) => {
-        console.log("Processing row:", row);
+        // Pre-clean: skip blank rows and normalize numeric strings like "2,950" -> "2950"
+        if (!row || Object.values(row).every(v => String(v || '').trim() === '')) {
+          return;
+        }
+        for (const key of Object.keys(row)) {
+          const val = row[key];
+          if (typeof val === 'string') {
+            const trimmed = val.trim();
+            if (trimmed === '') continue;
+            // Remove thousand separators and normalize decimals
+            const normalized = trimmed.replace(/,/g, '');
+            if (/^-?\d+(?:\.\d+)?$/.test(normalized)) {
+              row[key] = normalized;
+            }
+          }
+        }
+        // Debug log disabled to reduce noise
+        rawRows.push(row);
+        // Detect base-wide format: has Date column and many product columns
+        if (!baseWideMode) {
+          const keys = Object.keys(row);
+          const dateKey = keys.find(k => String(k).toLowerCase() === 'date' || String(k).toLowerCase() === 'timestamp');
+          if (dateKey) {
+            // Consider product columns as all non-date fields with numeric-like values
+            const candidates = keys.filter(k => k !== dateKey);
+            const numericCandidates = candidates.filter(k => {
+              const val = row[k];
+              const num = parseFloat(val);
+              return !isNaN(num);
+            });
+            if (numericCandidates.length >= 3) {
+              baseWideMode = true;
+              productColumns = numericCandidates;
+            }
+          }
+        }
+
+        if (baseWideMode) {
+          // While in base-wide mode, incrementally build nodes/edges/long demand
+          const keys = Object.keys(row);
+          const dateKey = keys.find(k => String(k).toLowerCase() === 'date' || String(k).toLowerCase() === 'timestamp');
+          const plantKey = keys.find(k => ['plant','Plant','factory','supplier'].includes(k));
+          const node1Key = keys.find(k => ['node1','source','source_id','from'].includes(k));
+          const node2Key = keys.find(k => ['node2','target','target_id','to'].includes(k));
+          const dateVal = dateKey ? String(row[dateKey]).split(' ')[0] : undefined;
+          // Determine product keys as numeric columns excluding routing columns
+          const productKeys = keys.filter(k => ![dateKey, plantKey, node1Key, node2Key].includes(k))
+            .filter(k => {
+              const num = parseFloat(String(row[k]).replace(/,/g, ''));
+              return !isNaN(num);
+            });
+
+          // Ensure route endpoint nodes
+          const plantVal = plantKey ? row[plantKey] : undefined;
+          const node1Val = node1Key ? row[node1Key] : undefined;
+          const node2Val = node2Key ? row[node2Key] : undefined;
+          if (plantVal && !nodesMap.has(String(plantVal))) nodesMap.set(String(plantVal), { node_id: String(plantVal), node_type: 'plant', company: companyId });
+          if (node1Val && !nodesMap.has(String(node1Val))) nodesMap.set(String(node1Val), { node_id: String(node1Val), node_type: 'distributor', company: companyId });
+          if (node2Val && !nodesMap.has(String(node2Val))) nodesMap.set(String(node2Val), { node_id: String(node2Val), node_type: 'store', company: companyId });
+          if (plantVal && node1Val) edges.push({ source_id: String(plantVal), target_id: String(node1Val) });
+          if (node1Val && node2Val) edges.push({ source_id: String(node1Val), target_id: String(node2Val) });
+
+          // Add product nodes and long-format demand
+          productKeys.forEach(pk => {
+            if (!nodesMap.has(pk)) nodesMap.set(pk, { node_id: pk, node_type: 'store', company: companyId, product: pk });
+            const v = parseFloat(String(row[pk]).replace(/,/g, ''));
+            if (dateVal && !isNaN(v)) {
+              demandLongRows.push({ node_id: pk, type: 'store', date: dateVal, demand: v });
+            }
+          });
+          return;
+        }
         
         // Flexible column mapping for different formats
         const nodeId = row.Node || row.node || row.node_id || row.product || row.product_id;
@@ -130,10 +205,27 @@ function processRawCSV(rawFilePath, companyId) {
 
         // Add sales data if time series exists
         if (hasTimeSeriesData) {
+          // Wide row (kept for compatibility)
           salesData.push({
             node_id: nodeId,
             type: nodesMap.get(nodeId).node_type,
             ...timeSeriesData
+          });
+          // Also append long-format rows with synthetic monthly dates
+          const keys = Object.keys(timeSeriesData).sort((a,b) => {
+            const ai = parseInt(a.replace(/\D/g, '')) || 0;
+            const bi = parseInt(b.replace(/\D/g, '')) || 0;
+            return ai - bi;
+          });
+          keys.forEach((k, idx) => {
+            const month = String((idx % 12) + 1).padStart(2, '0');
+            const year = 2024 + Math.floor(idx / 12);
+            demandLongRows.push({
+              node_id: nodeId,
+              type: nodesMap.get(nodeId).node_type,
+              date: `${year}-${month}-01`,
+              demand: timeSeriesData[k]
+            });
           });
         }
       })
@@ -141,7 +233,82 @@ function processRawCSV(rawFilePath, companyId) {
         console.log("CSV processing complete");
         console.log("Nodes found:", nodesMap.size);
         console.log("Edges found:", edges.length);
-        console.log("Sales records found:", salesData.length);
+        console.log("Sales records found (long-format):", demandLongRows.length, "(wide-format):", salesData.length);
+
+        // If base-wide format detected, build nodes and long-format demand from rawRows
+        if (baseWideMode) {
+          try {
+            // Nodes are product column names
+            productColumns.forEach(col => {
+              if (!nodesMap.has(col)) {
+                nodesMap.set(col, {
+                  node_id: col,
+                  node_type: 'store',
+                  company: companyId,
+                  product: col
+                });
+              }
+            });
+            // Demand long rows with actual dates from the file
+            const dateKey = Object.keys(rawRows[0]).find(k => String(k).toLowerCase() === 'date' || String(k).toLowerCase() === 'timestamp');
+            rawRows.forEach(r => {
+              const dateVal = r[dateKey];
+              productColumns.forEach(col => {
+                const v = parseFloat(r[col]);
+                if (!isNaN(v)) {
+                  demandLongRows.push({
+                    node_id: col,
+                    type: 'store',
+                    date: String(dateVal).split(' ')[0],
+                    demand: v
+                  });
+                }
+              });
+              // Also extract edges if edge columns present on the same row
+              const node1Key = ['node1','source','source_id','from'].find(k => k in r);
+              const node2Key = ['node2','target','target_id','to'].find(k => k in r);
+              const plantKey = ['plant','Plant','factory','supplier'].find(k => k in r);
+              const node1Val = node1Key ? r[node1Key] : undefined;
+              const node2Val = node2Key ? r[node2Key] : undefined;
+              const plantVal = plantKey ? r[plantKey] : undefined;
+              // Ensure graph contains all endpoints as nodes
+              if (plantVal && !nodesMap.has(String(plantVal))) {
+                nodesMap.set(String(plantVal), {
+                  node_id: String(plantVal),
+                  node_type: 'plant',
+                  company: companyId
+                });
+              }
+              if (node1Val && !nodesMap.has(String(node1Val))) {
+                nodesMap.set(String(node1Val), {
+                  node_id: String(node1Val),
+                  node_type: 'distributor',
+                  company: companyId
+                });
+              }
+              if (node2Val && !nodesMap.has(String(node2Val))) {
+                nodesMap.set(String(node2Val), {
+                  node_id: String(node2Val),
+                  node_type: 'store',
+                  company: companyId
+                });
+              }
+              if (plantVal && node1Val) {
+                edges.push({ source_id: String(plantVal), target_id: String(node1Val) });
+              }
+              if (node1Val && node2Val) {
+                edges.push({ source_id: String(node1Val), target_id: String(node2Val) });
+              }
+              if (plantVal && !node1Val && productColumns.length > 0) {
+                // connect plant directly to first product node as a minimal link
+                edges.push({ source_id: String(plantVal), target_id: String(productColumns[0]) });
+              }
+            });
+          } catch (e) {
+            console.error('Error transforming base-wide format:', e);
+            return reject(e);
+          }
+        }
         
         const outputDir = path.join(__dirname, "../uploads", companyId);
         fs.mkdirSync(outputDir, { recursive: true });
@@ -151,7 +318,9 @@ function processRawCSV(rawFilePath, companyId) {
         // Write the three required files
         fs.writeFileSync(path.join(outputDir, "nodes.csv"), toCSV(nodes));
         fs.writeFileSync(path.join(outputDir, "edges.csv"), toCSV(edges));
-        fs.writeFileSync(path.join(outputDir, "demand.csv"), toCSV(salesData)); // Keep filename as demand.csv for compatibility
+        // Prefer long-format demand for alignment with base model; fall back to wide if no long rows
+        const demandOutput = demandLongRows.length > 0 ? demandLongRows : salesData;
+        fs.writeFileSync(path.join(outputDir, "demand.csv"), toCSV(demandOutput));
 
         resolve({
           nodes: `uploads/${companyId}/nodes.csv`,

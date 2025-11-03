@@ -1,3 +1,6 @@
+import warnings
+warnings.filterwarnings("ignore", category=DeprecationWarning)
+
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 import os
@@ -10,6 +13,7 @@ from prediction.predictor import DemandPredictor
 
 app = Flask(__name__)
 CORS(app)
+DEBUG_LOG = os.getenv('ML_DEBUG', '').lower() == '1'
 
 # Initialize ML components
 trainer = ModelTrainer()
@@ -52,6 +56,66 @@ class DataLoader:
 @app.route('/health', methods=['GET'])
 def health_check():
     return jsonify({"status": "healthy", "service": "ML Service", "timestamp": datetime.now().isoformat()})
+
+@app.route('/create-sample', methods=['POST'])
+def create_sample_dataset():
+    try:
+        data = request.get_json(force=True)
+        company_id = data.get('company_id')
+        size = data.get('size', 'small')
+        if not company_id:
+            return jsonify({"error": "company_id is required"}), 400
+
+        # Determine sample size
+        num_nodes = 10 if size == 'small' else 30
+
+        # Paths relative to Backend directory
+        backend_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        company_dir = os.path.join(backend_dir, 'uploads', company_id)
+        os.makedirs(company_dir, exist_ok=True)
+
+        # Generate nodes.csv
+        nodes = []
+        for i in range(num_nodes):
+            nodes.append({
+                'node_id': f'NODE_{i:03d}',
+                'node_type': 'store',
+                'company': company_id
+            })
+        nodes_df = pd.DataFrame(nodes)
+        nodes_path = os.path.join(company_dir, 'nodes.csv')
+        nodes_df.to_csv(nodes_path, index=False)
+
+        # Generate edges.csv (chain)
+        edges = []
+        for i in range(num_nodes - 1):
+            edges.append({'source_id': f'NODE_{i:03d}', 'target_id': f'NODE_{i+1:03d}'})
+        edges_df = pd.DataFrame(edges)
+        edges_path = os.path.join(company_dir, 'edges.csv')
+        edges_df.to_csv(edges_path, index=False)
+
+        # Generate demand.csv wide format t1..t5
+        time_cols = [f't{t}' for t in range(1, 6)]
+        demand_rows = []
+        for i in range(num_nodes):
+            row = {'node_id': f'NODE_{i:03d}', 'type': 'store'}
+            base = 100 + (i % 7) * 20
+            for t, col in enumerate(time_cols, start=1):
+                row[col] = base + t * 5
+            demand_rows.append(row)
+        demand_df = pd.DataFrame(demand_rows)
+        demand_path = os.path.join(company_dir, 'demand.csv')
+        demand_df.to_csv(demand_path, index=False)
+
+        return jsonify({
+            'success': True,
+            'company_id': company_id,
+            'nodes': f'uploads/{company_id}/nodes.csv',
+            'edges': f'uploads/{company_id}/edges.csv',
+            'demand': f'uploads/{company_id}/demand.csv'
+        })
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 @app.route('/status', methods=['GET'])
 def system_status():
@@ -210,6 +274,13 @@ def diagnose_training_data():
 @app.route('/historical-data/<company_id>', methods=['GET'])
 def get_historical_data(company_id):
     try:
+        # Query params: product filter and interval days (aggregation)
+        product = request.args.get('product')
+        try:
+            interval_days = int(request.args.get('intervalDays', '30'))
+            interval_days = max(1, min(interval_days, 180))
+        except ValueError:
+            interval_days = 30
         # Load company data
         data_loader = DataLoader()
         company_data = data_loader.load_company_data(company_id)
@@ -219,47 +290,63 @@ def get_historical_data(company_id):
         
         demand_df = company_data['demand']
         
-        # Convert sales data to historical format
-        historical_data = []
-        try:
-            for _, row in demand_df.iterrows():
-                # Extract time series sales data (t1, t2, t3, etc.)
-                time_columns = [col for col in row.index if col.startswith('t') and col[1:].isdigit()]
-                
-                if time_columns:
-                    # Create multiple records for time series data
-                    for i, col in enumerate(time_columns):
-                        try:
-                            if not pd.isna(row[col]) and row[col] != 0:
-                                historical_data.append({
-                                    'date': f'2024-{i+1:02d}-01',  # Generate dates for time periods
-                                    'sales': float(row[col]),
-                                    'product': row.get('node_id', 'Unknown'),
-                                    'store': row.get('node_id', 'Unknown'),
-                                    'period': col
-                                })
-                        except (ValueError, TypeError):
-                            continue
-                else:
-                    # Fallback for old format
-                    try:
-                        historical_data.append({
-                            'date': row.get('date', row.get('timestamp', '2024-01-01')),
-                            'sales': float(row.get('demand', row.get('value', 0))),
-                            'product': row.get('product', row.get('node_id', 'Unknown')),
-                            'store': row.get('store', row.get('node_id', 'Unknown'))
-                        })
-                    except (ValueError, TypeError):
-                        continue
-        except Exception as e:
-            print(f"Error processing historical data: {e}")
-            # Return empty data if processing fails
+        # Normalize to long format with date/demand
+        if {'date', 'demand'}.issubset(set([c.lower() for c in demand_df.columns])):
+            # Map possibly cased columns to lower for robustness
+            cols = {c.lower(): c for c in demand_df.columns}
+            df = demand_df.rename(columns={cols.get('date', 'date'): 'date', cols.get('demand', 'demand'): 'demand', cols.get('node_id', 'node_id'): 'node_id'})
+            # Filter by product if provided
+            if product:
+                df = df[df['node_id'].astype(str).str.upper() == product.upper()]
+            # Parse and aggregate by interval
+            try:
+                df['date'] = pd.to_datetime(df['date'])
+            except Exception:
+                pass
+            if not df.empty and 'date' in df.columns:
+                df = df.sort_values('date').set_index('date')
+                agg = df['demand'].resample(f'{interval_days}D').sum().reset_index()
+                chart_data = [{'date': d.strftime('%Y-%m-%d'), 'demand': float(v), 'product': product or 'All'} for d, v in zip(agg['date'], agg['demand'])]
+            else:
+                chart_data = []
+        else:
+            # Handle wide t1..tn or other legacy formats
             historical_data = []
+            try:
+                # Optional product filter
+                iter_df = demand_df
+                if product and 'node_id' in iter_df.columns:
+                    iter_df = iter_df[iter_df['node_id'].astype(str).str.upper() == product.upper()]
+                for _, row in iter_df.iterrows():
+                    time_columns = [col for col in row.index if str(col).startswith('t') and str(col)[1:].isdigit()]
+                    if time_columns:
+                        for i, col in enumerate(time_columns):
+                            try:
+                                if not pd.isna(row[col]) and row[col] != 0:
+                                    historical_data.append({'date': f'2024-{i+1:02d}-01', 'demand': float(row[col])})
+                            except (ValueError, TypeError):
+                                continue
+            except Exception as e:
+                print(f"Error processing legacy historical data: {e}")
+            # Aggregate by interval over synthetic monthly dates
+            if historical_data:
+                df = pd.DataFrame(historical_data)
+                try:
+                    df['date'] = pd.to_datetime(df['date'])
+                    df = df.sort_values('date').set_index('date')
+                    agg = df['demand'].resample(f'{interval_days}D').sum().reset_index()
+                    chart_data = [{'date': d.strftime('%Y-%m-%d'), 'demand': float(v), 'product': product or 'All'} for d, v in zip(agg['date'], agg['demand'])]
+                except Exception:
+                    chart_data = [{'date': r['date'], 'demand': r['demand'], 'product': product or 'All'} for r in historical_data]
+            else:
+                chart_data = []
         
         return jsonify({
             "company_id": company_id,
-            "historical_data": historical_data,
-            "total_records": len(historical_data)
+            "historical_data": chart_data,  # Return properly formatted data
+            "total_records": len(chart_data),
+            "interval_days": interval_days,
+            "product": product
         })
     
     except Exception as e:
@@ -595,4 +682,4 @@ def get_mock_trending_data():
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5001))
-    app.run(host='0.0.0.0', port=port, debug=True) 
+    app.run(host='0.0.0.0', port=port, debug=False)

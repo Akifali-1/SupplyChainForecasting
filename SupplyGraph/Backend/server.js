@@ -6,6 +6,10 @@ const dataRoutes = require("./routes/dataRotes");
 const mlRoutes = require("./routes/mlRoutes");
 const authRoutes = require("./routes/authRoutes");
 require("dotenv").config();
+
+// Suppress MongoDB deprecation warnings
+process.env.NODE_OPTIONS = '--no-warnings';
+
 const axios = require("axios");
 const { MongoClient } = require("mongodb");
 const mongoose = require("mongoose"); // ✅ for User model
@@ -33,16 +37,13 @@ app.use(passport.session());
 
 // ✅ Mongoose connection for User model
 const mongooseUri = process.env.MONGO_URI || "mongodb+srv://akifaliparvez:Akifmongo1@cluster0.lg4jnnj.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0";
-mongoose.connect(mongooseUri, {
-  useNewUrlParser: true,
-  useUnifiedTopology: true,
-})
-.then(() => {
-  console.log("✅ Connected to MongoDB via Mongoose");
-})
-.catch((err) => {
-  console.error("❌ Mongoose connection failed:", err.message);
-});
+mongoose.connect(mongooseUri)
+  .then(() => {
+    console.log("✅ Connected to MongoDB via Mongoose");
+  })
+  .catch((err) => {
+    console.error("❌ Mongoose connection failed:", err.message);
+  });
 
 // ✅ Routes
 app.use("/api/data", dataRoutes);
@@ -61,15 +62,15 @@ async function initMongo() {
     console.warn("⚠️ MONGO_URI not set; company registration disabled");
     return;
   }
-  
+
   try {
     console.log("Attempting to connect to MongoDB Atlas...");
-    mongoClient = new MongoClient(mongoUri, { 
-      tls: true, 
+    mongoClient = new MongoClient(mongoUri, {
+      tls: true,
       tlsAllowInvalidCertificates: true,
       serverSelectionTimeoutMS: 30000
     });
-    
+
     await mongoClient.connect();
     const db = mongoClient.db(mongoDbName);
     companiesCollection = db.collection("companies");
@@ -99,17 +100,17 @@ app.post("/api/company/register", async (req, res) => {
       console.warn("MongoDB not available, using local fallback for company registration");
       const { name } = req.body || {};
       if (!name) return res.status(400).json({ error: "name is required" });
-      
+
       // Local fallback - generate a simple ID
       const localId = `local_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-      return res.json({ 
-        _id: localId, 
-        name: name, 
+      return res.json({
+        _id: localId,
+        name: name,
         status: "local_fallback",
         message: "MongoDB unavailable, using local storage"
       });
     }
-    
+
     const { name } = req.body || {};
     if (!name) return res.status(400).json({ error: "name is required" });
 

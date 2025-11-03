@@ -39,7 +39,7 @@ class HybridGATLSTM(nn.Module):
     def noise_enabled(self):
         return True
 
-# Removed SimpleGCN - System now uses GAT+LSTM only
+ 
 
 class ModelTrainer:
     def __init__(self):
@@ -156,10 +156,26 @@ class ModelTrainer:
         if missing_demand:
             errors.append(f"Demand CSV missing columns: {missing_demand}")
         
-        # Check for time series columns (t1, t2, t3, etc.)
+        # Check for time series columns (t1, t2, t3, etc.) OR long-format (date-based) data
         time_columns = [col for col in demand.columns if col.startswith('t') and col[1:].isdigit()]
+        has_long_format = False
         if not time_columns:
-            errors.append("Demand CSV missing time series columns (t1, t2, t3, etc.) required for GAT+LSTM")
+            # Detect long format: requires a date-like column and a demand-like value column
+            lower_cols = {c.lower(): c for c in demand.columns}
+            date_col_name = None
+            for candidate in ['date', 'timestamp']:
+                if candidate in lower_cols:
+                    date_col_name = lower_cols[candidate]
+                    break
+            value_col_name = None
+            for candidate in ['demand', 'sales', 'value', 'quantity']:
+                if candidate in lower_cols:
+                    value_col_name = lower_cols[candidate]
+                    break
+            if date_col_name and value_col_name:
+                has_long_format = True
+            else:
+                errors.append("Demand CSV must contain either time series columns (t1,t2,...) or long format with [date,demand]")
         
         # Check data consistency
         if len(nodes) == 0:
@@ -183,7 +199,7 @@ class ModelTrainer:
             if missing_targets:
                 errors.append(f"Edge targets not found in nodes: {list(missing_targets)[:5]}...")
         
-        # Check if demand nodes exist in nodes CSV (updated for new format)
+            # Check if demand nodes exist in nodes CSV (updated for both formats)
         if not missing_nodes and not missing_demand:
             demand_node_ids = set(demand['node_id'])
             missing_nodes_in_demand = demand_node_ids - set(nodes['node_id'])
@@ -289,7 +305,20 @@ class ModelTrainer:
             # Check if we have time series sales data (t1, t2, t3, etc.)
             time_columns = [col for col in demand.columns if col.startswith('t') and col[1:].isdigit()]
             
-            if time_columns:
+            # Prefer long-format if present to match base-model preprocessing
+            lower_cols_pref = {c.lower(): c for c in demand.columns}
+            prefer_date_col = None
+            for candidate in ['date', 'timestamp']:
+                if candidate in lower_cols_pref:
+                    prefer_date_col = lower_cols_pref[candidate]
+                    break
+            prefer_value_col = None
+            for candidate in ['demand', 'sales', 'value', 'quantity']:
+                if candidate in lower_cols_pref:
+                    prefer_value_col = lower_cols_pref[candidate]
+                    break
+            
+            if time_columns and not (prefer_date_col and prefer_value_col):
                 print(f"Found time series sales data with columns: {time_columns}")
                 # New format: node_id, type, t1, t2, t3, etc.
                 for _, row in demand.iterrows():
@@ -318,8 +347,59 @@ class ModelTrainer:
                         else:
                             print(f"  WARNING: Node {node_id} not found in nodes")
             else:
-                print("No time series columns found - this format is not supported for GAT+LSTM")
-                raise ValueError("GAT+LSTM requires time series data with columns t1, t2, t3, etc.")
+                # Attempt to handle long-format date-based demand data: columns [node_id, date, demand]
+                lower_cols = {c.lower(): c for c in demand.columns}
+                date_col_name = None
+                for candidate in ['date', 'timestamp']:
+                    if candidate in lower_cols:
+                        date_col_name = lower_cols[candidate]
+                        break
+                value_col_name = None
+                for candidate in ['demand', 'sales', 'value', 'quantity']:
+                    if candidate in lower_cols:
+                        value_col_name = lower_cols[candidate]
+                        break
+                if date_col_name and value_col_name:
+                    print(f"Detected long-format demand data with date column '{date_col_name}' and value column '{value_col_name}'")
+                    # Ensure date type and sort
+                    try:
+                        demand[date_col_name] = pd.to_datetime(demand[date_col_name])
+                    except Exception:
+                        pass
+                    # Compute average demand per node for target y (use last available window later for x)
+                    grouped = demand.groupby('node_id')
+                    for node_id, grp in grouped:
+                        try:
+                            values = pd.to_numeric(grp[value_col_name], errors='coerce').dropna().values.tolist()
+                            if values:
+                                avg_sales = float(sum(values) / len(values))
+                                matching_nodes = nodes[nodes['node_id'] == node_id]
+                                if len(matching_nodes) > 0:
+                                    node_idx = matching_nodes.index[0]
+                                    y[node_idx] = avg_sales
+                                    store_nodes_found += 1
+                                    print(f"  Mapped node {node_id} -> index {node_idx}, avg demand: {avg_sales:.2f}")
+                        except Exception:
+                            continue
+                    # Prepare time series_x from last max_timesteps per node
+                    max_timesteps = min(10, max(1, grouped.apply(lambda g: len(g)).max() if len(demand) > 0 else 5))
+                    time_series_x = np.zeros((len(nodes), max_timesteps, 1))
+                    for node_id, grp in grouped:
+                        grp_sorted = grp.sort_values(date_col_name)
+                        values = pd.to_numeric(grp_sorted[value_col_name], errors='coerce').dropna().values
+                        if len(values) == 0:
+                            continue
+                        seq = values[-max_timesteps:]
+                        # left-pad if shorter than max_timesteps
+                        if len(seq) < max_timesteps:
+                            seq = np.pad(seq, (max_timesteps - len(seq), 0), mode='constant')
+                        matching_nodes = nodes[nodes['node_id'] == node_id]
+                        if len(matching_nodes) > 0:
+                            node_idx = matching_nodes.index[0]
+                            time_series_x[node_idx, :, 0] = seq
+                else:
+                    print("No time series columns found and no valid long-format [date,demand] columns detected")
+                    raise ValueError("GAT+LSTM requires either columns t1,t2,... or long-format [node_id,date,demand]")
             
             print(f"Found {store_nodes_found} nodes with sales/demand data")
             
@@ -361,20 +441,45 @@ class ModelTrainer:
                 )
                 data.max_timesteps = max_timesteps
                 print(f"Created time series data: {time_series_x.shape}")
+                # Prepare simple per-node scalers based on time series
+                training_scalers = {}
+                for node_id, idx in node_to_idx.items():
+                    series_vals = time_series_x[idx, :, 0].reshape(-1, 1)
+                    try:
+                        scaler = StandardScaler().fit(series_vals)
+                        training_scalers[node_id] = {
+                            'mean_': scaler.mean_.tolist(),
+                            'scale_': scaler.scale_.tolist()
+                        }
+                    except Exception:
+                        training_scalers[node_id] = {
+                            'mean_': [float(series_vals.mean())],
+                            'scale_': [float(series_vals.std() if series_vals.std() != 0 else 1.0)]
+                        }
                 
             else:
-                # Fallback to regular format for old data
-                print("Using regular format (non-time series)")
-                # For non-time series, expand features to time series format
-                expanded_x = np.expand_dims(x, axis=1)  # (num_nodes, 1, num_features)
-                expanded_x = np.repeat(expanded_x, 5, axis=1)  # (num_nodes, 5, num_features)
-                
+                # Use the long-format path's constructed time_series_x
                 data = Data(
-                    x=torch.tensor(expanded_x, dtype=torch.float), 
-                    edge_index=edge_index, 
+                    x=torch.tensor(time_series_x, dtype=torch.float),
+                    edge_index=edge_index,
                     y=y
                 )
-                data.max_timesteps = 5
+                data.max_timesteps = time_series_x.shape[1]
+                # Prepare simple per-node scalers based on time series
+                training_scalers = {}
+                for node_id, idx in node_to_idx.items():
+                    series_vals = time_series_x[idx, :, 0].reshape(-1, 1)
+                    try:
+                        scaler = StandardScaler().fit(series_vals)
+                        training_scalers[node_id] = {
+                            'mean_': scaler.mean_.tolist(),
+                            'scale_': scaler.scale_.tolist()
+                        }
+                    except Exception:
+                        training_scalers[node_id] = {
+                            'mean_': [float(series_vals.mean())],
+                            'scale_': [float(series_vals.std() if series_vals.std() != 0 else 1.0)]
+                        }
             
             data.x_ids = torch.arange(len(nodes))
             
@@ -386,6 +491,15 @@ class ModelTrainer:
             print(f"Store node targets: {y[store_indices].squeeze().tolist()}")
             print(f"Data x shape: {data.x.shape}")
             
+            # Persist training-time mappings for saving
+            try:
+                self._training_node_to_idx = node_to_idx
+                # Convert back to StandardScaler-like dicts for predictor reconstruction
+                self._training_scalers = {k: type('obj', (), {'mean_': np.array(v['mean_']), 'scale_': np.array(v['scale_'])}) for k, v in training_scalers.items()}
+            except Exception:
+                self._training_node_to_idx = node_to_idx
+                self._training_scalers = None
+
             # Return data and the exact expanded feature column names used to build x
             return data, expanded_feature_columns
             
@@ -491,7 +605,8 @@ class ModelTrainer:
                     'lstm_hidden': 64,
                     'dropout': getattr(model, 'dropout', 0.5)
                 },
-                'node_list': feature_columns,  # For GAT+LSTM, feature_columns are node names
+                'node_list': list((node_to_idx or {}).keys()),
+                'feature_columns': feature_columns,
                 'node_to_idx': node_to_idx or {},
                 'scalers': serializable_scalers,
                 'metrics': metrics,
@@ -590,7 +705,7 @@ class ModelTrainer:
             self._update_training_status(company_id, "loading_model", 20, "Loading base model...")
             print("Loading base model...")
             try:
-                model, transformer, min_val, max_val = self._load_base_model()
+                model, node_list, scalers, node_to_idx = self._load_base_model()
                 print("Base model loaded successfully")
             except Exception as e:
                 error_msg = f"Failed to load base model: {str(e)}"
@@ -620,27 +735,14 @@ class ModelTrainer:
                 self._update_training_status(company_id, "failed", 35, "Data preparation failed", error_msg)
                 return False
             
-            # Check if model input dimensions match the data
+            # Model compatibility check (GAT+LSTM only)
             self._update_training_status(company_id, "checking_model", 40, "Checking model compatibility...")
             try:
-                if hasattr(model, 'conv1') and hasattr(model.conv1, 'in_channels'):
-                    expected_input_dim = model.conv1.in_channels
-                    actual_input_dim = data.x.shape[1]
-                    print(f"Model expects {expected_input_dim} features, data has {actual_input_dim} features")
-                    
-                    if expected_input_dim != actual_input_dim:
-                        print(f"Input dimension mismatch! Creating new model with correct dimensions...")
-                        # Create new model with correct input dimensions
-                        model = SimpleGCN(
-                            num_features=actual_input_dim,
-                            hidden_channels=64,
-                            num_classes=1
-                        )
-                        print(f"Created new model with input_dim: {actual_input_dim}")
-                else:
-                    print("Model doesn't have expected structure, using as-is")
+                # For HybridGATLSTM, input to conv layers comes from LSTM output; data.x is (num_nodes, timesteps, 1)
+                # No action needed here; proceed with the existing HybridGATLSTM model
+                print("Using HybridGATLSTM model; no additional compatibility changes required")
             except Exception as e:
-                print(f"Error checking model dimensions: {e}, continuing with existing model")
+                print(f"Model compatibility check warning: {e}. Proceeding with existing HybridGATLSTM model")
             
             # Fine-tune model
             self._update_training_status(company_id, "training", 50, "Training model on company data...")
@@ -767,7 +869,7 @@ class ModelTrainer:
             if self.db is None:
                 return {"exists": False, "error": "Database connection unavailable"}
             
-            base_model_doc = self.db.models.find_one({"_id": "base_gcn_model"})
+            base_model_doc = self.db.models.find_one({"_id": "base_gat_lstm_model"})
             
             if base_model_doc:
                 return {
@@ -836,9 +938,20 @@ class ModelTrainer:
             print(f"  Matching node IDs: {len(matching_nodes)} out of {len(demand_node_ids)}")
             print(f"  Matching IDs: {list(matching_nodes)[:10]}")
             
-            # Check time series data (t1, t2, t3, etc.)
+            # Check time series data (t1, t2, t3, etc.) or long format
             time_columns = [col for col in demand.columns if col.startswith('t') and col[1:].isdigit()]
             print(f"  Time series columns: {time_columns}")
+            lower_cols = {c.lower(): c for c in demand.columns}
+            date_col_name = None
+            for candidate in ['date', 'timestamp']:
+                if candidate in lower_cols:
+                    date_col_name = lower_cols[candidate]
+                    break
+            value_col_name = None
+            for candidate in ['demand', 'sales', 'value', 'quantity']:
+                if candidate in lower_cols:
+                    value_col_name = lower_cols[candidate]
+                    break
             
             if time_columns:
                 # Calculate average sales across time periods
@@ -858,6 +971,19 @@ class ModelTrainer:
                     print(f"    Max: {max(sales_values):.2f}")
                     print(f"    Mean: {sum(sales_values)/len(sales_values):.2f}")
                     print(f"    Non-zero values: {len(sales_values)}")
+            elif date_col_name and value_col_name:
+                print(f"  Long-format detected with date column '{date_col_name}' and value column '{value_col_name}'")
+                try:
+                    demand[date_col_name] = pd.to_datetime(demand[date_col_name])
+                except Exception:
+                    pass
+                sales_values = pd.to_numeric(demand[value_col_name], errors='coerce').dropna().tolist()
+                if sales_values:
+                    print(f"  Sales statistics (long format):")
+                    print(f"    Min: {min(sales_values):.2f}")
+                    print(f"    Max: {max(sales_values):.2f}")
+                    print(f"    Mean: {sum(sales_values)/len(sales_values):.2f}")
+                    print(f"    Non-zero values: {len([v for v in sales_values if v>0])}")
             
             return {
                 'nodes_count': len(nodes),
@@ -869,7 +995,8 @@ class ModelTrainer:
                     'max': float(max(sales_values)) if sales_values else 0,
                     'mean': float(sum(sales_values)/len(sales_values)) if sales_values else 0,
                     'non_zero': len(sales_values) if sales_values else 0
-                } if 'sales_values' in locals() and sales_values else {}
+                } if 'sales_values' in locals() and sales_values else {},
+                'format': 'wide' if time_columns else ('long' if date_col_name and value_col_name else 'unknown')
             }
             
         except Exception as e:

@@ -61,14 +61,14 @@ router.post("/fine-tune/:companyId", async (req, res) => {
 
     // Validate inputs
     if (!companyId || companyId.trim() === '') {
-      return res.status(400).json({ 
+      return res.status(400).json({
         error: "Company ID is required",
         details: "Please provide a valid company identifier"
       });
     }
 
     if (!nodes || !edges || !demand) {
-      return res.status(400).json({ 
+      return res.status(400).json({
         error: "Missing required file paths",
         details: "nodes, edges, and demand file paths are required",
         received: { nodes: !!nodes, edges: !!edges, demand: !!demand }
@@ -103,7 +103,7 @@ router.post("/fine-tune/:companyId", async (req, res) => {
       force_retrain: !!force_retrain
     });
 
-    if (mlResponse.data.success) {
+    if (mlResponse.status === 200) {
       res.json({
         message: "Fine-tuning started successfully",
         company_id: companyId,
@@ -111,7 +111,7 @@ router.post("/fine-tune/:companyId", async (req, res) => {
         status: "training_started"
       });
     } else {
-      res.status(500).json({ 
+      res.status(500).json({
         error: "Fine-tuning failed to start",
         details: mlResponse.data.error || "Unknown ML service error",
         ml_response: mlResponse.data
@@ -119,7 +119,7 @@ router.post("/fine-tune/:companyId", async (req, res) => {
     }
   } catch (error) {
     console.error("Error starting fine-tuning:", error);
-    
+
     let errorDetails = "Unknown error occurred";
     if (error.code === 'ECONNREFUSED') {
       errorDetails = "ML service is not available. Please ensure the ML service is running.";
@@ -128,8 +128,8 @@ router.post("/fine-tune/:companyId", async (req, res) => {
     } else if (error.message) {
       errorDetails = error.message;
     }
-    
-    res.status(500).json({ 
+
+    res.status(500).json({
       error: "Failed to start fine-tuning",
       details: errorDetails,
       suggestions: [

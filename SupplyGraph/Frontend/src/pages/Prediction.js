@@ -9,12 +9,12 @@ import { mockPrediction } from '../utils/mockData';
 import { predict, getModelInfo, getHistoricalData } from '../lib/api';
 import DemandChart from '../components/charts/DemandChart';
 import PredictionAnalytics from '../components/charts/PredictionAnalytics';
-import { 
-  Loader2, 
-  Store, 
-  Package, 
-  TrendingUp, 
-  TrendingDown, 
+import {
+  Loader2,
+  Store,
+  Package,
+  TrendingUp,
+  TrendingDown,
   Minus,
   Target,
   BarChart3,
@@ -45,7 +45,7 @@ const Prediction = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    
+
     if (!formData.storeName.trim() || !formData.productName.trim()) {
       toast({
         title: "Error",
@@ -64,17 +64,30 @@ const Prediction = () => {
       }
       if (!companyId) throw new Error('Missing companyId');
 
+      console.log('[Prediction] Starting prediction process', {
+        companyId,
+        storeName: formData.storeName,
+        productName: formData.productName,
+        timestamp: new Date().toISOString()
+      });
+
       // Check if model exists
       let modelExists = false;
-      try { 
+      try {
+        console.log('[Prediction] Checking for existing model');
         const modelInfo = await getModelInfo(companyId);
         modelExists = modelInfo && modelInfo.model_type;
-        console.log('Model info:', modelInfo);
+        console.log('[Prediction] Model info retrieved', {
+          modelExists,
+          modelType: modelInfo?.model_type,
+          createdAt: modelInfo?.created_at,
+          featureColumns: modelInfo?.feature_columns?.length
+        });
       } catch (error) {
-        console.log('Model not found or not trained yet:', error.message);
+        console.log('[Prediction] Model not found or not trained yet', error.message);
         modelExists = false;
       }
-      
+
       if (!modelExists) {
         toast({
           title: "Model Not Ready",
@@ -89,10 +102,27 @@ const Prediction = () => {
         company: companyId,
         product: formData.productName
       };
+
+      console.log('[Prediction] Preparing prediction input', { inputRow });
+
+      // Log model usage information
+      console.log('[Prediction] Using trained model for inference', {
+        modelType: 'GNN Supply Chain Forecaster',
+        inputDimensions: Object.keys(inputRow).length,
+        companyId: companyId,
+        productName: formData.productName
+      });
+
+      console.log('[Prediction] Sending prediction request to backend');
       const resp = await predict(companyId, [inputRow]);
-      console.log('Prediction response:', resp); // Debug log
+      console.log('[Prediction] Prediction response received', {
+        success: resp?.success,
+        hasPrediction: !!resp?.prediction,
+        responseKeys: Object.keys(resp || {})
+      });
+
       const predObj = resp?.prediction ?? resp; // handle both {prediction:{...}} and flat {...}
-      
+
       // Parse and coerce the prediction to a safe number
       const yhatRaw = Array.isArray(predObj?.prediction)
         ? predObj.prediction[0]
@@ -101,30 +131,57 @@ const Prediction = () => {
           : undefined;
       const yhatParsed = typeof yhatRaw === 'number' ? yhatRaw : Number(yhatRaw);
       const yhat = Number.isFinite(yhatParsed) ? yhatParsed : 0;
-      
+
+      console.log('[Prediction] Parsed prediction value', {
+        raw: yhatRaw,
+        parsed: yhatParsed,
+        final: yhat,
+        isValid: Number.isFinite(yhat)
+      });
+
+      // Log prediction quality metrics
+      if (Number.isFinite(yhat)) {
+        console.log('[Prediction] Prediction quality assessment', {
+          predictedValue: yhat,
+          magnitude: yhat > 1000 ? 'High' : yhat > 100 ? 'Medium' : 'Low',
+          confidenceLevel: yhat > 500 ? 'High' : yhat > 100 ? 'Medium' : 'Low'
+        });
+      }
+
       // Get historical data for charts
       let historicalData = [];
       try {
-        const historicalResp = await getHistoricalData(companyId);
-        historicalData = historicalResp.historical_data || [];
-        console.log('Historical data loaded:', historicalData.length, 'records');
+        console.log('[Prediction] Fetching historical data for visualization');
+        const historicalResp = await getHistoricalData(companyId, formData.productName, 30);
+        historicalData = Array.isArray(historicalResp.historical_data) ? historicalResp.historical_data : [];
+        console.log('[Prediction] Historical data loaded', { recordCount: historicalData.length });
+
+        // Validate historical data format
+        historicalData = historicalData.filter(item =>
+          item &&
+          typeof item === 'object' &&
+          item.date &&
+          typeof item.demand === 'number' &&
+          item.demand > 0
+        );
       } catch (error) {
-        console.log('Could not load historical data, using fallback:', error.message);
+        console.log('[Prediction] Could not load historical data, using fallback', error.message);
         // Fallback to generated data if historical data is not available
         historicalData = Array.from({ length: 20 }).map((_, i) => ({
-          date: new Date(Date.now() - (20 - i) * 86400000).toISOString(),
-          demand: Math.max(1, Math.round(yhat * (0.7 + Math.random() * 0.6)))
+          date: new Date(Date.now() - (19 - i) * 86400000).toISOString(),
+          demand: Math.max(1, Math.round(Math.random() * 1000)),
+          product: formData.productName || 'Sample Product'
         }));
       }
-      
+
       // Calculate confidence based on prediction variance (simplified)
       const confidence = Math.min(95, Math.max(60, 85 + Math.random() * 10));
-      
+
       // Determine trend based on prediction value
       let trend = 'flat';
       if (yhat > 100) trend = 'increasing';
       else if (yhat < 50) trend = 'decreasing';
-      
+
       const predictionPayload = {
         predictedDemand: Math.round(yhat),
         displayPredicted: Number.isFinite(yhat) ? Number(yhat.toFixed(1)) : 0,
@@ -140,9 +197,30 @@ const Prediction = () => {
           inputDim: predObj?.actual_input_dim || 0
         }
       };
+
+      console.log('[Prediction] Final prediction payload prepared', {
+        ...predictionPayload,
+        historicalDataCount: predictionPayload.historicalData.length
+      });
+
       setPrediction(predictionPayload);
+
+      // Log successful prediction completion
+      console.log('[Prediction] Prediction process completed successfully', {
+        storeName: formData.storeName,
+        productName: formData.productName,
+        predictedDemand: predictionPayload.predictedDemand,
+        confidence: predictionPayload.confidence,
+        timestamp: new Date().toISOString()
+      });
+
       toast({ title: 'Success!', description: 'Demand prediction generated successfully' });
     } catch (error) {
+      console.error('[Prediction] Error during prediction process', {
+        error: error.message,
+        stack: error.stack,
+        timestamp: new Date().toISOString()
+      });
       toast({
         title: "Error",
         description: error.message || "Prediction failed. Please try again.",
@@ -167,11 +245,11 @@ const Prediction = () => {
   const getTrendColor = (trend) => {
     switch (trend) {
       case 'increasing':
-        return 'bg-green-100 text-green-800 border-green-200';
+        return 'bg-green-100 text-green-800 border-green-200 dark:bg-green-900/30 dark:text-green-300 dark:border-green-800';
       case 'decreasing':
-        return 'bg-red-100 text-red-800 border-red-200';
+        return 'bg-red-100 text-red-800 border-red-200 dark:bg-red-900/30 dark:text-red-300 dark:border-red-800';
       default:
-        return 'bg-slate-100 text-slate-800 border-slate-200';
+        return 'bg-slate-100 text-slate-800 border-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700';
     }
   };
 
@@ -179,28 +257,28 @@ const Prediction = () => {
   const [chartView, setChartView] = useState('analytics'); // 'simple' or 'analytics'
 
   return (
-    <div className="min-h-screen py-12 px-4 sm:px-6 lg:px-8 bg-gradient-to-br from-slate-50 to-indigo-50">
+    <div className="min-h-screen py-12 px-4 sm:px-6 lg:px-8 bg-gradient-to-br from-slate-50 to-indigo-50 dark:from-slate-900 dark:to-slate-900">
       <div className="max-w-4xl mx-auto">
         {/* Header */}
         <div className="text-center mb-8 animate-fade-in-up">
-          <div className="inline-flex items-center space-x-2 bg-white/80 backdrop-blur-sm px-4 py-2 rounded-full border border-blue-200 shadow-lg mb-4">
-            <Brain className="h-4 w-4 text-blue-500" />
-            <span className="text-sm font-medium text-blue-700">AI Prediction Engine</span>
-            <Sparkles className="h-4 w-4 text-purple-500" />
+          <div className="inline-flex items-center space-x-2 bg-white/80 dark:bg-slate-800/80 backdrop-blur-sm px-4 py-2 rounded-full border border-blue-200 dark:border-slate-700 shadow-lg mb-4">
+            <Brain className="h-4 w-4 text-blue-500 dark:text-blue-400" />
+            <span className="text-sm font-medium text-blue-700 dark:text-blue-300">AI Prediction Engine</span>
+            <Sparkles className="h-4 w-4 text-purple-500 dark:text-purple-400" />
           </div>
-          <h1 className="text-3xl md:text-4xl font-bold bg-gradient-to-r from-slate-800 to-blue-600 bg-clip-text text-transparent mb-4">
+          <h1 className="text-3xl md:text-4xl font-bold bg-gradient-to-r from-slate-800 to-blue-600 dark:from-slate-200 dark:to-blue-400 bg-clip-text text-transparent mb-4">
             Demand Prediction Dashboard
           </h1>
-          <p className="text-xl text-slate-600 max-w-2xl mx-auto leading-relaxed">
+          <p className="text-xl text-slate-600 dark:text-slate-300 max-w-2xl mx-auto leading-relaxed">
             Get AI-powered demand forecasts with advanced analytics and actionable insights
           </p>
         </div>
 
         {/* Prediction Input Form */}
-        <Card className="shadow-2xl border-0 bg-white/90 backdrop-blur-sm animate-fade-in-up mb-8">
-          <CardHeader className="bg-gradient-to-r from-blue-50 to-purple-50 rounded-t-lg">
-            <CardTitle className="flex items-center space-x-2 text-slate-900">
-              <Target className="h-6 w-6 text-blue-600" />
+        <Card className="shadow-2xl border-0 bg-white/90 dark:bg-slate-800/90 backdrop-blur-sm animate-fade-in-up mb-8">
+          <CardHeader className="bg-gradient-to-r from-blue-50 to-purple-50 dark:from-slate-800 dark:to-slate-800 rounded-t-lg">
+            <CardTitle className="flex items-center space-x-2 text-slate-900 dark:text-white">
+              <Target className="h-6 w-6 text-blue-600 dark:text-blue-400" />
               <span>Prediction Input</span>
             </CardTitle>
           </CardHeader>
@@ -209,12 +287,12 @@ const Prediction = () => {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 {/* Store Name */}
                 <div className="space-y-2">
-                  <Label htmlFor="storeName" className="text-slate-700 font-medium flex items-center space-x-2">
-                    <Store className="h-4 w-4 text-blue-500" />
+                  <Label htmlFor="storeName" className="text-slate-700 dark:text-slate-300 font-medium flex items-center space-x-2">
+                    <Store className="h-4 w-4 text-blue-500 dark:text-blue-400" />
                     <span>Store Name</span>
                   </Label>
                   <div className="relative">
-                    <Store className="absolute left-3 top-3 h-4 w-4 text-slate-400" />
+                    <Store className="absolute left-3 top-3 h-4 w-4 text-slate-400 dark:text-slate-500" />
                     <Input
                       id="storeName"
                       name="storeName"
@@ -222,7 +300,7 @@ const Prediction = () => {
                       required
                       value={formData.storeName}
                       onChange={handleChange}
-                      className="pl-10 h-12 border-slate-300 focus:border-blue-500 focus:ring-blue-500 transition-all duration-300 rounded-lg"
+                      className="pl-10 h-12 border-slate-300 dark:border-slate-600 focus:border-blue-500 focus:ring-blue-500 dark:focus:border-blue-400 dark:focus:ring-blue-400 transition-all duration-300 rounded-lg bg-white dark:bg-slate-800 text-slate-900 dark:text-white"
                       placeholder="e.g., Downtown Store"
                     />
                   </div>
@@ -230,12 +308,12 @@ const Prediction = () => {
 
                 {/* Product Name */}
                 <div className="space-y-2">
-                  <Label htmlFor="productName" className="text-slate-700 font-medium flex items-center space-x-2">
-                    <Package className="h-4 w-4 text-purple-500" />
+                  <Label htmlFor="productName" className="text-slate-700 dark:text-slate-300 font-medium flex items-center space-x-2">
+                    <Package className="h-4 w-4 text-purple-500 dark:text-purple-400" />
                     <span>Product Name</span>
                   </Label>
                   <div className="relative">
-                    <Package className="absolute left-3 top-3 h-4 w-4 text-slate-400" />
+                    <Package className="absolute left-3 top-3 h-4 w-4 text-slate-400 dark:text-slate-500" />
                     <Input
                       id="productName"
                       name="productName"
@@ -243,7 +321,7 @@ const Prediction = () => {
                       required
                       value={formData.productName}
                       onChange={handleChange}
-                      className="pl-10 h-12 border-slate-300 focus:border-purple-500 focus:ring-purple-500 transition-all duration-300 rounded-lg"
+                      className="pl-10 h-12 border-slate-300 dark:border-slate-600 focus:border-purple-500 focus:ring-purple-500 dark:focus:border-purple-400 dark:focus:ring-purple-400 transition-all duration-300 rounded-lg bg-white dark:bg-slate-800 text-slate-900 dark:text-white"
                       placeholder="e.g., Wireless Headphones"
                     />
                   </div>
@@ -254,7 +332,7 @@ const Prediction = () => {
                 <Button
                   type="submit"
                   disabled={loading}
-                  className="px-10 py-3 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white font-semibold transition-all duration-300 hover:scale-[1.02] hover:shadow-xl group border-0 rounded-lg"
+                  className="px-10 py-3 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 dark:from-blue-700 dark:to-purple-700 dark:hover:from-blue-600 dark:hover:to-purple-600 text-white font-semibold transition-all duration-300 hover:scale-[1.02] hover:shadow-xl group border-0 rounded-lg"
                 >
                   {loading ? (
                     <>
@@ -271,14 +349,14 @@ const Prediction = () => {
                 </Button>
               </div>
             </form>
-            
+
             {/* Quick Tips */}
-            <div className="mt-6 p-4 bg-gradient-to-r from-blue-50 to-purple-50 rounded-lg border border-blue-200">
-              <h4 className="font-medium text-slate-800 mb-2 flex items-center space-x-2">
-                <Lightbulb className="h-4 w-4 text-yellow-500" />
+            <div className="mt-6 p-4 bg-gradient-to-r from-blue-50 to-purple-50 dark:from-slate-800 dark:to-slate-800 rounded-lg border border-blue-200 dark:border-slate-700">
+              <h4 className="font-medium text-slate-800 dark:text-slate-300 mb-2 flex items-center space-x-2">
+                <Lightbulb className="h-4 w-4 text-yellow-500 dark:text-yellow-400" />
                 <span>Quick Tips</span>
               </h4>
-              <ul className="text-sm text-slate-600 space-y-1">
+              <ul className="text-sm text-slate-600 dark:text-slate-400 space-y-1">
                 <li>• Use specific store names for better accuracy</li>
                 <li>• Include product categories when possible</li>
                 <li>• Try seasonal products for trend analysis</li>
@@ -289,16 +367,16 @@ const Prediction = () => {
 
         {/* Results Section */}
         {prediction ? (
-          <div className="space-y-6 animate-fade-in-up" style={{animationDelay: '0.1s'}}>
+          <div className="space-y-6 animate-fade-in-up" style={{ animationDelay: '0.1s' }}>
             {/* Main Prediction Card */}
-            <Card className="shadow-2xl border-0 bg-white/90 backdrop-blur-sm overflow-hidden">
-              <CardHeader className="bg-gradient-to-r from-green-50 to-emerald-50 rounded-t-lg">
+            <Card className="shadow-2xl border-0 bg-white/90 dark:bg-slate-800/90 backdrop-blur-sm overflow-hidden">
+              <CardHeader className="bg-gradient-to-r from-green-50 to-emerald-50 dark:from-slate-800 dark:to-slate-800 rounded-t-lg">
                 <CardTitle className="flex items-center justify-between">
                   <div className="flex items-center space-x-2">
-                    <BarChart3 className="h-6 w-6 text-green-600" />
-                    <span className="text-slate-900">Demand Forecast Results</span>
+                    <BarChart3 className="h-6 w-6 text-green-600 dark:text-green-400" />
+                    <span className="text-slate-900 dark:text-white">Demand Forecast Results</span>
                   </div>
-                  <Badge className="bg-white/80 text-green-700 border-green-200 shadow-sm">
+                  <Badge className="bg-white/80 text-green-700 border-green-200 shadow-sm dark:bg-slate-700 dark:text-green-300 dark:border-green-800">
                     Confidence: {prediction.confidence}
                   </Badge>
                 </CardTitle>
@@ -306,8 +384,8 @@ const Prediction = () => {
               <CardContent className="p-6">
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
                   <div className="text-center group">
-                    <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-2xl p-6 hover:from-blue-100 hover:to-blue-200 transition-all duration-300 hover:scale-105">
-                      <div className="text-4xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent mb-2">
+                    <div className="bg-gradient-to-br from-blue-50 to-blue-100 dark:from-slate-800 dark:to-slate-800 rounded-2xl p-6 hover:from-blue-100 hover:to-blue-200 dark:hover:from-slate-700 dark:hover:to-slate-700 transition-all duration-300 hover:scale-105">
+                      <div className="text-4xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 dark:from-blue-400 dark:to-purple-400 bg-clip-text text-transparent mb-2">
                         {(() => {
                           const primary = Number(prediction?.displayPredicted);
                           const fallback = Number(prediction?.predictedDemand ?? prediction?.rawPredicted);
@@ -315,44 +393,44 @@ const Prediction = () => {
                           return Number.isFinite(v) ? v.toLocaleString(undefined, { maximumFractionDigits: 1 }) : '0.0';
                         })()}
                       </div>
-                      <p className="text-slate-600 font-medium">Predicted Units</p>
-                      <div className="mt-2 h-1 bg-gradient-to-r from-blue-400 to-purple-400 rounded-full"></div>
+                      <p className="text-slate-600 dark:text-slate-400 font-medium">Predicted Units</p>
+                      <div className="mt-2 h-1 bg-gradient-to-r from-blue-400 to-purple-400 dark:from-blue-500 dark:to-purple-500 rounded-full"></div>
                     </div>
                   </div>
-                  
+
                   <div className="text-center group">
-                    <div className="bg-gradient-to-br from-slate-50 to-slate-100 rounded-2xl p-6 hover:from-slate-100 hover:to-slate-200 transition-all duration-300 hover:scale-105">
+                    <div className="bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-800 dark:to-slate-800 rounded-2xl p-6 hover:from-slate-100 hover:to-slate-200 dark:hover:from-slate-700 dark:hover:to-slate-700 transition-all duration-300 hover:scale-105">
                       <div className="flex items-center justify-center space-x-2 mb-2">
                         {getTrendIcon(prediction.trend)}
                         <Badge className={`${getTrendColor(prediction.trend)} font-medium`}>
                           {prediction.trend}
                         </Badge>
                       </div>
-                      <p className="text-slate-600 font-medium">Market Trend</p>
-                      <div className="mt-2 h-1 bg-gradient-to-r from-slate-300 to-slate-400 rounded-full"></div>
+                      <p className="text-slate-600 dark:text-slate-400 font-medium">Market Trend</p>
+                      <div className="mt-2 h-1 bg-gradient-to-r from-slate-300 to-slate-400 dark:from-slate-600 dark:to-slate-500 rounded-full"></div>
                     </div>
                   </div>
-                  
+
                   <div className="text-center group">
-                    <div className="bg-gradient-to-br from-green-50 to-green-100 rounded-2xl p-6 hover:from-green-100 hover:to-green-200 transition-all duration-300 hover:scale-105">
-                      <div className="text-4xl font-bold text-green-600 mb-2">
+                    <div className="bg-gradient-to-br from-green-50 to-green-100 dark:from-slate-800 dark:to-slate-800 rounded-2xl p-6 hover:from-green-100 hover:to-green-200 dark:hover:from-slate-700 dark:hover:to-slate-700 transition-all duration-300 hover:scale-105">
+                      <div className="text-4xl font-bold text-green-600 dark:text-green-400 mb-2">
                         {prediction.confidence}
                       </div>
-                      <p className="text-slate-600 font-medium">AI Confidence</p>
-                      <div className="mt-2 h-1 bg-gradient-to-r from-green-400 to-emerald-400 rounded-full"></div>
+                      <p className="text-slate-600 dark:text-slate-400 font-medium">AI Confidence</p>
+                      <div className="mt-2 h-1 bg-gradient-to-r from-green-400 to-emerald-400 dark:from-green-500 dark:to-emerald-500 rounded-full"></div>
                     </div>
                   </div>
                 </div>
 
-                <div className="bg-gradient-to-r from-slate-50 to-blue-50 rounded-xl p-6 border border-slate-200">
+                <div className="bg-gradient-to-r from-slate-50 to-blue-50 dark:from-slate-800 dark:to-slate-800 rounded-xl p-6 border border-slate-200 dark:border-slate-700">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="flex items-center space-x-3">
                       <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-blue-600 rounded-lg flex items-center justify-center">
                         <Store className="h-5 w-5 text-white" />
                       </div>
                       <div>
-                        <span className="font-medium text-slate-900">Store:</span>
-                        <span className="text-slate-700 ml-2">{prediction.storeName}</span>
+                        <span className="font-medium text-slate-900 dark:text-white">Store:</span>
+                        <span className="text-slate-700 dark:text-slate-400 ml-2">{prediction.storeName}</span>
                       </div>
                     </div>
                     <div className="flex items-center space-x-3">
@@ -360,8 +438,8 @@ const Prediction = () => {
                         <Package className="h-5 w-5 text-white" />
                       </div>
                       <div>
-                        <span className="font-medium text-slate-900">Product:</span>
-                        <span className="text-slate-700 ml-2">{prediction.productName}</span>
+                        <span className="font-medium text-slate-900 dark:text-white">Product:</span>
+                        <span className="text-slate-700 dark:text-slate-400 ml-2">{prediction.productName}</span>
                       </div>
                     </div>
                   </div>
@@ -370,11 +448,11 @@ const Prediction = () => {
             </Card>
 
             {/* Chart View Toggle */}
-            <Card className="shadow-2xl border-0 bg-white/90 backdrop-blur-sm">
-              <CardHeader className="bg-gradient-to-r from-indigo-50 to-purple-50 rounded-t-lg">
+            <Card className="shadow-2xl border-0 bg-white/90 dark:bg-slate-800/90 backdrop-blur-sm">
+              <CardHeader className="bg-gradient-to-r from-indigo-50 to-purple-50 dark:from-slate-800 dark:to-slate-800 rounded-t-lg">
                 <CardTitle className="flex items-center justify-between">
-                  <div className="flex items-center space-x-2 text-slate-900">
-                    <BarChart3 className="h-6 w-6 text-indigo-600" />
+                  <div className="flex items-center space-x-2 text-slate-900 dark:text-white">
+                    <BarChart3 className="h-6 w-6 text-indigo-600 dark:text-indigo-400" />
                     <span>Demand Visualization</span>
                   </div>
                   <div className="flex space-x-2">
@@ -407,17 +485,19 @@ const Prediction = () => {
                       historicalData={prediction.historicalData}
                       prediction={prediction}
                       chartType="line"
-                      title="Demand Timeline"
+                      title={`Demand Timeline for ${prediction.productName}`}
                       showPrediction={true}
+                      productName={prediction.productName}
                     />
-                    
+
                     {/* Simple Bar Chart */}
                     <DemandChart
                       historicalData={prediction.historicalData}
                       prediction={prediction}
                       chartType="bar"
-                      title="Demand Comparison"
+                      title={`Demand Comparison for ${prediction.productName}`}
                       showPrediction={true}
+                      productName={prediction.productName}
                     />
                   </div>
                 ) : (
@@ -433,10 +513,10 @@ const Prediction = () => {
             </Card>
 
             {/* AI Recommendations */}
-            <Card className="shadow-2xl border-0 bg-white/90 backdrop-blur-sm">
-              <CardHeader className="bg-gradient-to-r from-yellow-50 to-orange-50 rounded-t-lg">
-                <CardTitle className="flex items-center space-x-2 text-slate-900">
-                  <Lightbulb className="h-6 w-6 text-yellow-600" />
+            <Card className="shadow-2xl border-0 bg-white/90 dark:bg-slate-800/90 backdrop-blur-sm">
+              <CardHeader className="bg-gradient-to-r from-yellow-50 to-orange-50 dark:from-slate-800 dark:to-slate-800 rounded-t-lg">
+                <CardTitle className="flex items-center space-x-2 text-slate-900 dark:text-white">
+                  <Lightbulb className="h-6 w-6 text-yellow-600 dark:text-yellow-400" />
                   <span>AI-Powered Recommendations</span>
                   <Sparkles className="h-5 w-5 text-yellow-500 animate-pulse" />
                 </CardTitle>
@@ -445,12 +525,12 @@ const Prediction = () => {
                 <div className="space-y-4">
                   {(prediction?.recommendations ?? []).map((recommendation, index) => (
                     <div key={index} className="group">
-                      <div className="flex items-start space-x-4 p-4 bg-gradient-to-r from-slate-50 to-blue-50 rounded-xl border border-slate-200 hover:from-blue-50 hover:to-purple-50 hover:border-blue-300 transition-all duration-300 hover:shadow-md">
+                      <div className="flex items-start space-x-4 p-4 bg-gradient-to-r from-slate-50 to-blue-50 dark:from-slate-800 dark:to-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 hover:from-blue-50 hover:to-purple-50 dark:hover:from-slate-700 dark:hover:to-slate-700 hover:border-blue-300 dark:hover:border-blue-700 transition-all duration-300 hover:shadow-md">
                         <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-purple-600 text-white rounded-full flex items-center justify-center text-sm font-bold mt-0.5 group-hover:scale-110 transition-transform duration-300">
                           {index + 1}
                         </div>
                         <div className="flex-1">
-                          <p className="text-slate-700 leading-relaxed group-hover:text-slate-800 transition-colors">{recommendation}</p>
+                          <p className="text-slate-700 dark:text-slate-300 leading-relaxed group-hover:text-slate-800 dark:group-hover:text-slate-200 transition-colors">{recommendation}</p>
                         </div>
                         <div className="opacity-0 group-hover:opacity-100 transition-opacity duration-300">
                           <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
@@ -463,30 +543,30 @@ const Prediction = () => {
             </Card>
           </div>
         ) : (
-          <Card className="shadow-2xl border-0 bg-white/90 backdrop-blur-sm animate-fade-in-up">
+          <Card className="shadow-2xl border-0 bg-white/90 dark:bg-slate-800/90 backdrop-blur-sm animate-fade-in-up">
             <CardContent className="py-16">
               <div className="text-center">
                 <div className="relative mb-6">
-                  <BarChart3 className="h-20 w-20 text-slate-300 mx-auto" />
-                  <div className="absolute inset-0 bg-gradient-to-r from-blue-400/20 to-purple-400/20 rounded-full blur-xl"></div>
+                  <BarChart3 className="h-20 w-20 text-slate-300 dark:text-slate-600 mx-auto" />
+                  <div className="absolute inset-0 bg-gradient-to-r from-blue-400/20 to-purple-400/20 dark:from-blue-400/10 dark:to-purple-400/10 rounded-full blur-xl"></div>
                 </div>
-                <h3 className="text-2xl font-bold bg-gradient-to-r from-slate-800 to-blue-600 bg-clip-text text-transparent mb-4">
+                <h3 className="text-2xl font-bold bg-gradient-to-r from-slate-800 to-blue-600 dark:from-slate-200 dark:to-blue-400 bg-clip-text text-transparent mb-4">
                   Ready to Generate AI Predictions
                 </h3>
-                <p className="text-slate-600 max-w-md mx-auto leading-relaxed mb-6">
+                <p className="text-slate-600 dark:text-slate-400 max-w-md mx-auto leading-relaxed mb-6">
                   Enter a store name and product name to get AI-powered demand forecasts with interactive charts and actionable insights.
                 </p>
                 <div className="flex justify-center space-x-4">
-                  <div className="flex items-center space-x-2 text-sm text-slate-500">
-                    <Brain className="h-4 w-4 text-blue-500" />
+                  <div className="flex items-center space-x-2 text-sm text-slate-500 dark:text-slate-400">
+                    <Brain className="h-4 w-4 text-blue-500 dark:text-blue-400" />
                     <span>AI-Powered</span>
                   </div>
-                  <div className="flex items-center space-x-2 text-sm text-slate-500">
-                    <BarChart3 className="h-4 w-4 text-purple-500" />
+                  <div className="flex items-center space-x-2 text-sm text-slate-500 dark:text-slate-400">
+                    <BarChart3 className="h-4 w-4 text-purple-500 dark:text-purple-400" />
                     <span>Real-time Charts</span>
                   </div>
-                  <div className="flex items-center space-x-2 text-sm text-slate-500">
-                    <Lightbulb className="h-4 w-4 text-yellow-500" />
+                  <div className="flex items-center space-x-2 text-sm text-slate-500 dark:text-slate-400">
+                    <Lightbulb className="h-4 w-4 text-yellow-500 dark:text-yellow-400" />
                     <span>Smart Insights</span>
                   </div>
                 </div>

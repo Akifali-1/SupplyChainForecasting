@@ -2,6 +2,7 @@ import React, { useEffect } from "react";
 import "./App.css";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider, useAuth } from "./contexts/AuthContext";
+import { ThemeProvider } from "./contexts/ThemeContext";
 import Navbar from "./components/Navbar";
 import Homepage from "./pages/Homepage";
 import Registration from "./pages/Registration";
@@ -9,6 +10,8 @@ import Login from "./pages/Login";
 import Upload from "./pages/Upload";
 import Prediction from "./pages/Prediction";
 import InventoryManagement from "./pages/InventoryManagement";
+import TestDarkMode from "./pages/TestDarkMode";
+import TestTheme from "./pages/TestTheme";
 import { Toaster } from "./components/ui/toaster";
 
 // OAuth Callback Handler
@@ -66,33 +69,37 @@ const ProtectedRoute = ({ children }) => {
 
 function App() {
   return (
-    <div className="App min-h-screen bg-gradient-to-br from-slate-50 to-slate-100">
+    <div className="App min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-800">
       <AuthProvider>
-        <BrowserRouter>
-          <Navbar />
-          <Routes>
-            <Route path="/" element={<Homepage />} />
-            <Route path="/register" element={<Registration />} />
-            <Route path="/login" element={<Login />} />
-            <Route path="/oauth/callback" element={<OAuthCallback />} />
-            <Route path="/upload" element={
-              <ProtectedRoute>
-                <Upload />
-              </ProtectedRoute>
-            } />
-            <Route path="/prediction" element={
-              <ProtectedRoute>
-                <Prediction />
-              </ProtectedRoute>
-            } />
-            <Route path="/inventory" element={
-              <ProtectedRoute>
-                <InventoryManagement />
-              </ProtectedRoute>
-            } />
-          </Routes>
-          <Toaster />
-        </BrowserRouter>
+        <ThemeProvider>
+          <BrowserRouter>
+            <Navbar />
+            <Routes>
+              <Route path="/" element={<Homepage />} />
+              <Route path="/register" element={<Registration />} />
+              <Route path="/login" element={<Login />} />
+              <Route path="/oauth/callback" element={<OAuthCallback />} />
+              <Route path="/upload" element={
+                <ProtectedRoute>
+                  <Upload />
+                </ProtectedRoute>
+              } />
+              <Route path="/prediction" element={
+                <ProtectedRoute>
+                  <Prediction />
+                </ProtectedRoute>
+              } />
+              <Route path="/inventory" element={
+                <ProtectedRoute>
+                  <InventoryManagement />
+                </ProtectedRoute>
+              } />
+              <Route path="/test-dark-mode" element={<TestDarkMode />} />
+              <Route path="/test-theme" element={<TestTheme />} />
+            </Routes>
+            <Toaster />
+          </BrowserRouter>
+        </ThemeProvider>
       </AuthProvider>
     </div>
   );

@@ -26,16 +26,14 @@ const Homepage = () => {
     const observer = new IntersectionObserver((entries) => {
       entries.forEach((entry) => {
         if (entry.isIntersecting) {
-          const cardIndex = Array.from(featureCards || []).indexOf(entry.target);
-          const isEven = cardIndex % 2 === 0;
-          entry.target.classList.add(isEven ? 'animate-slide-in-left' : 'animate-slide-in-right');
+          entry.target.classList.add('animate-fade-in-up');
         }
       });
     }, observerOptions);
 
     const featureCards = featuresRef.current?.querySelectorAll('.feature-card');
     const processCards = howItWorksRef.current?.querySelectorAll('.process-card');
-    
+
     featureCards?.forEach((card) => observer.observe(card));
     processCards?.forEach((card) => observer.observe(card));
 
@@ -48,51 +46,51 @@ const Homepage = () => {
 
       {/* Hero Section */}
       <section className="relative py-20 px-4 sm:px-6 lg:px-8 overflow-hidden">
-        <div className="absolute inset-0 bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50"></div>
-        
+        <div className="absolute inset-0 bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 dark:from-slate-900 dark:via-slate-800 dark:to-slate-900"></div>
+
         {/* Animated Background Elements */}
         <div className="absolute inset-0 overflow-hidden">
-          <div className="absolute -top-40 -right-32 w-96 h-96 bg-gradient-to-br from-blue-400/20 to-purple-400/20 rounded-full blur-3xl animate-pulse"></div>
-          <div className="absolute -bottom-40 -left-32 w-96 h-96 bg-gradient-to-tr from-indigo-400/20 to-cyan-400/20 rounded-full blur-3xl animate-pulse" style={{animationDelay: '1s'}}></div>
-          <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-64 h-64 bg-gradient-to-r from-purple-400/10 to-pink-400/10 rounded-full blur-2xl animate-spin-slow"></div>
+          <div className="absolute -top-40 -right-32 w-96 h-96 bg-gradient-to-br from-blue-400/20 to-purple-400/20 dark:from-blue-400/10 dark:to-purple-400/10 rounded-full blur-3xl animate-pulse"></div>
+          <div className="absolute -bottom-40 -left-32 w-96 h-96 bg-gradient-to-tr from-indigo-400/20 to-cyan-400/20 dark:from-indigo-400/10 dark:to-cyan-400/10 rounded-full blur-3xl animate-pulse" style={{ animationDelay: '1s' }}></div>
+          <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-64 h-64 bg-gradient-to-r from-purple-400/10 to-pink-400/10 dark:from-purple-400/5 dark:to-pink-400/5 rounded-full blur-2xl animate-spin-slow"></div>
         </div>
-        
+
         <div className="relative max-w-7xl mx-auto text-center z-10">
           <div className="animate-fade-in-up">
             <div className="flex justify-center mb-6">
-              <div className="inline-flex items-center space-x-2 bg-white/80 backdrop-blur-sm px-4 py-2 rounded-full border border-blue-200 shadow-lg animate-bounce-gentle">
-                <Sparkles className="h-4 w-4 text-blue-500" />
-                <span className="text-sm font-medium text-blue-700">AI-Powered Forecasting</span>
-                <Zap className="h-4 w-4 text-yellow-500" />
+              <div className="inline-flex items-center space-x-2 bg-white/80 dark:bg-slate-800/80 backdrop-blur-sm px-4 py-2 rounded-full border border-blue-200 dark:border-slate-700 shadow-lg animate-bounce-gentle">
+                <Sparkles className="h-4 w-4 text-blue-500 dark:text-blue-400" />
+                <span className="text-sm font-medium text-blue-700 dark:text-blue-300">AI-Powered Forecasting</span>
+                <Zap className="h-4 w-4 text-yellow-500 dark:text-yellow-400" />
               </div>
             </div>
             <h1 className="text-4xl md:text-6xl lg:text-7xl font-bold mb-6 leading-tight">
-              <span className="bg-gradient-to-r from-blue-600 via-purple-600 to-indigo-600 bg-clip-text text-transparent animate-gradient">
+              <span className="bg-gradient-to-r from-blue-600 via-purple-600 to-indigo-600 dark:from-blue-400 dark:via-purple-400 dark:to-indigo-400 bg-clip-text text-transparent animate-gradient">
                 Smart Supply Chain
               </span>
               <br />
-              <span className="bg-gradient-to-r from-indigo-600 via-blue-600 to-purple-600 bg-clip-text text-transparent animate-gradient-reverse">
+              <span className="bg-gradient-to-r from-indigo-600 via-blue-600 to-purple-600 dark:from-indigo-400 dark:via-blue-400 dark:to-purple-400 bg-clip-text text-transparent animate-gradient-reverse">
                 Demand Forecasting
               </span>
             </h1>
-            <p className="text-xl md:text-2xl text-slate-700 mb-8 max-w-4xl mx-auto leading-relaxed font-light">
-              Harness the power of <span className="font-semibold text-blue-600">AI and machine learning</span> to predict demand patterns, 
-              optimize inventory levels, and make <span className="font-semibold text-purple-600">data-driven decisions</span> for your supply chain.
+            <p className="text-xl md:text-2xl text-slate-700 dark:text-slate-300 mb-8 max-w-4xl mx-auto leading-relaxed font-light">
+              Harness the power of <span className="font-semibold text-blue-600 dark:text-blue-400">AI and machine learning</span> to predict demand patterns,
+              optimize inventory levels, and make <span className="font-semibold text-purple-600 dark:text-purple-400">data-driven decisions</span> for your supply chain.
             </p>
             <div className="flex flex-col sm:flex-row gap-6 justify-center items-center">
               <Link to="/register">
-                <Button 
-                  size="lg" 
-                  className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white px-10 py-4 text-lg font-semibold transition-all duration-500 hover:scale-110 hover:shadow-2xl group border-0 rounded-xl"
+                <Button
+                  size="lg"
+                  className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 dark:from-blue-700 dark:to-purple-700 dark:hover:from-blue-600 dark:hover:to-purple-600 text-white px-10 py-4 text-lg font-semibold transition-all duration-500 hover:scale-110 hover:shadow-2xl group border-0 rounded-xl"
                 >
                   Get Started Free
                   <ArrowRight className="ml-2 h-5 w-5 group-hover:translate-x-2 transition-transform duration-300" />
                 </Button>
               </Link>
-              <Button 
-                variant="outline" 
-                size="lg" 
-                className="px-10 py-4 text-lg font-semibold border-2 border-blue-300 text-blue-700 hover:bg-blue-50 hover:border-blue-400 transition-all duration-300 hover:scale-105 hover:shadow-lg rounded-xl"
+              <Button
+                variant="outline"
+                size="lg"
+                className="px-10 py-4 text-lg font-semibold border-2 border-blue-300 dark:border-slate-600 text-blue-700 dark:text-slate-300 hover:bg-blue-50 dark:hover:bg-slate-800 hover:border-blue-400 dark:hover:border-slate-500 transition-all duration-300 hover:scale-105 hover:shadow-lg rounded-xl"
               >
                 <BarChart3 className="mr-2 h-5 w-5" />
                 View Demo
@@ -103,35 +101,92 @@ const Homepage = () => {
       </section>
 
       {/* Stats Section */}
-      <section className="py-20 px-4 sm:px-6 lg:px-8 bg-white">
+      <section className="py-20 px-4 sm:px-6 lg:px-8 bg-white dark:bg-slate-900">
         <div className="max-w-7xl mx-auto">
           <div className="text-center mb-16 animate-fade-in-up">
             <h2 className="text-4xl md:text-6xl font-bold mb-6 leading-tight">
               Predict Demand with
-              <span className="block bg-gradient-to-r from-blue-600 via-purple-600 to-indigo-600 bg-clip-text text-transparent">
+              <span className="block bg-gradient-to-r from-blue-600 via-purple-600 to-indigo-600 dark:from-blue-400 dark:via-purple-400 dark:to-indigo-400 bg-clip-text text-transparent">
                 AI Precision
               </span>
             </h2>
-            <p className="text-xl text-slate-600 max-w-4xl mx-auto leading-relaxed mb-12">
+            <p className="text-xl text-slate-600 dark:text-slate-300 max-w-4xl mx-auto leading-relaxed mb-12">
               Transform your supply chain with cutting-edge AI forecasting. Upload your data, fine-tune our models, and get accurate demand predictions that drive smarter business decisions.
             </p>
             {/* Buttons intentionally removed in this section */}
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 animate-fade-in-up" style={{animationDelay: '0.2s'}}>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 animate-fade-in-up" style={{ animationDelay: '0.2s' }}>
             {[
-              { icon: Sparkles, number: '500+', label: 'Companies Trust Us', color: 'from-blue-500 to-cyan-500', bgColor: 'from-blue-50 to-cyan-50' },
-              { icon: BarChart3, number: '95%', label: 'Prediction Accuracy', color: 'from-purple-500 to-pink-500', bgColor: 'from-purple-50 to-pink-50' },
-              { icon: TrendingUp, number: '$2M+', label: 'Cost Savings Generated', color: 'from-green-500 to-emerald-500', bgColor: 'from-green-50 to-emerald-50' }
+              {
+                icon: Sparkles,
+                number: '500+',
+                label: 'Companies Trust Us',
+                color: 'from-blue-500 to-cyan-500',
+                bgColor: 'from-blue-50 to-white',
+                darkBgColor: 'from-slate-800 to-slate-800',
+                borderColor: 'border-blue-200',
+                darkBorderColor: 'dark:border-slate-700',
+                subtitle: 'Global Enterprise Clients'
+              },
+              {
+                icon: BarChart3,
+                number: '95%',
+                label: 'Prediction Accuracy',
+                color: 'from-purple-500 to-pink-500',
+                bgColor: 'from-purple-50 to-white',
+                darkBgColor: 'from-slate-800 to-slate-800',
+                borderColor: 'border-purple-200',
+                darkBorderColor: 'dark:border-slate-700',
+                subtitle: 'Industry Leading Precision'
+              },
+              {
+                icon: TrendingUp,
+                number: '$2M+',
+                label: 'Cost Savings Generated',
+                color: 'from-green-500 to-emerald-500',
+                bgColor: 'from-green-50 to-white',
+                darkBgColor: 'from-slate-800 to-slate-800',
+                borderColor: 'border-green-200',
+                darkBorderColor: 'dark:border-slate-700',
+                subtitle: 'Annual Average Savings'
+              }
             ].map((stat, index) => (
-              <Card key={index} className={`text-center border-0 bg-gradient-to-br ${stat.bgColor} hover:shadow-2xl transition-all duration-500 hover:-translate-y-4 group`}>
-                <CardContent className="p-8">
-                  <div className={`w-20 h-20 bg-gradient-to-r ${stat.color} rounded-2xl flex items-center justify-center mx-auto mb-6 group-hover:scale-110 transition-transform duration-300 shadow-lg`}>
-                    <stat.icon className="h-9 w-9 text-white" />
+              <Card
+                key={index}
+                className={`text-center border-0 bg-gradient-to-br ${stat.bgColor} dark:${stat.darkBgColor} hover:shadow-2xl transition-all duration-500 hover:-translate-y-4 group overflow-hidden relative border ${stat.borderColor} ${stat.darkBorderColor}`}
+              >
+                {/* Animated background elements */}
+                <div className="absolute inset-0 opacity-0 group-hover:opacity-10 transition-opacity duration-500">
+                  <div className={`absolute top-0 right-0 w-32 h-32 bg-gradient-to-r ${stat.color} rounded-full blur-2xl transform translate-x-16 -translate-y-16 group-hover:scale-150 transition-transform duration-700`}></div>
+                  <div className={`absolute bottom-0 left-0 w-24 h-24 bg-gradient-to-r ${stat.color} rounded-full blur-2xl transform -translate-x-12 translate-y-12 group-hover:scale-150 transition-transform duration-700`}></div>
+                </div>
+
+                <CardContent className="p-8 relative z-10 bg-white dark:bg-slate-800 rounded-2xl">
+                  {/* Icon container with enhanced animation */}
+                  <div className={`w-20 h-20 bg-gradient-to-r ${stat.color} rounded-2xl flex items-center justify-center mx-auto mb-6 group-hover:scale-110 transition-all duration-300 shadow-lg relative overflow-hidden`}>
+                    {/* Shine effect on icon container */}
+                    <div className="absolute inset-0 bg-white/20 transform -skew-x-12 translate-x-full group-hover:-translate-x-full transition-transform duration-700"></div>
+                    <stat.icon className="h-9 w-9 text-white relative z-10" />
                   </div>
-                  <div className="text-5xl font-bold text-slate-900 mb-3">{stat.number}</div>
-                  <div className="text-slate-600 font-medium text-lg">{stat.label}</div>
-                  <div className={`mt-4 h-1 bg-gradient-to-r ${stat.color} rounded-full transform scale-x-0 group-hover:scale-x-100 transition-transform duration-500`}></div>
+
+                  {/* Number with animated counter effect */}
+                  <div className="text-5xl font-bold text-slate-900 dark:text-white mb-2 group-hover:text-transparent group-hover:bg-clip-text group-hover:bg-gradient-to-r group-hover:from-blue-600 group-hover:to-purple-600 dark:group-hover:from-blue-400 dark:group-hover:to-purple-400 transition-all duration-500">
+                    {stat.number}
+                  </div>
+
+                  {/* Subtitle */}
+                  <div className="text-sm text-slate-600 dark:text-slate-400 mb-1 font-medium">
+                    {stat.subtitle}
+                  </div>
+
+                  {/* Label */}
+                  <div className="text-slate-700 dark:text-slate-300 font-medium text-lg mb-4">
+                    {stat.label}
+                  </div>
+
+                  {/* Animated underline */}
+                  <div className={`mt-2 h-1 bg-gradient-to-r ${stat.color} rounded-full transform scale-x-0 group-hover:scale-x-100 transition-transform duration-500 origin-center`}></div>
                 </CardContent>
               </Card>
             ))}
@@ -140,106 +195,117 @@ const Homepage = () => {
       </section>
 
       {/* Features Section */}
-      <section ref={featuresRef} className="py-32 px-4 sm:px-6 lg:px-8 bg-gradient-to-br from-slate-50 to-blue-50 relative overflow-hidden">
+      <section ref={featuresRef} className="py-20 px-4 sm:px-6 lg:px-8 bg-gradient-to-br from-slate-50 to-blue-50 dark:from-slate-900 dark:to-slate-900 relative overflow-hidden">
         <div className="absolute inset-0">
-          <div className="absolute top-20 left-10 w-64 h-64 bg-blue-300/10 rounded-full blur-3xl animate-float"></div>
-          <div className="absolute bottom-20 right-10 w-80 h-80 bg-purple-300/10 rounded-full blur-3xl animate-float-delayed"></div>
+          <div className="absolute top-20 left-10 w-64 h-64 bg-blue-300/10 dark:bg-blue-400/5 rounded-full blur-3xl animate-float"></div>
+          <div className="absolute bottom-20 right-10 w-80 h-80 bg-purple-300/10 dark:bg-purple-400/5 rounded-full blur-3xl animate-float-delayed"></div>
         </div>
         <div className="relative max-w-7xl mx-auto z-10">
           <div className="text-center mb-20 animate-fade-in-up">
             <h2 className="text-4xl md:text-6xl font-bold mb-6">
-              <span className="bg-gradient-to-r from-slate-800 to-blue-600 bg-clip-text text-transparent">
+              <span className="bg-gradient-to-r from-slate-800 to-blue-600 dark:from-slate-200 dark:to-blue-400 bg-clip-text text-transparent">
                 Powerful Features for Modern Supply Chains
               </span>
             </h2>
-            <p className="text-xl text-slate-600 max-w-3xl mx-auto leading-relaxed">
+            <p className="text-xl text-slate-600 dark:text-slate-300 max-w-3xl mx-auto leading-relaxed">
               Our platform combines machine learning, statistical modeling, and demand forecasting to give you the most comprehensive supply chain solution.
             </p>
           </div>
-          
+
           <div className="space-y-32">
             {mockFeatures.map((feature, index) => {
               const IconComponent = iconMap[feature.icon];
               const isEven = index % 2 === 0;
-              
+
               return (
-                <div 
-                  key={index} 
+                <div
+                  key={index}
                   className="feature-card opacity-0"
                 >
-                  <div className={`grid grid-cols-1 lg:grid-cols-2 gap-16 items-center ${
-                    !isEven ? 'lg:grid-flow-col-dense' : ''
-                  }`}>
+                  <div className={`grid grid-cols-1 lg:grid-cols-2 gap-16 items-center ${!isEven ? 'lg:grid-flow-col-dense' : ''
+                    }`}>
                     {/* Content */}
                     <div className={`space-y-8 ${!isEven ? 'lg:col-start-2' : ''}`}>
                       <div className="inline-flex items-center space-x-3">
-                        <div className="w-16 h-16 bg-gradient-to-br from-blue-500 to-purple-600 rounded-2xl flex items-center justify-center shadow-lg transform hover:scale-110 transition-transform duration-300">
-                          <IconComponent className="h-8 w-8 text-white" />
+                        <div className="w-16 h-16 bg-gradient-to-br from-blue-500 to-purple-600 rounded-2xl flex items-center justify-center shadow-lg transform hover:scale-110 transition-transform duration-300 relative overflow-hidden">
+                          {/* Shine effect on icon container */}
+                          <div className="absolute inset-0 bg-white/20 transform -skew-x-12 translate-x-full group-hover:-translate-x-full transition-transform duration-700"></div>
+                          <IconComponent className="h-8 w-8 text-white relative z-10" />
                         </div>
                         <div>
-                          <div className="text-sm font-medium text-blue-600 uppercase tracking-wide mb-1">Feature</div>
-                          <h3 className="text-3xl font-bold text-slate-900">
+                          <div className="text-sm font-medium text-blue-600 dark:text-blue-400 uppercase tracking-wide mb-1">Feature</div>
+                          <h3 className="text-3xl font-bold text-slate-900 dark:text-white group-hover:text-transparent group-hover:bg-clip-text group-hover:bg-gradient-to-r group-hover:from-blue-600 group-hover:to-purple-600 dark:group-hover:from-blue-400 dark:group-hover:to-purple-400 transition-all duration-500">
                             {feature.title}
                           </h3>
                         </div>
                       </div>
                       <div className="w-16 h-1 bg-gradient-to-r from-blue-500 to-purple-500 rounded-full"></div>
-                      <p className="text-xl text-slate-600 leading-relaxed">
+                      <p className="text-xl text-slate-600 dark:text-slate-300 leading-relaxed">
                         {feature.description}
                       </p>
                       <div className="space-y-4">
                         <div className="flex items-center space-x-3">
                           <CheckCircle className="h-5 w-5 text-green-500" />
-                          <span className="text-slate-700">Industry Leading</span>
+                          <span className="text-slate-700 dark:text-slate-300">Industry Leading</span>
                         </div>
                         <div className="flex items-center space-x-3">
                           <CheckCircle className="h-5 w-5 text-green-500" />
-                          <span className="text-slate-700">99.9% Uptime</span>
+                          <span className="text-slate-700 dark:text-slate-300">99.9% Uptime</span>
                         </div>
                       </div>
-                      <Button 
+                      <Button
                         size="lg"
-                        className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white px-8 py-4 font-semibold transition-all duration-300 hover:scale-105 group border-0 rounded-xl"
+                        className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 dark:from-blue-700 dark:to-purple-700 dark:hover:from-blue-600 dark:hover:to-purple-600 text-white px-8 py-4 font-semibold transition-all duration-300 hover:scale-105 group border-0 rounded-xl relative overflow-hidden"
                       >
-                        Learn More
-                        <ArrowRight className="ml-2 h-5 w-5 group-hover:translate-x-1 transition-transform" />
+                        {/* Shine effect on button */}
+                        <div className="absolute inset-0 bg-white/20 transform -skew-x-12 translate-x-full group-hover:-translate-x-full transition-transform duration-700 rounded-xl"></div>
+                        <span className="relative z-10">Learn More</span>
+                        <ArrowRight className="ml-2 h-5 w-5 group-hover:translate-x-1 transition-transform relative z-10" />
                       </Button>
                     </div>
-                    
+
                     {/* Visual Card */}
                     <div className={`${!isEven ? 'lg:col-start-1 lg:row-start-1' : ''}`}>
-                      <Card className="group hover:shadow-2xl transition-all duration-500 hover:-translate-y-6 border-0 bg-gradient-to-br from-white to-blue-50/80 backdrop-blur-sm overflow-hidden">
-                        <CardContent className="p-10">
+                      <Card className="group hover:shadow-2xl transition-all duration-500 hover:-translate-y-6 border-0 bg-gradient-to-br from-blue-50 to-white dark:from-slate-800 dark:to-slate-800/80 backdrop-blur-sm overflow-hidden relative border border-blue-200 dark:border-slate-700">
+                        {/* Animated background elements */}
+                        <div className="absolute inset-0 opacity-0 group-hover:opacity-10 transition-opacity duration-500">
+                          <div className="absolute top-0 right-0 w-64 h-64 bg-gradient-to-r from-blue-400/20 to-purple-400/20 dark:from-blue-400/10 dark:to-purple-400/10 rounded-full blur-3xl transform translate-x-32 -translate-y-32 group-hover:scale-150 transition-transform duration-700"></div>
+                          <div className="absolute bottom-0 left-0 w-48 h-48 bg-gradient-to-r from-purple-400/20 to-pink-400/20 dark:from-purple-400/10 dark:to-pink-400/10 rounded-full blur-3xl transform -translate-x-24 translate-y-24 group-hover:scale-150 transition-transform duration-700"></div>
+                        </div>
+
+                        <CardContent className="p-10 relative z-10">
                           <div className="relative">
-                            <div className="absolute inset-0 bg-gradient-to-br from-blue-400/10 to-purple-400/10 rounded-2xl blur-2xl group-hover:blur-3xl transition-all duration-500"></div>
-                            <div className="relative bg-white/90 backdrop-blur-sm rounded-2xl p-8 border border-blue-100/50 shadow-inner">
-                              <div className="flex items-center space-x-4 mb-6">
-                                <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-purple-500 rounded-xl flex items-center justify-center">
-                                  <IconComponent className="h-6 w-6 text-white" />
+                            <div className="absolute inset-0 bg-gradient-to-br from-blue-50 to-white dark:from-blue-400/5 dark:to-purple-400/5 rounded-2xl blur-2xl group-hover:blur-3xl transition-all duration-500"></div>
+                            <div className="relative bg-white dark:bg-slate-800/90 backdrop-blur-sm rounded-2xl p-8 border border-blue-200 dark:border-slate-700 shadow-inner">
+                              {/* Feature-specific visual representation */}
+                              <div className="flex flex-col items-center justify-center h-64">
+                                <div className="w-24 h-24 bg-gradient-to-br from-blue-500 to-purple-600 rounded-2xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform duration-300 shadow-lg relative overflow-hidden">
+                                  {/* Shine effect */}
+                                  <div className="absolute inset-0 bg-white/20 transform -skew-x-12 translate-x-full group-hover:-translate-x-full transition-transform duration-700"></div>
+                                  <IconComponent className="h-12 w-12 text-white relative z-10" />
                                 </div>
-                                <div className="flex-1 space-y-3">
-                                  <div className="h-3 bg-gradient-to-r from-blue-200 to-purple-200 rounded-full"></div>
-                                  <div className="h-3 bg-gradient-to-r from-blue-300 to-purple-300 rounded-full w-4/5"></div>
-                                  <div className="h-3 bg-gradient-to-r from-blue-200 to-purple-200 rounded-full w-3/5"></div>
-                                </div>
-                              </div>
-                              <div className="space-y-4">
-                                <div className="grid grid-cols-4 gap-3">
-                                  {[...Array(8)].map((_, i) => (
-                                    <div key={i} className={`h-12 rounded-lg ${
-                                      i % 3 === 0 ? 'bg-gradient-to-r from-blue-100 to-blue-200' : 
-                                      i % 3 === 1 ? 'bg-gradient-to-r from-purple-100 to-purple-200' : 
-                                      'bg-gradient-to-r from-green-100 to-green-200'
-                                    } animate-pulse`} style={{animationDelay: `${i * 0.1}s`}}></div>
-                                  ))}
-                                </div>
-                                <div className="flex justify-between items-center pt-4 border-t border-slate-100">
-                                  <span className="text-sm text-slate-500 font-medium">Status: Active</span>
-                                  <div className="flex items-center space-x-2">
-                                    <div className="w-3 h-3 bg-green-400 rounded-full animate-pulse"></div>
-                                    <span className="text-sm text-green-600 font-medium">Online</span>
+
+                                <h4 className="text-2xl font-bold text-slate-900 dark:text-white text-center mb-4">
+                                  {feature.title}
+                                </h4>
+
+                                <div className="flex items-center justify-center space-x-4">
+                                  <div className="bg-gradient-to-br from-blue-50 to-white dark:from-slate-700 dark:to-slate-700 rounded-lg p-3 border border-blue-200 dark:border-slate-600 shadow-sm">
+                                    <p className="text-xs text-slate-600 dark:text-slate-300">Efficiency</p>
+                                    <p className="text-lg font-bold text-blue-600 dark:text-blue-400">+42%</p>
+                                  </div>
+
+                                  <div className="bg-gradient-to-br from-purple-50 to-white dark:from-slate-700 dark:to-slate-700 rounded-lg p-3 border border-purple-200 dark:border-slate-600 shadow-sm">
+                                    <p className="text-xs text-slate-600 dark:text-slate-300">Accuracy</p>
+                                    <p className="text-lg font-bold text-purple-600 dark:text-purple-400">98%</p>
                                   </div>
                                 </div>
+                              </div>
+
+                              <div className="mt-6 pt-6 border-t border-slate-200 dark:border-slate-700 text-center">
+                                <p className="text-slate-600 dark:text-slate-300 text-sm">
+                                  {feature.description.substring(0, 100)}...
+                                </p>
                               </div>
                             </div>
                           </div>
@@ -255,24 +321,24 @@ const Homepage = () => {
       </section>
 
       {/* How It Works Section */}
-      <section ref={howItWorksRef} className="py-20 px-4 sm:px-6 lg:px-8 bg-gradient-to-br from-slate-50 to-indigo-50 relative overflow-hidden">
+      <section ref={howItWorksRef} className="py-20 px-4 sm:px-6 lg:px-8 bg-gradient-to-br from-slate-50 to-indigo-50 dark:from-slate-900 dark:to-slate-900 relative overflow-hidden">
         <div className="absolute inset-0">
-          <div className="absolute top-20 left-10 w-32 h-32 bg-blue-300/20 rounded-full blur-2xl animate-float"></div>
-          <div className="absolute bottom-20 right-10 w-48 h-48 bg-purple-300/20 rounded-full blur-2xl animate-float-delayed"></div>
+          <div className="absolute top-20 left-10 w-32 h-32 bg-blue-300/20 dark:bg-blue-400/10 rounded-full blur-2xl animate-float"></div>
+          <div className="absolute bottom-20 right-10 w-48 h-48 bg-purple-300/20 dark:bg-purple-400/10 rounded-full blur-2xl animate-float-delayed"></div>
         </div>
-        
+
         <div className="relative max-w-7xl mx-auto z-10">
           <div className="text-center mb-16">
             <h2 className="text-3xl md:text-5xl font-bold mb-6">
-              <span className="bg-gradient-to-r from-slate-800 to-indigo-600 bg-clip-text text-transparent">
+              <span className="bg-gradient-to-r from-slate-800 to-indigo-600 dark:from-slate-200 dark:to-indigo-400 bg-clip-text text-transparent">
                 How It Works
               </span>
             </h2>
-            <p className="text-xl text-slate-600 max-w-2xl mx-auto">
+            <p className="text-xl text-slate-600 dark:text-slate-300 max-w-2xl mx-auto">
               Three simple steps to start forecasting your demand with AI precision
             </p>
           </div>
-          
+
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
             {[
               {
@@ -280,38 +346,53 @@ const Homepage = () => {
                 title: 'Upload Your Data',
                 description: 'Upload your supply chain data - single dataset or separate node, edge, and demand files.',
                 color: 'from-blue-500 to-cyan-500',
-                bgColor: 'from-blue-50 to-cyan-50'
+                bgColor: 'from-blue-50 to-white',
+                darkBgColor: 'from-slate-800 to-slate-800'
               },
               {
                 step: '02',
                 title: 'AI Model Training',
                 description: 'Our advanced AI system processes your data and fine-tunes the forecasting model for your specific needs.',
                 color: 'from-purple-500 to-pink-500',
-                bgColor: 'from-purple-50 to-pink-50'
+                bgColor: 'from-purple-50 to-white',
+                darkBgColor: 'from-slate-800 to-slate-800'
               },
               {
                 step: '03',
                 title: 'Get Predictions',
                 description: 'Input store and product names to get accurate demand predictions and actionable insights.',
                 color: 'from-indigo-500 to-blue-500',
-                bgColor: 'from-indigo-50 to-blue-50'
+                bgColor: 'from-indigo-50 to-white',
+                darkBgColor: 'from-slate-800 to-slate-800'
               }
             ].map((item, index) => (
-              <div key={index} className="process-card opacity-0 transform translate-y-10 transition-all duration-1000" style={{transitionDelay: `${index * 0.2}s`}}>
-                <Card className={`group hover:shadow-2xl transition-all duration-500 hover:-translate-y-6 border-0 bg-gradient-to-br ${item.bgColor} backdrop-blur-sm h-full`}>
-                  <CardContent className="p-8 text-center h-full flex flex-col">
+              <div key={index} className="process-card opacity-0 transform translate-y-10 transition-all duration-1000" style={{ transitionDelay: `${index * 0.2}s` }}>
+                <Card className={`group hover:shadow-2xl transition-all duration-500 hover:-translate-y-6 border-0 bg-gradient-to-br ${item.bgColor} dark:${item.darkBgColor} backdrop-blur-sm h-full relative overflow-hidden border border-blue-200 dark:border-slate-700`}>
+                  {/* Animated background elements */}
+                  <div className="absolute inset-0 opacity-0 group-hover:opacity-20 transition-opacity duration-500">
+                    <div className={`absolute top-0 right-0 w-40 h-40 bg-gradient-to-r ${item.color} rounded-full blur-3xl transform translate-x-20 -translate-y-20 group-hover:scale-150 transition-transform duration-700`}></div>
+                    <div className={`absolute bottom-0 left-0 w-32 h-32 bg-gradient-to-r ${item.color} rounded-full blur-3xl transform -translate-x-16 translate-y-16 group-hover:scale-150 transition-transform duration-700`}></div>
+                  </div>
+
+                  <CardContent className="p-8 text-center h-full flex flex-col relative z-10 bg-white dark:bg-slate-800 rounded-2xl">
                     <div className="mb-6">
-                      <div className={`w-20 h-20 bg-gradient-to-br ${item.color} text-white rounded-2xl flex items-center justify-center text-2xl font-bold mx-auto group-hover:scale-110 group-hover:rotate-3 transition-all duration-300 shadow-lg`}>
-                        {item.step}
+                      {/* Step number with enhanced animation */}
+                      <div className={`w-20 h-20 bg-gradient-to-br ${item.color} text-white rounded-2xl flex items-center justify-center text-2xl font-bold mx-auto group-hover:scale-110 group-hover:rotate-3 transition-all duration-300 shadow-lg relative overflow-hidden`}>
+                        {/* Shine effect on step number */}
+                        <div className="absolute inset-0 bg-white/20 transform -skew-x-12 translate-x-full group-hover:-translate-x-full transition-transform duration-700"></div>
+                        <span className="relative z-10">{item.step}</span>
                       </div>
                     </div>
-                    <h3 className="text-xl font-bold text-slate-800 mb-4 group-hover:text-slate-900 transition-colors">
+
+                    <h3 className="text-xl font-bold text-slate-800 dark:text-white mb-4 group-hover:text-transparent group-hover:bg-clip-text group-hover:bg-gradient-to-r group-hover:from-blue-600 group-hover:to-purple-600 dark:group-hover:from-blue-400 dark:group-hover:to-purple-400 transition-all duration-500">
                       {item.title}
                     </h3>
-                    <p className="text-slate-600 leading-relaxed flex-1 group-hover:text-slate-700 transition-colors">
+
+                    <p className="text-slate-600 dark:text-slate-300 leading-relaxed flex-1 group-hover:text-slate-700 dark:group-hover:text-slate-400 transition-colors">
                       {item.description}
                     </p>
-                    <div className="mt-4 pt-4 border-t border-slate-200/50">
+
+                    <div className="mt-4 pt-4 border-t border-slate-200 dark:border-slate-700">
                       <div className={`w-full h-1 bg-gradient-to-r ${item.color} rounded-full transform scale-x-0 group-hover:scale-x-100 transition-transform duration-500`}></div>
                     </div>
                   </CardContent>
@@ -331,17 +412,19 @@ const Homepage = () => {
             }}></div>
           </div>
           <div className="absolute top-20 right-20 w-64 h-64 bg-blue-500/10 rounded-full blur-3xl animate-pulse"></div>
-          <div className="absolute bottom-20 left-20 w-64 h-64 bg-purple-500/10 rounded-full blur-3xl animate-pulse" style={{animationDelay: '1s'}}></div>
+          <div className="absolute bottom-20 left-20 w-64 h-64 bg-purple-500/10 rounded-full blur-3xl animate-pulse" style={{ animationDelay: '1s' }}></div>
         </div>
-        
+
         <div className="relative max-w-7xl mx-auto z-10">
           <div className="text-center mb-16 animate-fade-in-up">
-            <div className="inline-flex items-center space-x-2 bg-white/10 backdrop-blur-sm px-4 py-2 rounded-full border border-white/20 shadow-lg mb-8">
-              <Sparkles className="h-4 w-4 text-yellow-300" />
-              <span className="text-sm font-medium text-white">Ready to Launch?</span>
+            <div className="inline-flex items-center space-x-2 bg-white/10 backdrop-blur-sm px-4 py-2 rounded-full border border-white/20 shadow-lg mb-8 group">
+              {/* Shine effect on badge */}
+              <div className="absolute inset-0 bg-white/10 transform -skew-x-12 translate-x-full group-hover:-translate-x-full transition-transform duration-700 rounded-full"></div>
+              <Sparkles className="h-4 w-4 text-yellow-300 relative z-10" />
+              <span className="text-sm font-medium text-white relative z-10">Ready to Launch?</span>
             </div>
             <h2 className="text-4xl md:text-6xl font-bold text-white mb-8 leading-tight">
-              Ready to Revolutionize Your 
+              Ready to Revolutionize Your
               <span className="block bg-gradient-to-r from-blue-300 to-purple-300 bg-clip-text text-transparent">
                 Forecasting?
               </span>
@@ -351,20 +434,24 @@ const Homepage = () => {
             </p>
             <div className="flex flex-col sm:flex-row gap-6 justify-center items-center">
               <Link to="/register">
-                <Button 
-                  size="lg" 
-                  className="bg-gradient-to-r from-white to-blue-50 text-slate-900 hover:from-blue-50 hover:to-white px-12 py-4 text-lg font-semibold transition-all duration-500 hover:scale-110 hover:shadow-2xl group border-0 rounded-xl"
+                <Button
+                  size="lg"
+                  className="bg-gradient-to-r from-white to-blue-50 text-slate-900 hover:from-blue-50 hover:to-white dark:from-slate-700 dark:to-slate-800 dark:text-white dark:hover:from-slate-600 dark:hover:to-slate-700 px-12 py-4 text-lg font-semibold transition-all duration-500 hover:scale-110 hover:shadow-2xl group border-0 rounded-xl relative overflow-hidden"
                 >
-                  Get Started Today
-                  <ArrowRight className="ml-2 h-5 w-5 group-hover:translate-x-2 transition-transform duration-300" />
+                  {/* Shine effect on button */}
+                  <div className="absolute inset-0 bg-white/30 transform -skew-x-12 translate-x-full group-hover:-translate-x-full transition-transform duration-700 rounded-xl"></div>
+                  <span className="relative z-10">Get Started Today</span>
+                  <ArrowRight className="ml-2 h-5 w-5 group-hover:translate-x-2 transition-transform duration-300 relative z-10" />
                 </Button>
               </Link>
-              <Button 
-                variant="outline" 
-                size="lg" 
-                className="bg-transparent border-2 border-white/30 text-white hover:bg-white/10 hover:border-white/50 px-12 py-4 text-lg font-semibold transition-all duration-300 hover:scale-105 rounded-xl backdrop-blur-sm"
+              <Button
+                variant="outline"
+                size="lg"
+                className="bg-transparent border-2 border-white/30 text-white hover:bg-white/10 hover:border-white/50 px-12 py-4 text-lg font-semibold transition-all duration-300 hover:scale-105 rounded-xl backdrop-blur-sm relative overflow-hidden group"
               >
-                Schedule Demo
+                {/* Shine effect on outline button */}
+                <div className="absolute inset-0 bg-white/10 transform -skew-x-12 translate-x-full group-hover:-translate-x-full transition-transform duration-700 rounded-xl"></div>
+                <span className="relative z-10">Schedule Demo</span>
               </Button>
             </div>
           </div>
@@ -377,9 +464,11 @@ const Homepage = () => {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-12 mb-12">
             {/* Company Info */}
             <div className="lg:col-span-2 space-y-6">
-              <div className="flex items-center space-x-3">
-                <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-xl flex items-center justify-center">
-                  <TrendingUp className="h-6 w-6 text-white" />
+              <div className="flex items-center space-x-3 group">
+                <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-xl flex items-center justify-center relative overflow-hidden">
+                  {/* Shine effect on logo */}
+                  <div className="absolute inset-0 bg-white/20 transform -skew-x-12 translate-x-full group-hover:-translate-x-full transition-transform duration-700 rounded-xl"></div>
+                  <TrendingUp className="h-6 w-6 text-white relative z-10" />
                 </div>
                 <span className="text-2xl font-bold bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent">ForecastAI</span>
               </div>
@@ -402,11 +491,11 @@ const Homepage = () => {
             <div className="space-y-6">
               <h4 className="text-lg font-semibold text-white">Product</h4>
               <ul className="space-y-3">
-                <li><Link to="/register" className="text-slate-400 hover:text-white transition-colors">Demand Forecasting</Link></li>
-                <li><Link to="/register" className="text-slate-400 hover:text-white transition-colors">Supply Chain Analytics</Link></li>
-                <li><Link to="/register" className="text-slate-400 hover:text-white transition-colors">Inventory Optimization</Link></li>
-                <li><Link to="/register" className="text-slate-400 hover:text-white transition-colors">Real-time Insights</Link></li>
-                <li><Link to="/register" className="text-slate-400 hover:text-white transition-colors">API Integration</Link></li>
+                <li><Link to="/register" className="text-slate-400 hover:text-white transition-colors hover:translate-x-1 transform transition-transform duration-300">Demand Forecasting</Link></li>
+                <li><Link to="/register" className="text-slate-400 hover:text-white transition-colors hover:translate-x-1 transform transition-transform duration-300">Supply Chain Analytics</Link></li>
+                <li><Link to="/register" className="text-slate-400 hover:text-white transition-colors hover:translate-x-1 transform transition-transform duration-300">Inventory Optimization</Link></li>
+                <li><Link to="/register" className="text-slate-400 hover:text-white transition-colors hover:translate-x-1 transform transition-transform duration-300">Real-time Insights</Link></li>
+                <li><Link to="/register" className="text-slate-400 hover:text-white transition-colors hover:translate-x-1 transform transition-transform duration-300">API Integration</Link></li>
               </ul>
             </div>
 
@@ -414,11 +503,11 @@ const Homepage = () => {
             <div className="space-y-6">
               <h4 className="text-lg font-semibold text-white">Company</h4>
               <ul className="space-y-3">
-                <li><Link to="/" className="text-slate-400 hover:text-white transition-colors">About Us</Link></li>
-                <li><Link to="/" className="text-slate-400 hover:text-white transition-colors">Careers</Link></li>
-                <li><Link to="/" className="text-slate-400 hover:text-white transition-colors">Press</Link></li>
-                <li><Link to="/" className="text-slate-400 hover:text-white transition-colors">Blog</Link></li>
-                <li><Link to="/" className="text-slate-400 hover:text-white transition-colors">Partners</Link></li>
+                <li><Link to="/" className="text-slate-400 hover:text-white transition-colors hover:translate-x-1 transform transition-transform duration-300">About Us</Link></li>
+                <li><Link to="/" className="text-slate-400 hover:text-white transition-colors hover:translate-x-1 transform transition-transform duration-300">Careers</Link></li>
+                <li><Link to="/" className="text-slate-400 hover:text-white transition-colors hover:translate-x-1 transform transition-transform duration-300">Press</Link></li>
+                <li><Link to="/" className="text-slate-400 hover:text-white transition-colors hover:translate-x-1 transform transition-transform duration-300">Blog</Link></li>
+                <li><Link to="/" className="text-slate-400 hover:text-white transition-colors hover:translate-x-1 transform transition-transform duration-300">Partners</Link></li>
               </ul>
             </div>
 
@@ -426,11 +515,11 @@ const Homepage = () => {
             <div className="space-y-6">
               <h4 className="text-lg font-semibold text-white">Support</h4>
               <ul className="space-y-3">
-                <li><Link to="/" className="text-slate-400 hover:text-white transition-colors">Help Center</Link></li>
-                <li><Link to="/" className="text-slate-400 hover:text-white transition-colors">Documentation</Link></li>
-                <li><Link to="/" className="text-slate-400 hover:text-white transition-colors">Contact Support</Link></li>
-                <li><Link to="/" className="text-slate-400 hover:text-white transition-colors">System Status</Link></li>
-                <li><Link to="/" className="text-slate-400 hover:text-white transition-colors">Security</Link></li>
+                <li><Link to="/" className="text-slate-400 hover:text-white transition-colors hover:translate-x-1 transform transition-transform duration-300">Help Center</Link></li>
+                <li><Link to="/" className="text-slate-400 hover:text-white transition-colors hover:translate-x-1 transform transition-transform duration-300">Documentation</Link></li>
+                <li><Link to="/" className="text-slate-400 hover:text-white transition-colors hover:translate-x-1 transform transition-transform duration-300">Contact Support</Link></li>
+                <li><Link to="/" className="text-slate-400 hover:text-white transition-colors hover:translate-x-1 transform transition-transform duration-300">System Status</Link></li>
+                <li><Link to="/" className="text-slate-400 hover:text-white transition-colors hover:translate-x-1 transform transition-transform duration-300">Security</Link></li>
               </ul>
             </div>
           </div>
@@ -443,9 +532,9 @@ const Homepage = () => {
                   © 2025 ForecastAI. All rights reserved.
                 </p>
                 <div className="flex items-center space-x-4 text-sm text-slate-400">
-                  <Link to="/" className="hover:text-white transition-colors">Privacy Policy</Link>
-                  <Link to="/" className="hover:text-white transition-colors">Terms of Service</Link>
-                  <Link to="/" className="hover:text-white transition-colors">Cookie Policy</Link>
+                  <Link to="/" className="hover:text-white transition-colors hover:translate-x-1 transform transition-transform duration-300">Privacy Policy</Link>
+                  <Link to="/" className="hover:text-white transition-colors hover:translate-x-1 transform transition-transform duration-300">Terms of Service</Link>
+                  <Link to="/" className="hover:text-white transition-colors hover:translate-x-1 transform transition-transform duration-300">Cookie Policy</Link>
                 </div>
               </div>
               <div className="flex items-center space-x-6">
@@ -456,13 +545,13 @@ const Homepage = () => {
                 <div className="flex items-center space-x-3">
                   <span className="text-sm text-slate-400">Follow us:</span>
                   <div className="flex items-center space-x-2">
-                    <div className="w-8 h-8 bg-slate-800 hover:bg-slate-700 rounded-lg flex items-center justify-center transition-colors cursor-pointer">
+                    <div className="w-8 h-8 bg-slate-800 hover:bg-slate-700 rounded-lg flex items-center justify-center transition-colors cursor-pointer transform hover:scale-110 hover:-translate-y-1 transition-transform duration-300">
                       <span className="text-xs text-slate-400">tw</span>
                     </div>
-                    <div className="w-8 h-8 bg-slate-800 hover:bg-slate-700 rounded-lg flex items-center justify-center transition-colors cursor-pointer">
+                    <div className="w-8 h-8 bg-slate-800 hover:bg-slate-700 rounded-lg flex items-center justify-center transition-colors cursor-pointer transform hover:scale-110 hover:-translate-y-1 transition-transform duration-300">
                       <span className="text-xs text-slate-400">li</span>
                     </div>
-                    <div className="w-8 h-8 bg-slate-800 hover:bg-slate-700 rounded-lg flex items-center justify-center transition-colors cursor-pointer">
+                    <div className="w-8 h-8 bg-slate-800 hover:bg-slate-700 rounded-lg flex items-center justify-center transition-colors cursor-pointer transform hover:scale-110 hover:-translate-y-1 transition-transform duration-300">
                       <span className="text-xs text-slate-400">gh</span>
                     </div>
                   </div>

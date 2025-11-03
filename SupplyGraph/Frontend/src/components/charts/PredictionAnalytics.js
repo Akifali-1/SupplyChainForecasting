@@ -16,10 +16,10 @@ import { Line, Bar, Doughnut } from 'react-chartjs-2';
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
 import { Button } from '../ui/button';
 import { Badge } from '../ui/badge';
-import { 
-  TrendingUp, 
-  BarChart3, 
-  Activity, 
+import {
+  TrendingUp,
+  BarChart3,
+  Activity,
   PieChart,
   Calendar,
   Target,
@@ -41,8 +41,8 @@ ChartJS.register(
   ArcElement
 );
 
-const PredictionAnalytics = ({ 
-  historicalData = [], 
+const PredictionAnalytics = ({
+  historicalData = [],
   prediction = null,
   storeName = '',
   productName = ''
@@ -53,9 +53,9 @@ const PredictionAnalytics = ({
   // Process historical data based on time range
   const getFilteredData = () => {
     if (!historicalData.length) return [];
-    
+
     let filteredData = [...historicalData];
-    
+
     switch (timeRange) {
       case 'week':
         filteredData = historicalData.slice(-7);
@@ -69,11 +69,11 @@ const PredictionAnalytics = ({
       default:
         filteredData = historicalData;
     }
-    
+
     return filteredData.map(item => ({
-      date: new Date(item.date).toLocaleDateString('en-US', { 
-        month: 'short', 
-        day: 'numeric' 
+      date: new Date(item.date).toLocaleDateString('en-US', {
+        month: 'short',
+        day: 'numeric'
       }),
       demand: typeof item.demand === 'number' ? item.demand : 0,
       fullDate: item.date
@@ -81,18 +81,18 @@ const PredictionAnalytics = ({
   };
 
   const processedData = getFilteredData();
-  
+
   // Calculate statistics
   const stats = {
     totalDataPoints: processedData.length,
-    averageDemand: processedData.length > 0 
-      ? Math.round(processedData.reduce((sum, item) => sum + item.demand, 0) / processedData.length) 
+    averageDemand: processedData.length > 0
+      ? Math.round(processedData.reduce((sum, item) => sum + item.demand, 0) / processedData.length)
       : 0,
-    peakDemand: processedData.length > 0 
-      ? Math.max(...processedData.map(item => item.demand)) 
+    peakDemand: processedData.length > 0
+      ? Math.max(...processedData.map(item => item.demand))
       : 0,
-    minDemand: processedData.length > 0 
-      ? Math.min(...processedData.map(item => item.demand)) 
+    minDemand: processedData.length > 0
+      ? Math.min(...processedData.map(item => item.demand))
       : 0,
     predictedDemand: prediction ? (prediction.predictedDemand || prediction.displayPredicted || prediction.rawPredicted || 0) : 0,
     trend: prediction?.trend || 'stable'
@@ -225,7 +225,8 @@ const PredictionAnalytics = ({
         labels: {
           usePointStyle: true,
           padding: 20,
-          font: { size: 12, weight: '500' }
+          font: { size: 12, weight: '500' },
+          color: '#64748b' // Light mode text color
         }
       },
       tooltip: {
@@ -240,15 +241,15 @@ const PredictionAnalytics = ({
     scales: {
       x: {
         grid: { display: false },
-        ticks: { font: { size: 11, weight: '500' }, color: '#64748b' }
+        ticks: { font: { size: 11, weight: '500' }, color: '#64748b' } // Light mode text color
       },
       y: {
         beginAtZero: true,
         grid: { color: 'rgba(148, 163, 184, 0.1)', drawBorder: false },
-        ticks: { 
-          font: { size: 11, weight: '500' }, 
-          color: '#64748b',
-          callback: function(value) { return value.toLocaleString(); }
+        ticks: {
+          font: { size: 11, weight: '500' },
+          color: '#64748b', // Light mode text color
+          callback: function (value) { return value.toLocaleString(); }
         }
       }
     }
@@ -263,7 +264,8 @@ const PredictionAnalytics = ({
         labels: {
           usePointStyle: true,
           padding: 15,
-          font: { size: 11, weight: '500' }
+          font: { size: 11, weight: '500' },
+          color: '#64748b' // Light mode text color
         }
       },
       tooltip: {
@@ -310,30 +312,30 @@ const PredictionAnalytics = ({
   const getChartIcon = () => {
     switch (activeChart) {
       case 'line':
-        return <TrendingUp className="h-5 w-5 text-blue-600" />;
+        return <TrendingUp className="h-5 w-5 text-blue-600 dark:text-blue-400" />;
       case 'bar':
-        return <BarChart3 className="h-5 w-5 text-blue-600" />;
+        return <BarChart3 className="h-5 w-5 text-blue-600 dark:text-blue-400" />;
       case 'trend':
-        return <Activity className="h-5 w-5 text-green-600" />;
+        return <Activity className="h-5 w-5 text-green-600 dark:text-green-400" />;
       case 'distribution':
-        return <PieChart className="h-5 w-5 text-purple-600" />;
+        return <PieChart className="h-5 w-5 text-purple-600 dark:text-purple-400" />;
       default:
-        return <Activity className="h-5 w-5 text-blue-600" />;
+        return <Activity className="h-5 w-5 text-blue-600 dark:text-blue-400" />;
     }
   };
 
   return (
     <div className="space-y-6">
       {/* Chart Controls */}
-      <Card className="shadow-lg border-0 bg-white/95 backdrop-blur-sm">
-        <CardHeader className="bg-gradient-to-r from-slate-50 to-blue-50 rounded-t-lg">
+      <Card className="shadow-lg border-0 bg-white/95 dark:bg-slate-800/95 backdrop-blur-sm">
+        <CardHeader className="bg-gradient-to-r from-slate-50 to-blue-50 dark:from-slate-800 dark:to-slate-800 rounded-t-lg">
           <CardTitle className="flex items-center justify-between">
             <div className="flex items-center space-x-2">
-              <Target className="h-6 w-6 text-blue-600" />
-              <span>Analytics Dashboard</span>
+              <Target className="h-6 w-6 text-blue-600 dark:text-blue-400" />
+              <span className="text-slate-900 dark:text-white">Analytics Dashboard</span>
             </div>
             <div className="flex items-center space-x-2">
-              <Badge variant="outline" className="text-blue-700 border-blue-200">
+              <Badge variant="outline" className="text-blue-700 border-blue-200 dark:text-blue-300 dark:border-blue-800">
                 {storeName && productName ? `${storeName} - ${productName}` : 'Supply Chain Analytics'}
               </Badge>
             </div>
@@ -424,36 +426,36 @@ const PredictionAnalytics = ({
 
           {/* Key Statistics */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-            <div className="text-center p-4 bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg">
-              <div className="text-2xl font-bold text-blue-600">{stats.totalDataPoints}</div>
-              <div className="text-sm text-blue-700 font-medium">Data Points</div>
+            <div className="text-center p-4 bg-gradient-to-br from-blue-50 to-blue-100 dark:from-slate-800 dark:to-slate-800 rounded-lg border border-blue-200 dark:border-slate-700">
+              <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">{stats.totalDataPoints}</div>
+              <div className="text-sm text-blue-700 dark:text-blue-300 font-medium">Data Points</div>
             </div>
-            <div className="text-center p-4 bg-gradient-to-br from-green-50 to-green-100 rounded-lg">
-              <div className="text-2xl font-bold text-green-600">{stats.averageDemand}</div>
-              <div className="text-sm text-green-700 font-medium">Avg Demand</div>
+            <div className="text-center p-4 bg-gradient-to-br from-green-50 to-green-100 dark:from-slate-800 dark:to-slate-800 rounded-lg border border-green-200 dark:border-slate-700">
+              <div className="text-2xl font-bold text-green-600 dark:text-green-400">{stats.averageDemand}</div>
+              <div className="text-sm text-green-700 dark:text-green-300 font-medium">Avg Demand</div>
             </div>
-            <div className="text-center p-4 bg-gradient-to-br from-purple-50 to-purple-100 rounded-lg">
-              <div className="text-2xl font-bold text-purple-600">{stats.peakDemand}</div>
-              <div className="text-sm text-purple-700 font-medium">Peak Demand</div>
+            <div className="text-center p-4 bg-gradient-to-br from-purple-50 to-purple-100 dark:from-slate-800 dark:to-slate-800 rounded-lg border border-purple-200 dark:border-slate-700">
+              <div className="text-2xl font-bold text-purple-600 dark:text-purple-400">{stats.peakDemand}</div>
+              <div className="text-sm text-purple-700 dark:text-purple-300 font-medium">Peak Demand</div>
             </div>
-            <div className="text-center p-4 bg-gradient-to-br from-orange-50 to-orange-100 rounded-lg">
-              <div className="text-2xl font-bold text-orange-600">{stats.predictedDemand}</div>
-              <div className="text-sm text-orange-700 font-medium">Predicted</div>
+            <div className="text-center p-4 bg-gradient-to-br from-orange-50 to-orange-100 dark:from-slate-800 dark:to-slate-800 rounded-lg border border-orange-200 dark:border-slate-700">
+              <div className="text-2xl font-bold text-orange-600 dark:text-orange-400">{stats.predictedDemand}</div>
+              <div className="text-sm text-orange-700 dark:text-orange-300 font-medium">Predicted</div>
             </div>
           </div>
         </CardContent>
       </Card>
 
       {/* Main Chart */}
-      <Card className="shadow-lg border-0 bg-white/95 backdrop-blur-sm">
-        <CardHeader className="bg-gradient-to-r from-indigo-50 to-purple-50 rounded-t-lg">
-          <CardTitle className="flex items-center space-x-2 text-slate-900">
+      <Card className="shadow-lg border-0 bg-white/95 dark:bg-slate-800/95 backdrop-blur-sm">
+        <CardHeader className="bg-gradient-to-r from-indigo-50 to-purple-50 dark:from-slate-800 dark:to-slate-800 rounded-t-lg">
+          <CardTitle className="flex items-center space-x-2 text-slate-900 dark:text-white">
             {getChartIcon()}
             <span>{getChartTitle()}</span>
             {prediction && (
               <div className="ml-auto flex items-center space-x-2">
-                <Zap className="h-4 w-4 text-yellow-500" />
-                <Badge className="bg-yellow-100 text-yellow-800 border-yellow-200">
+                <Zap className="h-4 w-4 text-yellow-500 dark:text-yellow-400" />
+                <Badge className="bg-yellow-100 text-yellow-800 border-yellow-200 dark:bg-yellow-900/30 dark:text-yellow-300 dark:border-yellow-800">
                   AI Enhanced
                 </Badge>
               </div>

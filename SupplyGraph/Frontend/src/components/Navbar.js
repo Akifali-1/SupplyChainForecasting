@@ -59,6 +59,13 @@ const Navbar = () => {
                 >
                   Inventory
                 </Link>
+                <Link
+                  to="/inventory-optimization"
+                  className={`font-medium transition-colors hover:text-slate-900 dark:hover:text-white ${isActive('/inventory-optimization') ? 'text-slate-900 dark:text-white' : 'text-slate-600 dark:text-slate-300'
+                    }`}
+                >
+                  Optimization
+                </Link>
                 <div className="flex items-center space-x-4">
                   <div className="flex items-center space-x-2 text-sm text-slate-600 dark:text-slate-300">
                     <User className="h-4 w-4" />

@@ -39,14 +39,12 @@ class HybridGATLSTM(nn.Module):
     def noise_enabled(self):
         return True
 
- 
-
 class ModelTrainer:
     def __init__(self):
         self.mongo_uri = "mongodb+srv://akifaliparvez:Akifmongo1@cluster0.lg4jnnj.mongodb.net/supplychain?retryWrites=true&w=majority"
         self.client = None
         self.db = None
-        self.training_status = {}  # In-memory status tracking
+        self.training_status = {}
         self._connect_mongo()
     
     def _connect_mongo(self):
@@ -99,7 +97,6 @@ class ModelTrainer:
                 if 'model_storage' in base_model_doc and 'model_bytes' in base_model_doc['model_storage']:
                     model_state = pickle.loads(base_model_doc['model_storage']['model_bytes'])
                 else:
-                    # Fallback for old format
                     model_state = pickle.loads(base_model_doc.get('model_data', b''))
             
             # Load GAT+LSTM model
@@ -115,7 +112,6 @@ class ModelTrainer:
                 dropout=architecture['dropout']
             )
             
-            # Load model weights
             model.load_state_dict(model_state)
             
             print(f"Loaded GAT+LSTM model with {len(base_model_doc['node_list'])} nodes")
@@ -124,7 +120,6 @@ class ModelTrainer:
         except Exception as e:
             print(f"Error loading base model: {e}")
             print("Creating new GAT+LSTM model from scratch as fallback")
-            # Create a GAT+LSTM model with default dimensions
             fallback_model = HybridGATLSTM(
                 in_channels=1,
                 max_timesteps=5,
@@ -136,375 +131,206 @@ class ModelTrainer:
             print(f"Created fallback GAT+LSTM model")
             return fallback_model, [], {}, {}
     
-    def _validate_csv_data(self, nodes, edges, demand):
-        """Validate CSV data for GAT+LSTM time series format"""
+    def _validate_csv_data(self, nodes, edges, sales):
+        """Validate CSV data structure"""
         errors = []
         
-        # Check required columns
-        required_nodes_cols = ['node_id']
-        required_edges_cols = ['source_id', 'target_id']
-        required_demand_cols = ['node_id']  # Updated for new format
+        # Check nodes.csv structure
+        if 'Node' not in nodes.columns:
+            errors.append("nodes.csv missing 'Node' column")
         
-        missing_nodes = [col for col in required_nodes_cols if col not in nodes.columns]
-        missing_edges = [col for col in required_edges_cols if col not in edges.columns]
-        missing_demand = [col for col in required_demand_cols if col not in demand.columns]
+        # Check edges.csv structure
+        required_edge_cols = ['node1', 'node2']
+        missing_edge_cols = [col for col in required_edge_cols if col not in edges.columns]
+        if missing_edge_cols:
+            errors.append(f"Edges CSV missing columns: {missing_edge_cols}")
         
-        if missing_nodes:
-            errors.append(f"Nodes CSV missing columns: {missing_nodes}")
-        if missing_edges:
-            errors.append(f"Edges CSV missing columns: {missing_edges}")
-        if missing_demand:
-            errors.append(f"Demand CSV missing columns: {missing_demand}")
+        # Check sales.csv structure
+        if 'Date' not in sales.columns:
+            errors.append("Sales Order.csv missing 'Date' column")
         
-        # Check for time series columns (t1, t2, t3, etc.) OR long-format (date-based) data
-        time_columns = [col for col in demand.columns if col.startswith('t') and col[1:].isdigit()]
-        has_long_format = False
-        if not time_columns:
-            # Detect long format: requires a date-like column and a demand-like value column
-            lower_cols = {c.lower(): c for c in demand.columns}
-            date_col_name = None
-            for candidate in ['date', 'timestamp']:
-                if candidate in lower_cols:
-                    date_col_name = lower_cols[candidate]
-                    break
-            value_col_name = None
-            for candidate in ['demand', 'sales', 'value', 'quantity']:
-                if candidate in lower_cols:
-                    value_col_name = lower_cols[candidate]
-                    break
-            if date_col_name and value_col_name:
-                has_long_format = True
-            else:
-                errors.append("Demand CSV must contain either time series columns (t1,t2,...) or long format with [date,demand]")
+        # Get product columns (all columns except Date)
+        product_columns = [col for col in sales.columns if col != 'Date']
+        if len(product_columns) == 0:
+            errors.append("Sales Order.csv has no product columns")
         
         # Check data consistency
         if len(nodes) == 0:
             errors.append("Nodes CSV is empty")
         if len(edges) == 0:
             errors.append("Edges CSV is empty")
-        if len(demand) == 0:
-            errors.append("Demand CSV is empty")
+        if len(sales) == 0:
+            errors.append("Sales Order CSV is empty")
         
         # Check if edge nodes exist in nodes CSV
-        if not missing_nodes and not missing_edges:
-            node_ids = set(nodes['node_id'])
-            edge_sources = set(edges['source_id'])
-            edge_targets = set(edges['target_id'])
+        if 'Node' in nodes.columns and not missing_edge_cols:
+            node_ids = set(nodes['Node'])
+            edge_nodes = set(edges['node1']).union(set(edges['node2']))
             
-            missing_sources = edge_sources - node_ids
-            missing_targets = edge_targets - node_ids
-            
-            if missing_sources:
-                errors.append(f"Edge sources not found in nodes: {list(missing_sources)[:5]}...")
-            if missing_targets:
-                errors.append(f"Edge targets not found in nodes: {list(missing_targets)[:5]}...")
+            missing_nodes = edge_nodes - node_ids
+            if missing_nodes:
+                errors.append(f"Edge nodes not found in nodes.csv: {list(missing_nodes)[:5]}...")
         
-            # Check if demand nodes exist in nodes CSV (updated for both formats)
-        if not missing_nodes and not missing_demand:
-            demand_node_ids = set(demand['node_id'])
-            missing_nodes_in_demand = demand_node_ids - set(nodes['node_id'])
-            if missing_nodes_in_demand:
-                errors.append(f"Demand nodes not found in nodes: {list(missing_nodes_in_demand)[:5]}...")
+        # Check if product columns exist as nodes
+        if 'Node' in nodes.columns and product_columns:
+            node_ids = set(nodes['Node'])
+            missing_products = set(product_columns) - node_ids
+            if missing_products:
+                errors.append(f"Product columns not found as nodes: {list(missing_products)[:5]}...")
         
         return errors
 
-    def _prepare_training_data(self, nodes_path, edges_path, demand_path):
-        """Prepare training data from CSV files"""
+    def _prepare_training_data(self, nodes_path, edges_path, sales_path):
+        """Prepare training data from new CSV format"""
         try:
-            # Load CSV files
             print("Loading CSV files...")
-            nodes = pd.read_csv(nodes_path)
-            edges = pd.read_csv(edges_path)
-            demand = pd.read_csv(demand_path)
+            nodes_df = pd.read_csv(nodes_path)
+            edges_df = pd.read_csv(edges_path)
+            sales_df = pd.read_csv(sales_path)
             
-            print(f"Loaded: {len(nodes)} nodes, {len(edges)} edges, {len(demand)} demand records")
+            print(f"Loaded: {len(nodes_df)} nodes, {len(edges_df)} edges, {len(sales_df)} sales records")
+            print(f"Nodes columns: {list(nodes_df.columns)}")
+            print(f"Edges columns: {list(edges_df.columns)}")
+            print(f"Sales columns: {list(sales_df.columns)}")
             
             # Validate data
             print("Validating data consistency...")
-            validation_errors = self._validate_csv_data(nodes, edges, demand)
+            validation_errors = self._validate_csv_data(nodes_df, edges_df, sales_df)
             if validation_errors:
                 error_msg = "Data validation failed:\n" + "\n".join(validation_errors)
                 print(f"VALIDATION ERRORS:\n{error_msg}")
                 raise ValueError(error_msg)
             
             # Create node mapping
-            node_to_idx = {node_id: idx for idx, node_id in enumerate(nodes['node_id'])}
+            node_list = nodes_df['Node'].tolist()
+            node_to_idx = {node: idx for idx, node in enumerate(node_list)}
             
-            # Prepare features
-            feature_cols = [col for col in nodes.columns if col != 'node_id']
-            features = []
-            expanded_feature_columns = []  # exact column names used to build the final feature matrix
+            print(f"Created node mapping with {len(node_list)} nodes")
+            print(f"First 10 nodes: {node_list[:10]}")
             
-            for col in feature_cols:
-                if nodes[col].dtype == 'object':
-                    # One-hot encode categorical and record expanded column names
-                    dummies = pd.get_dummies(nodes[col], prefix=col)
-                    features.append(dummies.values)
-                    expanded_feature_columns.extend(list(dummies.columns))
-                else:
-                    # Normalize numerical
-                    col_values = nodes[col].values.astype(float)
-                    normalized = (col_values - col_values.mean()) / (col_values.std() + 1e-8)
-                    features.append(normalized.reshape(-1, 1))
-                    expanded_feature_columns.append(col)
-            
-            # Stack features properly - ensure all features have the same number of rows
-            if features:
-                try:
-                    # Check if all features have the same number of rows
-                    feature_lengths = [f.shape[0] for f in features]
-                    if len(set(feature_lengths)) > 1:
-                        print(f"Warning: Feature lengths don't match: {feature_lengths}")
-                        # Pad shorter features or truncate longer ones
-                        min_length = min(feature_lengths)
-                        padded_features = []
-                        for f in features:
-                            if f.shape[0] > min_length:
-                                padded_features.append(f[:min_length])
-                            else:
-                                padded_features.append(f)
-                        features = padded_features
-                    
-                    x = np.hstack(features)
-                    print(f"Features stacked successfully: {x.shape}")
-                except Exception as e:
-                    print(f"Error stacking features: {e}")
-                    # Fallback: create simple features
-                    # Fallback: create simple numeric features and names
-                    x = np.zeros((len(nodes), len(feature_cols)))
-                    expanded_feature_columns = []
-                    for i, col in enumerate(feature_cols):
-                        if nodes[col].dtype == 'object':
-                            x[:, i] = 0  # Default value for categorical
-                            expanded_feature_columns.append(f"{col}_unknown")
-                        else:
-                            col_values = nodes[col].values.astype(float)
-                            x[:, i] = (col_values - col_values.mean()) / (col_values.std() + 1e-8)
-                            expanded_feature_columns.append(col)
+            # Prepare node features (Plant column if available)
+            if 'Plant' in nodes_df.columns:
+                plant_dummies = pd.get_dummies(nodes_df['Plant'], prefix='Plant')
+                node_features = plant_dummies.values
+                feature_columns = list(plant_dummies.columns)
             else:
-                # Fallback if no features
-                x = np.zeros((len(nodes), 1))
-                expanded_feature_columns = ["feature_0"]
+                node_features = np.ones((len(nodes_df), 1))
+                feature_columns = ['default_feature']
+            
+            print(f"Node features shape: {node_features.shape}")
             
             # Prepare edges
-            edge_source = [node_to_idx.get(source, 0) for source in edges['source_id']]
-            edge_target = [node_to_idx.get(target, 0) for target in edges['target_id']]
-            valid_edges = [(s, t) for s, t in zip(edge_source, edge_target) if s != 0 and t != 0]
-            
-            if valid_edges:
-                edge_index = torch.tensor(valid_edges, dtype=torch.long).t().contiguous()
-            else:
-                edge_index = torch.tensor([[0, 1], [1, 2]], dtype=torch.long).t().contiguous()
-            
-            # Prepare targets - handle both old demand format and new sales format
-            y = np.zeros(len(nodes))
-            store_nodes_found = 0
-            
-            print(f"Processing {len(demand)} sales/demand records...")
-            
-            # Check if we have time series sales data (t1, t2, t3, etc.)
-            time_columns = [col for col in demand.columns if col.startswith('t') and col[1:].isdigit()]
-            
-            # Prefer long-format if present to match base-model preprocessing
-            lower_cols_pref = {c.lower(): c for c in demand.columns}
-            prefer_date_col = None
-            for candidate in ['date', 'timestamp']:
-                if candidate in lower_cols_pref:
-                    prefer_date_col = lower_cols_pref[candidate]
-                    break
-            prefer_value_col = None
-            for candidate in ['demand', 'sales', 'value', 'quantity']:
-                if candidate in lower_cols_pref:
-                    prefer_value_col = lower_cols_pref[candidate]
-                    break
-            
-            if time_columns and not (prefer_date_col and prefer_value_col):
-                print(f"Found time series sales data with columns: {time_columns}")
-                # New format: node_id, type, t1, t2, t3, etc.
-                for _, row in demand.iterrows():
-                    node_id = row.get('node_id', '')
-                    
-                    # Calculate average sales across time periods
-                    sales_values = []
-                    for col in time_columns:
-                        try:
-                            val = float(row[col])
-                            if not pd.isna(val) and val > 0:
-                                sales_values.append(val)
-                        except (ValueError, TypeError):
-                            continue
-                    
-                    if sales_values:
-                        avg_sales = sum(sales_values) / len(sales_values)
-                        
-                        # Find matching node
-                        matching_nodes = nodes[nodes['node_id'] == node_id]
-                        if len(matching_nodes) > 0:
-                            node_idx = matching_nodes.index[0]
-                            y[node_idx] = avg_sales
-                            store_nodes_found += 1
-                            print(f"  Mapped node {node_id} -> index {node_idx}, avg sales: {avg_sales:.2f}")
-                        else:
-                            print(f"  WARNING: Node {node_id} not found in nodes")
-            else:
-                # Attempt to handle long-format date-based demand data: columns [node_id, date, demand]
-                lower_cols = {c.lower(): c for c in demand.columns}
-                date_col_name = None
-                for candidate in ['date', 'timestamp']:
-                    if candidate in lower_cols:
-                        date_col_name = lower_cols[candidate]
-                        break
-                value_col_name = None
-                for candidate in ['demand', 'sales', 'value', 'quantity']:
-                    if candidate in lower_cols:
-                        value_col_name = lower_cols[candidate]
-                        break
-                if date_col_name and value_col_name:
-                    print(f"Detected long-format demand data with date column '{date_col_name}' and value column '{value_col_name}'")
-                    # Ensure date type and sort
-                    try:
-                        demand[date_col_name] = pd.to_datetime(demand[date_col_name])
-                    except Exception:
-                        pass
-                    # Compute average demand per node for target y (use last available window later for x)
-                    grouped = demand.groupby('node_id')
-                    for node_id, grp in grouped:
-                        try:
-                            values = pd.to_numeric(grp[value_col_name], errors='coerce').dropna().values.tolist()
-                            if values:
-                                avg_sales = float(sum(values) / len(values))
-                                matching_nodes = nodes[nodes['node_id'] == node_id]
-                                if len(matching_nodes) > 0:
-                                    node_idx = matching_nodes.index[0]
-                                    y[node_idx] = avg_sales
-                                    store_nodes_found += 1
-                                    print(f"  Mapped node {node_id} -> index {node_idx}, avg demand: {avg_sales:.2f}")
-                        except Exception:
-                            continue
-                    # Prepare time series_x from last max_timesteps per node
-                    max_timesteps = min(10, max(1, grouped.apply(lambda g: len(g)).max() if len(demand) > 0 else 5))
-                    time_series_x = np.zeros((len(nodes), max_timesteps, 1))
-                    for node_id, grp in grouped:
-                        grp_sorted = grp.sort_values(date_col_name)
-                        values = pd.to_numeric(grp_sorted[value_col_name], errors='coerce').dropna().values
-                        if len(values) == 0:
-                            continue
-                        seq = values[-max_timesteps:]
-                        # left-pad if shorter than max_timesteps
-                        if len(seq) < max_timesteps:
-                            seq = np.pad(seq, (max_timesteps - len(seq), 0), mode='constant')
-                        matching_nodes = nodes[nodes['node_id'] == node_id]
-                        if len(matching_nodes) > 0:
-                            node_idx = matching_nodes.index[0]
-                            time_series_x[node_idx, :, 0] = seq
-                else:
-                    print("No time series columns found and no valid long-format [date,demand] columns detected")
-                    raise ValueError("GAT+LSTM requires either columns t1,t2,... or long-format [node_id,date,demand]")
-            
-            print(f"Found {store_nodes_found} nodes with sales/demand data")
-            
-            # Ensure we have some non-zero targets
-            non_zero_targets = np.count_nonzero(y)
-            print(f"Non-zero targets: {non_zero_targets}")
-            print(f"Target statistics: min={y.min():.2f}, max={y.max():.2f}, mean={y.mean():.2f}")
-            
-            y = torch.tensor(y, dtype=torch.float).unsqueeze(1)
-            
-            # For GAT+LSTM, we need time series data
-            # Convert sales data to time series format
-            if time_columns:
-                print("Preparing time series data for GAT+LSTM...")
-                # Create time series features (num_nodes, max_timesteps, 1)
-                max_timesteps = min(len(time_columns), 10)  # Limit to 10 timesteps
-                time_series_x = np.zeros((len(nodes), max_timesteps, 1))
+            edge_list = []
+            for _, row in edges_df.iterrows():
+                node1 = row['node1']
+                node2 = row['node2']
                 
-                for _, row in demand.iterrows():
-                    node_id = row.get('node_id', '')
-                    matching_nodes = nodes[nodes['node_id'] == node_id]
+                # Skip empty edges
+                if pd.isna(node1) or pd.isna(node2) or str(node1).strip() == '' or str(node2).strip() == '':
+                    continue
+                
+                if node1 in node_to_idx and node2 in node_to_idx:
+                    edge_list.append([node_to_idx[node1], node_to_idx[node2]])
+            
+            if not edge_list:
+                print("WARNING: No valid edges found, creating minimal edge structure")
+                edge_list = [[0, 1], [1, 0]] if len(node_list) > 1 else [[0, 0]]
+            
+            edge_index = torch.tensor(edge_list, dtype=torch.long).t().contiguous()
+            print(f"Created {len(edge_list)} edges")
+            
+            # Prepare time series data from sales
+            product_columns = [col for col in sales_df.columns if col != 'Date']
+            print(f"Found {len(product_columns)} product columns: {product_columns[:10]}")
+            
+            # Sort sales by date
+            sales_df['Date'] = pd.to_datetime(sales_df['Date'])
+            sales_df = sales_df.sort_values('Date')
+            
+            # Determine max timesteps (limit to 20 for memory efficiency)
+            max_timesteps = min(len(sales_df), 20)
+            print(f"Using max_timesteps: {max_timesteps}")
+            
+            # Create time series data (num_nodes, max_timesteps, 1)
+            time_series_x = np.zeros((len(node_list), max_timesteps, 1))
+            
+            # Fill in time series for each product (node)
+            for product in product_columns:
+                if product in node_to_idx:
+                    node_idx = node_to_idx[product]
                     
-                    if len(matching_nodes) > 0:
-                        node_idx = matching_nodes.index[0]
-                        # Extract time series values
-                        for t, col in enumerate(time_columns[:max_timesteps]):
-                            try:
-                                val = float(row[col])
-                                if not pd.isna(val):
-                                    time_series_x[node_idx, t, 0] = val
-                            except (ValueError, TypeError):
-                                continue
-                
-                # Create Data object with time series format
-                data = Data(
-                    x=torch.tensor(time_series_x, dtype=torch.float), 
-                    edge_index=edge_index, 
-                    y=y
-                )
-                data.max_timesteps = max_timesteps
-                print(f"Created time series data: {time_series_x.shape}")
-                # Prepare simple per-node scalers based on time series
-                training_scalers = {}
-                for node_id, idx in node_to_idx.items():
-                    series_vals = time_series_x[idx, :, 0].reshape(-1, 1)
-                    try:
-                        scaler = StandardScaler().fit(series_vals)
-                        training_scalers[node_id] = {
-                            'mean_': scaler.mean_.tolist(),
-                            'scale_': scaler.scale_.tolist()
-                        }
-                    except Exception:
-                        training_scalers[node_id] = {
-                            'mean_': [float(series_vals.mean())],
-                            'scale_': [float(series_vals.std() if series_vals.std() != 0 else 1.0)]
-                        }
-                
-            else:
-                # Use the long-format path's constructed time_series_x
-                data = Data(
-                    x=torch.tensor(time_series_x, dtype=torch.float),
-                    edge_index=edge_index,
-                    y=y
-                )
-                data.max_timesteps = time_series_x.shape[1]
-                # Prepare simple per-node scalers based on time series
-                training_scalers = {}
-                for node_id, idx in node_to_idx.items():
-                    series_vals = time_series_x[idx, :, 0].reshape(-1, 1)
-                    try:
-                        scaler = StandardScaler().fit(series_vals)
-                        training_scalers[node_id] = {
-                            'mean_': scaler.mean_.tolist(),
-                            'scale_': scaler.scale_.tolist()
-                        }
-                    except Exception:
-                        training_scalers[node_id] = {
-                            'mean_': [float(series_vals.mean())],
-                            'scale_': [float(series_vals.std() if series_vals.std() != 0 else 1.0)]
-                        }
+                    # Get sales values for this product
+                    sales_values = sales_df[product].values[-max_timesteps:]
+                    
+                    # Left-pad if shorter than max_timesteps
+                    if len(sales_values) < max_timesteps:
+                        sales_values = np.pad(sales_values, (max_timesteps - len(sales_values), 0), mode='constant')
+                    
+                    time_series_x[node_idx, :, 0] = sales_values
             
-            data.x_ids = torch.arange(len(nodes))
+            print(f"Time series data shape: {time_series_x.shape}")
+            print(f"Time series stats: min={time_series_x.min():.2f}, max={time_series_x.max():.2f}, mean={time_series_x.mean():.2f}")
             
-            # Find store nodes (nodes with non-zero demand)
-            store_indices = np.where(y.squeeze() > 0)[0]
+            # Create targets (average sales for each product)
+            y = np.zeros(len(node_list))
+            products_with_sales = 0
+            
+            for product in product_columns:
+                if product in node_to_idx:
+                    node_idx = node_to_idx[product]
+                    sales_values = sales_df[product].values
+                    
+                    # Calculate average sales
+                    non_zero_sales = sales_values[sales_values > 0]
+                    if len(non_zero_sales) > 0:
+                        y[node_idx] = non_zero_sales.mean()
+                        products_with_sales += 1
+            
+            print(f"Products with sales data: {products_with_sales}")
+            print(f"Target stats: min={y.min():.2f}, max={y.max():.2f}, mean={y.mean():.2f}")
+            
+            # Convert to PyTorch tensors
+            x_tensor = torch.tensor(time_series_x, dtype=torch.float)
+            y_tensor = torch.tensor(y, dtype=torch.float).unsqueeze(1)
+            
+            # Create Data object
+            data = Data(x=x_tensor, edge_index=edge_index, y=y_tensor)
+            data.max_timesteps = max_timesteps
+            data.x_ids = torch.arange(len(node_list))
+            
+            # Identify nodes with non-zero targets
+            store_indices = np.where(y > 0)[0]
             data.y_store_ids = torch.tensor(store_indices)
             
-            print(f"Store node indices for training: {store_indices}")
-            print(f"Store node targets: {y[store_indices].squeeze().tolist()}")
-            print(f"Data x shape: {data.x.shape}")
+            print(f"Store node indices: {len(store_indices)} nodes with non-zero sales")
             
-            # Persist training-time mappings for saving
-            try:
-                self._training_node_to_idx = node_to_idx
-                # Convert back to StandardScaler-like dicts for predictor reconstruction
-                self._training_scalers = {k: type('obj', (), {'mean_': np.array(v['mean_']), 'scale_': np.array(v['scale_'])}) for k, v in training_scalers.items()}
-            except Exception:
-                self._training_node_to_idx = node_to_idx
-                self._training_scalers = None
-
-            # Return data and the exact expanded feature column names used to build x
-            return data, expanded_feature_columns
+            # Prepare scalers for each node
+            training_scalers = {}
+            for node_id, idx in node_to_idx.items():
+                series_vals = time_series_x[idx, :, 0].reshape(-1, 1)
+                try:
+                    scaler = StandardScaler().fit(series_vals)
+                    training_scalers[node_id] = {
+                        'mean_': scaler.mean_.tolist(),
+                        'scale_': scaler.scale_.tolist()
+                    }
+                except Exception:
+                    training_scalers[node_id] = {
+                        'mean_': [float(series_vals.mean())],
+                        'scale_': [float(series_vals.std() if series_vals.std() != 0 else 1.0)]
+                    }
+            
+            # Store for later use
+            self._training_node_to_idx = node_to_idx
+            self._training_scalers = {k: type('obj', (), {'mean_': np.array(v['mean_']), 'scale_': np.array(v['scale_'])}) 
+                                     for k, v in training_scalers.items()}
+            
+            return data, feature_columns
             
         except Exception as e:
             print(f"Error preparing training data: {e}")
+            import traceback
+            traceback.print_exc()
             raise
     
     def _fine_tune_model(self, model, data, epochs=50, company_id=None):
@@ -516,12 +342,9 @@ class ModelTrainer:
             model.train()
             losses = []
             
-            # Ensure y_store_ids exists and has valid indices
             if not hasattr(data, 'y_store_ids') or len(data.y_store_ids) == 0:
                 print("❌ CRITICAL: No store nodes found for training!")
-                print("This means your demand data doesn't match any nodes in the nodes file.")
-                print("Check that store_id in demand.csv matches node_id in nodes.csv")
-                raise ValueError("No store nodes found for training - check data consistency")
+                raise ValueError("No store nodes found for training")
             
             print(f"Starting training with {len(data.y_store_ids)} store nodes...")
             
@@ -545,20 +368,19 @@ class ModelTrainer:
                 
                 # Update progress
                 if company_id:
-                    progress = 50 + int((epoch + 1) / epochs * 40)  # 50-90% range
+                    progress = 50 + int((epoch + 1) / epochs * 40)
                     self._update_training_status(company_id, "training", progress, 
                                                f"Training epoch {epoch+1}/{epochs}, Loss: {loss.item():.4f}")
                 
-                # Detailed logging every 10 epochs
+                # Logging
                 if (epoch + 1) % 10 == 0:
                     print(f'Epoch {epoch+1:03d}, Loss: {loss.item():.4f}')
-                    print(f'  Predictions: {store_predictions.squeeze().detach().numpy()[:5]}...')  # First 5
-                    print(f'  Targets:     {store_targets.squeeze().numpy()[:5]}...')  # First 5
-                    print(f'  Pred range:  [{store_predictions.min().item():.2f}, {store_predictions.max().item():.2f}]')
+                    print(f'  Predictions: {store_predictions.squeeze().detach().numpy()[:5]}...')
+                    print(f'  Targets:     {store_targets.squeeze().numpy()[:5]}...')
                 
-                # Early stopping if loss is very low
+                # Early stopping
                 if loss.item() < 1e-6:
-                    print(f"Early stopping at epoch {epoch+1} - loss converged")
+                    print(f"Early stopping at epoch {epoch+1}")
                     break
             
             return losses
@@ -568,19 +390,16 @@ class ModelTrainer:
             raise
     
     def save_company_model_to_atlas(self, company_id, model, feature_columns, metrics, scalers=None, node_to_idx=None, last_x=None):
-        """Save fine-tuned GAT+LSTM company model to MongoDB Atlas"""
+        """Save fine-tuned model to MongoDB Atlas"""
         try:
             if self.db is None:
                 raise Exception("MongoDB connection not available")
             
-            # Only GAT+LSTM models supported
             if not isinstance(model, HybridGATLSTM):
                 raise Exception("Only GAT+LSTM models are supported")
             
-            # GAT+LSTM model format
             model_state = {k: v.cpu() for k, v in model.state_dict().items()}
             
-            # Serialize scalers for prediction
             serializable_scalers = {}
             if scalers:
                 for node, scaler in scalers.items():
@@ -589,10 +408,9 @@ class ModelTrainer:
                         'scale_': scaler.scale_.tolist() if hasattr(scaler, 'scale_') else None
                     }
             
-            # Serialize model state
             model_bytes = pickle.dumps(model_state)
             model_size_mb = len(model_bytes) / (1024 * 1024)
-            print(f"Company GAT+LSTM model size: {model_size_mb:.2f} MB")
+            print(f"Company model size: {model_size_mb:.2f} MB")
             
             model_doc = {
                 'company_id': company_id,
@@ -600,7 +418,7 @@ class ModelTrainer:
                 'base_model_id': 'base_gat_lstm_model',
                 'architecture': {
                     'max_timesteps': getattr(model, 'max_timesteps', 5),
-                    'gat_hidden': 4,  # Default values
+                    'gat_hidden': 4,
                     'gat_heads': 6,
                     'lstm_hidden': 64,
                     'dropout': getattr(model, 'dropout', 0.5)
@@ -613,35 +431,29 @@ class ModelTrainer:
                 'created_at': pd.Timestamp.now()
             }
             
-            # Use GridFS for large models (>15MB)
+            # Use GridFS for large models
             if model_size_mb > 15:
-                print("Using GridFS for large company model...")
+                print("Using GridFS for large model...")
                 import gridfs
                 fs = gridfs.GridFS(self.db)
                 
-                # Delete old file if exists
                 old_files = list(fs.find({"filename": f"company_{company_id}_model"}))
                 for old_file in old_files:
                     fs.delete(old_file._id)
-                    print(f"✓ Deleted old company model GridFS file: {old_file._id}")
                 
-                # Store model in GridFS
                 file_id = fs.put(
                     model_bytes,
                     filename=f"company_{company_id}_model",
                     company_id=company_id,
                     upload_date=pd.Timestamp.now()
                 )
-                print(f"✓ Company model stored in GridFS with file_id: {file_id}")
                 
-                # Update metadata to reference GridFS
                 model_doc['model_storage'] = {
                     'type': 'gridfs',
                     'file_id': str(file_id),
                     'size_mb': model_size_mb
                 }
             else:
-                print("Storing company model directly in document...")
                 model_doc['model_storage'] = {
                     'type': 'embedded',
                     'model_bytes': model_bytes,
@@ -654,142 +466,81 @@ class ModelTrainer:
                 upsert=True
             )
             
-            print(f"GAT+LSTM company model saved to Atlas for company {company_id}")
+            print(f"Model saved to Atlas for company {company_id}")
             return True
             
         except Exception as e:
-            print(f"Error saving company model: {e}")
+            print(f"Error saving model: {e}")
             return False
     
-    def fine_tune_company_model(self, company_id, nodes_path, edges_path, demand_path, force_retrain=False):
-        """Complete fine-tuning pipeline for a company"""
+    def fine_tune_company_model(self, company_id, nodes_path, edges_path, sales_path, force_retrain=False):
+        """Complete fine-tuning pipeline"""
         try:
             print(f"Starting fine-tuning for company {company_id}")
-            print(f"Nodes path: {nodes_path}")
-            print(f"Edges path: {edges_path}")
-            print(f"Demand path: {demand_path}")
+            print(f"Nodes: {nodes_path}")
+            print(f"Edges: {edges_path}")
+            print(f"Sales: {sales_path}")
             
-            # Initialize training status
-            self._update_training_status(company_id, "starting", 0, "Initializing training process...")
+            self._update_training_status(company_id, "starting", 0, "Initializing...")
             
-            # Check if model already exists
+            # Check existing model
             if not force_retrain:
                 existing_model = self.check_company_model_exists(company_id)
                 if existing_model.get("exists", False):
                     print(f"Model already exists for company {company_id}")
-                    print(f"Model ID: {existing_model['model_id']}")
-                    print(f"Created: {existing_model['created_at']}")
-                    print(f"Final Loss: {existing_model.get('metrics', {}).get('final_loss', 'N/A')}")
-                    
-                    self._update_training_status(company_id, "completed", 100, "Model already exists and trained")
+                    self._update_training_status(company_id, "completed", 100, "Model already trained")
                     return True
             
-            # Check if files exist
-            self._update_training_status(company_id, "validating", 10, "Checking input files...")
-            
+            # Validate files
+            self._update_training_status(company_id, "validating", 10, "Checking files...")
             missing_files = []
             if not os.path.exists(nodes_path):
-                missing_files.append(f"Nodes file: {nodes_path}")
+                missing_files.append(f"Nodes: {nodes_path}")
             if not os.path.exists(edges_path):
-                missing_files.append(f"Edges file: {edges_path}")
-            if not os.path.exists(demand_path):
-                missing_files.append(f"Demand file: {demand_path}")
+                missing_files.append(f"Edges: {edges_path}")
+            if not os.path.exists(sales_path):
+                missing_files.append(f"Sales: {sales_path}")
             
             if missing_files:
-                error_msg = "Missing required files:\n" + "\n".join(missing_files)
-                print(f"ERROR: {error_msg}")
+                error_msg = "Missing files:\n" + "\n".join(missing_files)
                 self._update_training_status(company_id, "failed", 0, "File validation failed", error_msg)
                 return False
             
             # Load base model
             self._update_training_status(company_id, "loading_model", 20, "Loading base model...")
-            print("Loading base model...")
-            try:
-                model, node_list, scalers, node_to_idx = self._load_base_model()
-                print("Base model loaded successfully")
-            except Exception as e:
-                error_msg = f"Failed to load base model: {str(e)}"
-                print(f"ERROR: {error_msg}")
-                self._update_training_status(company_id, "failed", 20, "Base model loading failed", error_msg)
-                return False
+            model, node_list, scalers, node_to_idx = self._load_base_model()
             
-            # Diagnose training data first
-            self._update_training_status(company_id, "preparing_data", 30, "Diagnosing training data...")
-            diagnosis = self.diagnose_training_data(nodes_path, edges_path, demand_path)
+            # Prepare data
+            self._update_training_status(company_id, "preparing_data", 30, "Preparing training data...")
+            data, feature_columns = self._prepare_training_data(nodes_path, edges_path, sales_path)
             
-            if diagnosis.get('matching_stores', 0) == 0:
-                error_msg = "No matching store IDs found between nodes and demand data"
-                print(f"❌ CRITICAL ERROR: {error_msg}")
-                self._update_training_status(company_id, "failed", 30, "Data validation failed", error_msg)
-                return False
+            # Fine-tune
+            self._update_training_status(company_id, "training", 50, "Training model...")
+            losses = self._fine_tune_model(model, data, epochs=50, company_id=company_id)
             
-            # Prepare training data
-            self._update_training_status(company_id, "preparing_data", 35, "Preparing and validating training data...")
-            print("Preparing training data...")
-            try:
-                data, feature_columns = self._prepare_training_data(nodes_path, edges_path, demand_path)
-                print(f"Training data prepared with {len(feature_columns)} features")
-            except Exception as e:
-                error_msg = f"Data preparation failed: {str(e)}"
-                print(f"ERROR: {error_msg}")
-                self._update_training_status(company_id, "failed", 35, "Data preparation failed", error_msg)
-                return False
-            
-            # Model compatibility check (GAT+LSTM only)
-            self._update_training_status(company_id, "checking_model", 40, "Checking model compatibility...")
-            try:
-                # For HybridGATLSTM, input to conv layers comes from LSTM output; data.x is (num_nodes, timesteps, 1)
-                # No action needed here; proceed with the existing HybridGATLSTM model
-                print("Using HybridGATLSTM model; no additional compatibility changes required")
-            except Exception as e:
-                print(f"Model compatibility check warning: {e}. Proceeding with existing HybridGATLSTM model")
-            
-            # Fine-tune model
-            self._update_training_status(company_id, "training", 50, "Training model on company data...")
-            print("Starting model fine-tuning...")
-            try:
-                losses = self._fine_tune_model(model, data, epochs=50, company_id=company_id)
-                print(f"Fine-tuning completed with {len(losses)} epochs")
-            except Exception as e:
-                error_msg = f"Model training failed: {str(e)}"
-                print(f"ERROR: {error_msg}")
-                self._update_training_status(company_id, "failed", 50, "Model training failed", error_msg)
-                return False
-            
-            # Calculate metrics
-            self._update_training_status(company_id, "saving", 90, "Saving trained model...")
+            # Save model
+            self._update_training_status(company_id, "saving", 90, "Saving model...")
             metrics = {
                 'final_loss': losses[-1] if losses else 0,
                 'training_epochs': len(losses),
                 'loss_history': losses
             }
             
-            # Save fine-tuned model
-            print("Saving fine-tuned model to Atlas...")
-            try:
-                # Get scalers and node mapping from training data preparation
-                scalers = getattr(self, '_training_scalers', None)
-                node_to_idx = getattr(self, '_training_node_to_idx', None)
-                success = self.save_company_model_to_atlas(company_id, model, feature_columns, metrics, scalers, node_to_idx)
-                
-                if success:
-                    self._update_training_status(company_id, "completed", 100, 
-                                                f"Training completed successfully! Final loss: {losses[-1]:.4f}")
-                    print(f"Fine-tuning completed successfully for company {company_id}")
-                    return True
-                else:
-                    error_msg = "Failed to save model to database"
-                    self._update_training_status(company_id, "failed", 90, "Model saving failed", error_msg)
-                    print(f"Failed to save fine-tuned model for company {company_id}")
-                    return False
-            except Exception as e:
-                error_msg = f"Error saving model: {str(e)}"
-                self._update_training_status(company_id, "failed", 90, "Model saving failed", error_msg)
-                print(f"ERROR: {error_msg}")
+            scalers = getattr(self, '_training_scalers', None)
+            node_to_idx = getattr(self, '_training_node_to_idx', None)
+            
+            success = self.save_company_model_to_atlas(company_id, model, feature_columns, metrics, scalers, node_to_idx)
+            
+            if success:
+                self._update_training_status(company_id, "completed", 100, 
+                                           f"Training completed! Final loss: {losses[-1]:.4f}")
+                return True
+            else:
+                self._update_training_status(company_id, "failed", 90, "Model saving failed")
                 return False
                 
         except Exception as e:
-            error_msg = f"Unexpected error during fine-tuning: {str(e)}"
+            error_msg = f"Training failed: {str(e)}"
             print(f"ERROR: {error_msg}")
             import traceback
             traceback.print_exc()
@@ -797,7 +548,7 @@ class ModelTrainer:
             return False
     
     def _update_training_status(self, company_id, status, progress=0, message="", error=None):
-        """Update training status in memory"""
+        """Update training status"""
         self.training_status[company_id] = {
             "status": status,
             "progress": progress,
@@ -805,19 +556,17 @@ class ModelTrainer:
             "error": error,
             "timestamp": pd.Timestamp.now().isoformat()
         }
-        print(f"Training status updated for {company_id}: {status} ({progress}%) - {message}")
+        print(f"Status [{company_id}]: {status} ({progress}%) - {message}")
 
     def get_training_status(self, company_id):
-        """Get training status for a company"""
+        """Get training status"""
         try:
-            # Check in-memory status first (for active training)
             if company_id in self.training_status:
                 return self.training_status[company_id]
             
             if self.db is None:
                 return {"status": "database_unavailable", "progress": 0}
             
-            # Check if company model exists (completed training)
             model_doc = self.db.company_models.find_one({'company_id': company_id})
             
             if model_doc:
@@ -826,24 +575,23 @@ class ModelTrainer:
                     "progress": 100,
                     "model_id": str(model_doc['_id']),
                     "created_at": model_doc.get('created_at', 'unknown'),
-                    "message": "Model training completed successfully"
+                    "message": "Model training completed"
                 }
             else:
                 return {
                     "status": "not_found", 
                     "progress": 0,
-                    "message": "No training found for this company"
+                    "message": "No training found"
                 }
                 
         except Exception as e:
-            print(f"Error getting training status: {e}")
             return {"status": "error", "progress": 0, "message": str(e)}
     
     def check_company_model_exists(self, company_id):
-        """Check if a fine-tuned model already exists for a company"""
+        """Check if model exists"""
         try:
             if self.db is None:
-                return {"exists": False, "error": "Database connection unavailable"}
+                return {"exists": False, "error": "Database unavailable"}
             
             model_doc = self.db.company_models.find_one({'company_id': company_id})
             
@@ -860,14 +608,13 @@ class ModelTrainer:
                 return {"exists": False}
                 
         except Exception as e:
-            print(f"Error checking company model: {e}")
             return {"exists": False, "error": str(e)}
 
     def check_base_model_exists(self):
-        """Check if the base model exists in the database"""
+        """Check if base model exists"""
         try:
             if self.db is None:
-                return {"exists": False, "error": "Database connection unavailable"}
+                return {"exists": False, "error": "Database unavailable"}
             
             base_model_doc = self.db.models.find_one({"_id": "base_gat_lstm_model"})
             
@@ -875,16 +622,113 @@ class ModelTrainer:
                 return {
                     "exists": True,
                     "model_id": str(base_model_doc['_id']),
-                    "input_dim": base_model_doc.get('input_dim', 'unknown'),
-                    "model_data_size": len(base_model_doc.get('model_data', b'')),
                     "created_at": base_model_doc.get('created_at', 'unknown')
                 }
             else:
                 return {"exists": False}
                 
         except Exception as e:
-            print(f"Error checking base model: {e}")
             return {"exists": False, "error": str(e)}
+
+    def diagnose_training_data(self, nodes_path, edges_path, sales_path):
+        """Diagnose training data"""
+        try:
+            print("🔍 DIAGNOSING TRAINING DATA...")
+            
+            nodes = pd.read_csv(nodes_path)
+            edges = pd.read_csv(edges_path)
+            sales = pd.read_csv(sales_path)
+            
+            print(f"📊 DATA SUMMARY:")
+            print(f"  Nodes: {len(nodes)} rows, columns: {list(nodes.columns)}")
+            print(f"  Edges: {len(edges)} rows, columns: {list(edges.columns)}")
+            print(f"  Sales: {len(sales)} rows, columns: {list(sales.columns)}")
+            
+            node_list = nodes['Node'].tolist() if 'Node' in nodes.columns else []
+            product_columns = [col for col in sales.columns if col != 'Date']
+            
+            print(f"  Nodes (first 10): {node_list[:10]}")
+            print(f"  Products (first 10): {product_columns[:10]}")
+            
+            matching_products = set(node_list).intersection(set(product_columns))
+            print(f"  Matching products: {len(matching_products)} out of {len(product_columns)}")
+            
+            if 'Date' in sales.columns:
+                sales['Date'] = pd.to_datetime(sales['Date'])
+                print(f"  Date range: {sales['Date'].min()} to {sales['Date'].max()}")
+                print(f"  Time periods: {len(sales)}")
+            
+            # Calculate sales statistics
+            sales_values = []
+            for col in product_columns:
+                if col in sales.columns:
+                    vals = pd.to_numeric(sales[col], errors='coerce').dropna().values
+                    sales_values.extend(vals[vals > 0])
+            
+            if sales_values:
+                print(f"  Sales statistics:")
+                print(f"    Min: {min(sales_values):.2f}")
+                print(f"    Max: {max(sales_values):.2f}")
+                print(f"    Mean: {sum(sales_values)/len(sales_values):.2f}")
+                print(f"    Non-zero values: {len(sales_values)}")
+            
+            return {
+                'nodes_count': len(nodes),
+                'edges_count': len(edges),
+                'sales_count': len(sales),
+                'matching_products': len(matching_products),
+                'product_columns': product_columns[:20],  # First 20
+                'time_periods': len(sales),
+                'sales_stats': {
+                    'min': float(min(sales_values)) if sales_values else 0,
+                    'max': float(max(sales_values)) if sales_values else 0,
+                    'mean': float(sum(sales_values)/len(sales_values)) if sales_values else 0,
+                    'non_zero': len(sales_values) if sales_values else 0
+                } if sales_values else {}
+            }
+            
+        except Exception as e:
+            print(f"Error diagnosing data: {e}")
+            import traceback
+            traceback.print_exc()
+            return {"error": str(e)}
+
+    def get_training_data_info(self, nodes_path, edges_path, sales_path):
+        """Get information about training data files"""
+        try:
+            info = {}
+            
+            info['nodes_exists'] = os.path.exists(nodes_path)
+            info['edges_exists'] = os.path.exists(edges_path)
+            info['sales_exists'] = os.path.exists(sales_path)
+            
+            if info['nodes_exists']:
+                nodes = pd.read_csv(nodes_path)
+                info['nodes_count'] = len(nodes)
+                info['nodes_columns'] = list(nodes.columns)
+                info['nodes_sample'] = nodes.head(5).to_dict('records')
+            
+            if info['edges_exists']:
+                edges = pd.read_csv(edges_path)
+                info['edges_count'] = len(edges)
+                info['edges_columns'] = list(edges.columns)
+                info['edges_sample'] = edges.head(5).to_dict('records')
+            
+            if info['sales_exists']:
+                sales = pd.read_csv(sales_path)
+                info['sales_count'] = len(sales)
+                info['sales_columns'] = list(sales.columns)
+                info['sales_sample'] = sales.head(5).to_dict('records')
+                
+                # Get product columns (excluding Date)
+                product_columns = [col for col in sales.columns if col != 'Date']
+                info['product_count'] = len(product_columns)
+                info['product_columns'] = product_columns[:20]  # First 20
+            
+            return info
+            
+        except Exception as e:
+            return {"error": f"Error reading training data: {str(e)}"}
 
     def get_model_info(self, company_id):
         """Get model information for a company"""
@@ -901,6 +745,8 @@ class ModelTrainer:
                     "base_model_id": model_doc.get('base_model_id', 'unknown'),
                     "metrics": model_doc.get('metrics', {}),
                     "feature_columns": model_doc.get('feature_columns', []),
+                    "node_count": len(model_doc.get('node_list', [])),
+                    "architecture": model_doc.get('architecture', {}),
                     "created_at": model_doc.get('created_at', 'unknown')
                 }
             else:
@@ -909,128 +755,3 @@ class ModelTrainer:
         except Exception as e:
             print(f"Error getting model info: {e}")
             return {"error": str(e)}
-
-    def diagnose_training_data(self, nodes_path, edges_path, demand_path):
-        """Diagnose training data issues"""
-        try:
-            print("🔍 DIAGNOSING TRAINING DATA...")
-            
-            # Load data
-            nodes = pd.read_csv(nodes_path)
-            edges = pd.read_csv(edges_path)
-            demand = pd.read_csv(demand_path)
-            
-            print(f"📊 DATA SUMMARY:")
-            print(f"  Nodes: {len(nodes)} rows, columns: {list(nodes.columns)}")
-            print(f"  Edges: {len(edges)} rows, columns: {list(edges.columns)}")
-            print(f"  Demand: {len(demand)} rows, columns: {list(demand.columns)}")
-            
-            # Check node IDs
-            node_ids = set(nodes['node_id'])
-            print(f"  Node IDs (first 10): {list(node_ids)[:10]}")
-            
-            # Check demand node IDs (new format uses node_id, not store_id)
-            demand_node_ids = set(demand['node_id'])
-            print(f"  Demand Node IDs (first 10): {list(demand_node_ids)[:10]}")
-            
-            # Check overlap
-            matching_nodes = node_ids.intersection(demand_node_ids)
-            print(f"  Matching node IDs: {len(matching_nodes)} out of {len(demand_node_ids)}")
-            print(f"  Matching IDs: {list(matching_nodes)[:10]}")
-            
-            # Check time series data (t1, t2, t3, etc.) or long format
-            time_columns = [col for col in demand.columns if col.startswith('t') and col[1:].isdigit()]
-            print(f"  Time series columns: {time_columns}")
-            lower_cols = {c.lower(): c for c in demand.columns}
-            date_col_name = None
-            for candidate in ['date', 'timestamp']:
-                if candidate in lower_cols:
-                    date_col_name = lower_cols[candidate]
-                    break
-            value_col_name = None
-            for candidate in ['demand', 'sales', 'value', 'quantity']:
-                if candidate in lower_cols:
-                    value_col_name = lower_cols[candidate]
-                    break
-            
-            if time_columns:
-                # Calculate average sales across time periods
-                sales_values = []
-                for _, row in demand.iterrows():
-                    for col in time_columns:
-                        try:
-                            val = float(row[col])
-                            if not pd.isna(val) and val > 0:
-                                sales_values.append(val)
-                        except (ValueError, TypeError):
-                            continue
-                
-                if sales_values:
-                    print(f"  Sales statistics:")
-                    print(f"    Min: {min(sales_values):.2f}")
-                    print(f"    Max: {max(sales_values):.2f}")
-                    print(f"    Mean: {sum(sales_values)/len(sales_values):.2f}")
-                    print(f"    Non-zero values: {len(sales_values)}")
-            elif date_col_name and value_col_name:
-                print(f"  Long-format detected with date column '{date_col_name}' and value column '{value_col_name}'")
-                try:
-                    demand[date_col_name] = pd.to_datetime(demand[date_col_name])
-                except Exception:
-                    pass
-                sales_values = pd.to_numeric(demand[value_col_name], errors='coerce').dropna().tolist()
-                if sales_values:
-                    print(f"  Sales statistics (long format):")
-                    print(f"    Min: {min(sales_values):.2f}")
-                    print(f"    Max: {max(sales_values):.2f}")
-                    print(f"    Mean: {sum(sales_values)/len(sales_values):.2f}")
-                    print(f"    Non-zero values: {len([v for v in sales_values if v>0])}")
-            
-            return {
-                'nodes_count': len(nodes),
-                'demand_count': len(demand),
-                'matching_stores': len(matching_nodes),  # Updated to use matching_nodes
-                'time_columns': time_columns,
-                'sales_stats': {
-                    'min': float(min(sales_values)) if sales_values else 0,
-                    'max': float(max(sales_values)) if sales_values else 0,
-                    'mean': float(sum(sales_values)/len(sales_values)) if sales_values else 0,
-                    'non_zero': len(sales_values) if sales_values else 0
-                } if 'sales_values' in locals() and sales_values else {},
-                'format': 'wide' if time_columns else ('long' if date_col_name and value_col_name else 'unknown')
-            }
-            
-        except Exception as e:
-            print(f"Error diagnosing data: {e}")
-            return {"error": str(e)}
-
-    def get_training_data_info(self, nodes_path, edges_path, demand_path):
-        """Get information about the training data files"""
-        try:
-            info = {}
-            
-            # Check if files exist
-            info['nodes_exists'] = os.path.exists(nodes_path)
-            info['edges_exists'] = os.path.exists(edges_path)
-            info['demand_exists'] = os.path.exists(demand_path)
-            
-            if info['nodes_exists']:
-                import pandas as pd
-                nodes = pd.read_csv(nodes_path)
-                info['nodes_count'] = len(nodes)
-                info['nodes_columns'] = list(nodes.columns)
-                info['nodes_dtypes'] = {col: str(nodes[col].dtype) for col in nodes.columns}
-            
-            if info['edges_exists']:
-                edges = pd.read_csv(edges_path)
-                info['edges_count'] = len(edges)
-                info['edges_columns'] = list(edges.columns)
-            
-            if info['demand_exists']:
-                demand = pd.read_csv(demand_path)
-                info['demand_count'] = len(demand)
-                info['demand_columns'] = list(demand.columns)
-            
-            return info
-            
-        except Exception as e:
-            return {"error": f"Error reading training data: {str(e)}"}

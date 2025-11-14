@@ -90,12 +90,12 @@ export async function getTrainingStatus(companyId) {
   return result;
 }
 
-export async function predict(companyId, input_data) {
-  logger.info('API', 'Making prediction', { companyId, input_data_length: input_data?.length });
+export async function predict(companyId, input_data, forecastDays = 30) {
+  logger.info('API', 'Making prediction', { companyId, input_data_length: input_data?.length, forecastDays });
   const res = await fetch(`${API_BASE}/api/ml/predict/${companyId}`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ input_data })
+    body: JSON.stringify({ input_data, forecast_days: forecastDays })
   });
 
   if (!res.ok) {

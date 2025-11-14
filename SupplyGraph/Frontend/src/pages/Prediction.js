@@ -113,29 +113,42 @@ const Prediction = () => {
         productName: formData.productName
       });
 
-      console.log('[Prediction] Sending prediction request to backend');
-      const resp = await predict(companyId, [inputRow]);
+      console.log('[Prediction] Sending prediction request to backend (30-day forecast)');
+      const resp = await predict(companyId, [inputRow], 30); // Request 30-day forecast
       console.log('[Prediction] Prediction response received', {
         success: resp?.success,
         hasPrediction: !!resp?.prediction,
-        responseKeys: Object.keys(resp || {})
+        responseKeys: Object.keys(resp || {}),
+        is30DayForecast: Array.isArray(resp?.prediction?.prediction) && resp?.prediction?.prediction.length === 30
       });
 
       const predObj = resp?.prediction ?? resp; // handle both {prediction:{...}} and flat {...}
 
-      // Parse and coerce the prediction to a safe number
-      const yhatRaw = Array.isArray(predObj?.prediction)
-        ? predObj.prediction[0]
-        : Array.isArray(resp?.prediction)
-          ? resp.prediction[0]
-          : undefined;
-      const yhatParsed = typeof yhatRaw === 'number' ? yhatRaw : Number(yhatRaw);
-      const yhat = Number.isFinite(yhatParsed) ? yhatParsed : 0;
+      // Handle 30-day forecast or single day prediction
+      let yhat = 0;
+      let total30Days = 0;
+      let forecastArray = null;
+      
+      if (predObj?.prediction && Array.isArray(predObj.prediction) && predObj.prediction.length === 30) {
+        // 30-day forecast
+        forecastArray = predObj.prediction;
+        total30Days = predObj.total_30_days || forecastArray.reduce((sum, val) => sum + (Number(val) || 0), 0);
+        yhat = predObj.average_daily || (total30Days / 30);
+      } else {
+        // Single day prediction (backward compatibility)
+        const yhatRaw = Array.isArray(predObj?.prediction)
+          ? predObj.prediction[0]
+          : Array.isArray(resp?.prediction)
+            ? resp.prediction[0]
+            : undefined;
+        const yhatParsed = typeof yhatRaw === 'number' ? yhatRaw : Number(yhatRaw);
+        yhat = Number.isFinite(yhatParsed) ? yhatParsed : 0;
+      }
 
       console.log('[Prediction] Parsed prediction value', {
-        raw: yhatRaw,
-        parsed: yhatParsed,
         final: yhat,
+        total30Days: total30Days,
+        is30DayForecast: !!forecastArray,
         isValid: Number.isFinite(yhat)
       });
 
@@ -183,9 +196,12 @@ const Prediction = () => {
       else if (yhat < 50) trend = 'decreasing';
 
       const predictionPayload = {
-        predictedDemand: Math.round(yhat),
-        displayPredicted: Number.isFinite(yhat) ? Number(yhat.toFixed(1)) : 0,
-        rawPredicted: yhat,
+        predictedDemand: Math.round(total30Days || yhat), // Show total for 30 days if available
+        displayPredicted: Number.isFinite(total30Days) ? Number(total30Days.toFixed(1)) : (Number.isFinite(yhat) ? Number(yhat.toFixed(1)) : 0),
+        rawPredicted: total30Days || yhat,
+        prediction: forecastArray || (Array.isArray(predObj?.prediction) ? predObj.prediction : [yhat]), // Include full forecast array
+        total_30_days: total30Days,
+        average_daily: yhat,
         confidence: `${Math.round(confidence)}%`,
         trend: trend,
         storeName: formData.storeName,
@@ -393,7 +409,9 @@ const Prediction = () => {
                           return Number.isFinite(v) ? v.toLocaleString(undefined, { maximumFractionDigits: 1 }) : '0.0';
                         })()}
                       </div>
-                      <p className="text-slate-600 dark:text-slate-400 font-medium">Predicted Units</p>
+                      <p className="text-slate-600 dark:text-slate-400 font-medium">
+                        {prediction?.total_30_days ? 'Predicted Units (30 Days)' : 'Predicted Units (Next Day)'}
+                      </p>
                       <div className="mt-2 h-1 bg-gradient-to-r from-blue-400 to-purple-400 dark:from-blue-500 dark:to-purple-500 rounded-full"></div>
                     </div>
                   </div>
@@ -482,20 +500,20 @@ const Prediction = () => {
                   <div className="space-y-6">
                     {/* Simple Line Chart */}
                     <DemandChart
-                      historicalData={prediction.historicalData}
+                      historicalData={[]}
                       prediction={prediction}
                       chartType="line"
-                      title={`Demand Timeline for ${prediction.productName}`}
+                      title={`Demand Forecast - Next 30 Days for ${prediction.productName}`}
                       showPrediction={true}
                       productName={prediction.productName}
                     />
 
                     {/* Simple Bar Chart */}
                     <DemandChart
-                      historicalData={prediction.historicalData}
+                      historicalData={[]}
                       prediction={prediction}
                       chartType="bar"
-                      title={`Demand Comparison for ${prediction.productName}`}
+                      title={`Demand Forecast - Next 30 Days for ${prediction.productName}`}
                       showPrediction={true}
                       productName={prediction.productName}
                     />

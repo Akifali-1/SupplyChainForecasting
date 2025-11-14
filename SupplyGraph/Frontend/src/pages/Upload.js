@@ -586,34 +586,23 @@ const Upload = () => {
             {uploadType === 'single' ? (
               <div className="space-y-4">
                 <h4 className="font-semibold text-slate-800 dark:text-white">Single Dataset Requirements:</h4>
-                <div className="bg-blue-50 dark:bg-slate-800 p-4 rounded-lg border border-blue-200 dark:border-slate-700">
-                  <p className="text-sm text-slate-700 dark:text-slate-300 mb-3">Your CSV file should contain the following columns:</p>
-                  <div className="grid grid-cols-2 gap-2 text-sm">
+                <div className="bg-blue-50 dark:bg-slate-800 p-4 rounded-lg border border-blue-200 dark:border-slate-700 space-y-4">
+                  <p className="text-sm text-slate-700 dark:text-slate-300">Provide one CSV that our processor can convert into nodes/edges/Sales Order files.</p>
+                  <div className="space-y-3 text-sm">
                     <div className="flex items-center space-x-2">
-                      <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
-                      <span><strong>warehouse_id</strong> - Warehouse identifier</span>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <div className="w-2 h-2 bg-purple-500 rounded-full"></div>
-                      <span><strong>product_id</strong> - Product identifier</span>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                      <span><strong>store_name</strong> - Store location name</span>
+                      <div className="w-2 h-2 bg-pink-500 rounded-full"></div>
+                      <span><strong>Date</strong> column (YYYY-MM-DD) — required.</span>
                     </div>
                     <div className="flex items-center space-x-2">
                       <div className="w-2 h-2 bg-orange-500 rounded-full"></div>
-                      <span><strong>demand</strong> - Historical demand values</span>
+                      <span><strong>Numeric product columns</strong> (one per SKU) — names can be anything, values must be numeric. These columns become nodes and the Sales Order wide format.</span>
                     </div>
                     <div className="flex items-center space-x-2">
-                      <div className="w-2 h-2 bg-pink-500 rounded-full"></div>
-                      <span><strong>date</strong> - Date (YYYY-MM-DD format)</span>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <div className="w-2 h-2 bg-cyan-500 rounded-full"></div>
-                      <span><strong>category</strong> - Product category</span>
+                      <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+                      <span><strong>Optional graph context</strong>: <code>Plant</code>, <code>node1</code>, <code>node2</code> (or synonyms such as “factory”, “source”, “target”). When present, we use them to build Edges (Plant).csv automatically.</span>
                     </div>
                   </div>
+                  <p className="text-xs text-slate-600 dark:text-slate-400 italic">Example header: <code>Date, Plant, node1, node2, Product_A, Product_B, Product_C</code></p>
                 </div>
               </div>
             ) : (
@@ -624,30 +613,28 @@ const Upload = () => {
                   <div className="bg-green-50 dark:bg-slate-800 p-4 rounded-lg border border-green-200 dark:border-slate-700">
                     <h5 className="font-semibold text-green-800 dark:text-green-400 mb-2">nodes.csv</h5>
                     <ul className="text-sm text-green-700 dark:text-green-300 space-y-1">
-                      <li>• <strong>node_id</strong> - Unique node identifier</li>
-                      <li>• <strong>store_name</strong> - Store location name</li>
-                      <li>• <strong>warehouse_id</strong> - Warehouse identifier</li>
-                      <li>• <strong>location</strong> - Geographic location</li>
+                      <li>• <strong>Node</strong> - Product/SKU name (must match Sales Order columns)</li>
+                      <li>• <strong>Plant</strong> - Optional parent facility or plant reference</li>
                     </ul>
                   </div>
 
                   <div className="bg-orange-50 dark:bg-slate-800 p-4 rounded-lg border border-orange-200 dark:border-slate-700">
-                    <h5 className="font-semibold text-orange-800 dark:text-orange-400 mb-2">edges.csv</h5>
+                    <h5 className="font-semibold text-orange-800 dark:text-orange-400 mb-2">Edges (Plant).csv</h5>
                     <ul className="text-sm text-orange-700 dark:text-orange-300 space-y-1">
-                      <li>• <strong>edge_id</strong> - Unique edge identifier</li>
-                      <li>• <strong>from_node</strong> - Source node ID</li>
-                      <li>• <strong>to_node</strong> - Destination node ID</li>
-                      <li>• <strong>weight</strong> - Connection strength</li>
+                      <li>• <strong>Plant</strong> - Facility or hub</li>
+                      <li>• <strong>node1</strong> - Source node (can be plant or product)</li>
+                      <li>• <strong>node2</strong> - Destination node</li>
+                      <li className="text-xs text-orange-600 dark:text-orange-400">Add both Plant→Product and Product→Plant rows to capture bidirectional links.</li>
                     </ul>
                   </div>
 
                   <div className="bg-pink-50 dark:bg-slate-800 p-4 rounded-lg border border-pink-200 dark:border-slate-700">
-                    <h5 className="font-semibold text-pink-800 dark:text-pink-400 mb-2">demand.csv</h5>
+                    <h5 className="font-semibold text-pink-800 dark:text-pink-400 mb-2">Sales Order.csv</h5>
                     <ul className="text-sm text-pink-700 dark:text-pink-300 space-y-1">
-                      <li>• <strong>node_id</strong> - Reference to node</li>
-                      <li>• <strong>product_id</strong> - Product identifier</li>
-                      <li>• <strong>date</strong> - Date (YYYY-MM-DD)</li>
-                      <li>• <strong>demand</strong> - Demand quantity</li>
+                      <li>• <strong>Date</strong> column</li>
+                      <li>• One column per product/SKU (names must match <code>Node</code> values)</li>
+                      <li>• Each row represents aggregated demand for that date</li>
+                      <li className="text-xs text-pink-600 dark:text-pink-400">This file is the “demand.csv” path referenced by the API.</li>
                     </ul>
                   </div>
                 </div>

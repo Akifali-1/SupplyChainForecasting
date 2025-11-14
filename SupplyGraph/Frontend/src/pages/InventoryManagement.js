@@ -79,6 +79,30 @@ const InventoryManagement = () => {
     });
   }, [trendingItems]);
 
+  const derivedSummary = React.useMemo(() => {
+    if (!trendingItems.length) return null;
+
+    const downItems = trendingItems.filter(item => {
+      const direction = String(item.trend_direction || '').toLowerCase();
+      if (direction === 'down') return true;
+      const growth = Number(item.growth_rate || 0);
+      return growth < 0;
+    }).length;
+
+    const total = trendingItems.length;
+    const up = stockUpItems.length;
+    const stable = Math.max(0, total - up - downItems);
+
+    return {
+      total_products: total,
+      trending_up: up,
+      trending_down: downItems,
+      stable
+    };
+  }, [trendingItems, stockUpItems]);
+
+  const summaryMetrics = derivedSummary || analytics;
+
   const getTrendIcon = (direction) => {
     switch (direction) {
       case 'up':
@@ -157,14 +181,14 @@ const InventoryManagement = () => {
         </div>
 
         {/* Summary Cards */}
-        {analytics && (
+        {summaryMetrics && (
           <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8 animate-fade-in-up" style={{ animationDelay: '0.1s' }}>
             <Card className="shadow-lg border-0 bg-white/90 dark:bg-slate-800/90 backdrop-blur-sm hover:shadow-xl transition-all duration-300">
               <CardContent className="p-6">
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-sm font-medium text-slate-600 dark:text-slate-400">Total Products</p>
-                    <p className="text-2xl font-bold text-slate-900 dark:text-white">{analytics.total_products}</p>
+                    <p className="text-2xl font-bold text-slate-900 dark:text-white">{summaryMetrics.total_products ?? '--'}</p>
                   </div>
                   <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-blue-600 rounded-lg flex items-center justify-center">
                     <Package className="h-6 w-6 text-white" />
@@ -178,7 +202,7 @@ const InventoryManagement = () => {
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-sm font-medium text-slate-600 dark:text-slate-400">Trending Up</p>
-                    <p className="text-2xl font-bold text-green-600 dark:text-green-400">{analytics.trending_up}</p>
+                    <p className="text-2xl font-bold text-green-600 dark:text-green-400">{summaryMetrics.trending_up ?? 0}</p>
                   </div>
                   <div className="w-12 h-12 bg-gradient-to-br from-green-500 to-green-600 rounded-lg flex items-center justify-center">
                     <TrendingUp className="h-6 w-6 text-white" />
@@ -192,7 +216,7 @@ const InventoryManagement = () => {
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-sm font-medium text-slate-600 dark:text-slate-400">Trending Down</p>
-                    <p className="text-2xl font-bold text-red-600 dark:text-red-400">{analytics.trending_down}</p>
+                    <p className="text-2xl font-bold text-red-600 dark:text-red-400">{summaryMetrics.trending_down ?? 0}</p>
                   </div>
                   <div className="w-12 h-12 bg-gradient-to-br from-red-500 to-red-600 rounded-lg flex items-center justify-center">
                     <TrendingDown className="h-6 w-6 text-white" />
@@ -206,7 +230,7 @@ const InventoryManagement = () => {
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-sm font-medium text-slate-600 dark:text-slate-400">Stable Items</p>
-                    <p className="text-2xl font-bold text-slate-600 dark:text-slate-400">{analytics.stable}</p>
+                    <p className="text-2xl font-bold text-slate-600 dark:text-slate-400">{summaryMetrics.stable ?? 0}</p>
                   </div>
                   <div className="w-12 h-12 bg-gradient-to-br from-slate-500 to-slate-600 rounded-lg flex items-center justify-center">
                     <Activity className="h-6 w-6 text-white" />

@@ -193,6 +193,41 @@ class ModelTrainer:
             print(f"Edges columns: {list(edges_df.columns)}")
             print(f"Sales columns: {list(sales_df.columns)}")
             
+            # Auto-add missing edge nodes to nodes DataFrame
+            if 'Node' in nodes_df.columns and 'node1' in edges_df.columns and 'node2' in edges_df.columns:
+                # Convert to strings for consistent comparison
+                node_ids = set(str(n) for n in nodes_df['Node'].dropna())
+                edge_nodes = set(str(n) for n in edges_df['node1'].dropna() if pd.notna(n) and str(n).strip() != '')
+                edge_nodes = edge_nodes.union(set(str(n) for n in edges_df['node2'].dropna() if pd.notna(n) and str(n).strip() != ''))
+                missing_nodes = edge_nodes - node_ids
+                
+                if missing_nodes:
+                    print(f"Auto-adding {len(missing_nodes)} missing edge nodes to nodes list...")
+                    # Create new rows for missing nodes
+                    new_nodes = []
+                    for node in missing_nodes:
+                        node_str = str(node).strip()
+                        new_node = {'Node': node_str}
+                        # Add Plant column if it exists in nodes_df
+                        if 'Plant' in nodes_df.columns:
+                            # Try to find Plant from edges if available
+                            plant_val = ''
+                            if 'Plant' in edges_df.columns:
+                                # Convert edge values to strings for comparison
+                                plant_rows = edges_df[
+                                    (edges_df['node1'].astype(str).str.strip() == node_str) | 
+                                    (edges_df['node2'].astype(str).str.strip() == node_str)
+                                ]
+                                if len(plant_rows) > 0:
+                                    plant_val = str(plant_rows.iloc[0].get('Plant', '')).strip()
+                            new_node['Plant'] = plant_val if plant_val else ''
+                        new_nodes.append(new_node)
+                    
+                    # Append new nodes to nodes_df
+                    new_nodes_df = pd.DataFrame(new_nodes)
+                    nodes_df = pd.concat([nodes_df, new_nodes_df], ignore_index=True)
+                    print(f"Added nodes: {list(missing_nodes)[:10]}...")
+            
             # Validate data
             print("Validating data consistency...")
             validation_errors = self._validate_csv_data(nodes_df, edges_df, sales_df)
@@ -201,8 +236,8 @@ class ModelTrainer:
                 print(f"VALIDATION ERRORS:\n{error_msg}")
                 raise ValueError(error_msg)
             
-            # Create node mapping
-            node_list = nodes_df['Node'].tolist()
+            # Create node mapping (convert to strings for consistency)
+            node_list = [str(node).strip() for node in nodes_df['Node'].tolist()]
             node_to_idx = {node: idx for idx, node in enumerate(node_list)}
             
             print(f"Created node mapping with {len(node_list)} nodes")
@@ -229,8 +264,12 @@ class ModelTrainer:
                 if pd.isna(node1) or pd.isna(node2) or str(node1).strip() == '' or str(node2).strip() == '':
                     continue
                 
-                if node1 in node_to_idx and node2 in node_to_idx:
-                    edge_list.append([node_to_idx[node1], node_to_idx[node2]])
+                # Convert to strings for consistent lookup
+                node1_str = str(node1).strip()
+                node2_str = str(node2).strip()
+                
+                if node1_str in node_to_idx and node2_str in node_to_idx:
+                    edge_list.append([node_to_idx[node1_str], node_to_idx[node2_str]])
             
             if not edge_list:
                 print("WARNING: No valid edges found, creating minimal edge structure")
@@ -256,8 +295,9 @@ class ModelTrainer:
             
             # Fill in time series for each product (node)
             for product in product_columns:
-                if product in node_to_idx:
-                    node_idx = node_to_idx[product]
+                product_str = str(product).strip()
+                if product_str in node_to_idx:
+                    node_idx = node_to_idx[product_str]
                     
                     # Get sales values for this product
                     sales_values = sales_df[product].values[-max_timesteps:]
@@ -276,8 +316,9 @@ class ModelTrainer:
             products_with_sales = 0
             
             for product in product_columns:
-                if product in node_to_idx:
-                    node_idx = node_to_idx[product]
+                product_str = str(product).strip()
+                if product_str in node_to_idx:
+                    node_idx = node_to_idx[product_str]
                     sales_values = sales_df[product].values
                     
                     # Calculate average sales

@@ -10,6 +10,7 @@ import Login from "./pages/Login";
 import Upload from "./pages/Upload";
 import Prediction from "./pages/Prediction";
 import InventoryManagement from "./pages/InventoryManagement";
+import InventoryOptimization from "./pages/InventoryOptimization";
 import TestDarkMode from "./pages/TestDarkMode";
 import TestTheme from "./pages/TestTheme";
 import { Toaster } from "./components/ui/toaster";
@@ -92,6 +93,11 @@ function App() {
               <Route path="/inventory" element={
                 <ProtectedRoute>
                   <InventoryManagement />
+                </ProtectedRoute>
+              } />
+              <Route path="/inventory-optimization" element={
+                <ProtectedRoute>
+                  <InventoryOptimization />
                 </ProtectedRoute>
               } />
               <Route path="/test-dark-mode" element={<TestDarkMode />} />

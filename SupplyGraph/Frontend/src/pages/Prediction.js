@@ -128,12 +128,19 @@ const Prediction = () => {
       let yhat = 0;
       let total30Days = 0;
       let forecastArray = null;
+      const backendForecastArray = Array.isArray(predObj?.prediction) ? predObj.prediction : null;
+      const backendAverage = Number(predObj?.average_daily);
+      const backendTotal = Number(predObj?.total_30_days);
+      const backendRawPeak = Number(predObj?.rawPredicted);
       
-      if (predObj?.prediction && Array.isArray(predObj.prediction) && predObj.prediction.length === 30) {
+      if (backendForecastArray && backendForecastArray.length === 30) {
         // 30-day forecast
-        forecastArray = predObj.prediction;
-        total30Days = predObj.total_30_days || forecastArray.reduce((sum, val) => sum + (Number(val) || 0), 0);
-        yhat = predObj.average_daily || (total30Days / 30);
+        forecastArray = backendForecastArray;
+        total30Days = Number.isFinite(backendTotal)
+          ? backendTotal
+          : forecastArray.reduce((sum, val) => sum + (Number(val) || 0), 0);
+        const avgFromBackend = Number.isFinite(backendAverage) ? backendAverage : null;
+        yhat = Number.isFinite(avgFromBackend) ? avgFromBackend : (total30Days / 30);
       } else {
         // Single day prediction (backward compatibility)
         const yhatRaw = Array.isArray(predObj?.prediction)
@@ -196,12 +203,25 @@ const Prediction = () => {
       else if (yhat < 50) trend = 'decreasing';
 
       const predictionPayload = {
-        predictedDemand: Math.round(total30Days || yhat), // Show total for 30 days if available
-        displayPredicted: Number.isFinite(total30Days) ? Number(total30Days.toFixed(1)) : (Number.isFinite(yhat) ? Number(yhat.toFixed(1)) : 0),
-        rawPredicted: total30Days || yhat,
-        prediction: forecastArray || (Array.isArray(predObj?.prediction) ? predObj.prediction : [yhat]), // Include full forecast array
-        total_30_days: total30Days,
-        average_daily: yhat,
+        predictedDemand: Math.round((Number.isFinite(backendTotal) ? backendTotal : total30Days) || yhat), // total window
+        displayPredicted: Number.isFinite(backendTotal)
+          ? Math.round(backendTotal)
+          : Number.isFinite(total30Days)
+            ? Math.round(total30Days)
+            : Math.round(yhat),
+        rawPredicted: Number.isFinite(backendRawPeak)
+          ? backendRawPeak
+          : forecastArray
+            ? Math.max(...forecastArray.map(val => Number(val) || 0))
+            : yhat,
+        prediction: forecastArray || backendForecastArray || (Array.isArray(predObj?.prediction) ? predObj.prediction : [yhat]), // Include full forecast array
+        total_30_days: Number.isFinite(backendTotal) ? backendTotal : total30Days,
+        average_daily: Number.isFinite(backendAverage) ? backendAverage : yhat,
+        next_day_prediction: forecastArray && forecastArray.length
+          ? Number(forecastArray[0])
+          : Number.isFinite(backendAverage)
+            ? backendAverage
+            : yhat,
         confidence: `${Math.round(confidence)}%`,
         trend: trend,
         storeName: formData.storeName,
@@ -403,15 +423,21 @@ const Prediction = () => {
                     <div className="bg-gradient-to-br from-blue-50 to-blue-100 dark:from-slate-800 dark:to-slate-800 rounded-2xl p-6 hover:from-blue-100 hover:to-blue-200 dark:hover:from-slate-700 dark:hover:to-slate-700 transition-all duration-300 hover:scale-105">
                       <div className="text-4xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 dark:from-blue-400 dark:to-purple-400 bg-clip-text text-transparent mb-2">
                         {(() => {
-                          const primary = Number(prediction?.displayPredicted);
-                          const fallback = Number(prediction?.predictedDemand ?? prediction?.rawPredicted);
-                          const v = Number.isFinite(primary) && primary !== 0 ? primary : fallback;
-                          return Number.isFinite(v) ? v.toLocaleString(undefined, { maximumFractionDigits: 1 }) : '0.0';
+                          const nextDay = Number.isFinite(prediction?.next_day_prediction)
+                            ? prediction.next_day_prediction
+                            : Number(prediction?.rawPredicted ?? prediction?.predictedDemand ?? prediction?.average_daily);
+                          const value = Number.isFinite(nextDay) ? nextDay : 0;
+                          return value.toLocaleString(undefined, { maximumFractionDigits: 0 });
                         })()}
                       </div>
                       <p className="text-slate-600 dark:text-slate-400 font-medium">
-                        {prediction?.total_30_days ? 'Predicted Units (30 Days)' : 'Predicted Units (Next Day)'}
+                        Predicted Units (Next Day)
                       </p>
+                      {Number.isFinite(prediction?.total_30_days) && (
+                        <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                          30-day total: {Number(prediction.total_30_days).toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                        </p>
+                      )}
                       <div className="mt-2 h-1 bg-gradient-to-r from-blue-400 to-purple-400 dark:from-blue-500 dark:to-purple-500 rounded-full"></div>
                     </div>
                   </div>

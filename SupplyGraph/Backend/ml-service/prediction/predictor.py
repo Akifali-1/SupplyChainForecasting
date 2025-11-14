@@ -1,5 +1,6 @@
 import os
 import pickle
+import math
 import pandas as pd
 import numpy as np
 import torch
@@ -306,6 +307,35 @@ class DemandPredictor:
         except Exception:
             return {'mean': 0.0, 'max': 0.0, 'trend': 'stable'}
     
+    def _generate_forecast_series(self, base_value, recent_stats, days):
+        """
+        Create a smooth multi-day forecast using the single-step prediction plus recent trends.
+        This is a heuristic to provide the UI with a 30-day trajectory.
+        """
+        if days <= 1:
+            return [round(max(0.0, base_value), 2)]
+        
+        mean = recent_stats.get('mean', base_value) or base_value
+        max_val = max(recent_stats.get('max', base_value), base_value)
+        trend = recent_stats.get('trend', 'stable') or 'stable'
+        
+        amplitude = max(5.0, abs(mean) * 0.15, abs(max_val - mean) * 0.5, abs(base_value) * 0.1)
+        if amplitude == 0:
+            amplitude = max(1.0, base_value * 0.1)
+        
+        values = []
+        for day in range(days):
+            progress = day / max(1, days - 1)
+            if trend == 'up':
+                target = base_value + amplitude * (0.5 + progress)
+            elif trend == 'down':
+                target = max(0.0, base_value - amplitude * (0.5 + progress))
+            else:
+                target = mean + math.sin(progress * math.pi) * amplitude
+            blended = (base_value * 0.4) + (target * 0.6)
+            values.append(round(max(0.0, blended), 2))
+        return values
+    
     def _build_edge_index_from_edges(self, edges_df, node_list):
         """
         Build edge_index from Edges (Plant).csv format.
@@ -398,7 +428,7 @@ class DemandPredictor:
         
         return edge_index
     
-    def predict(self, company_id, input_data):
+    def predict(self, company_id, input_data, forecast_days=1):
         """Generate demand prediction for a company using REAL data"""
         try:
             if self.debug:
@@ -469,89 +499,90 @@ class DemandPredictor:
                     if requested_upper == node_upper or requested_upper in node_upper or node_upper in requested_upper:
                         product_idx = i
                         break
+            
+            recent_stats = None
+            if product_idx is not None:
+                recent_stats = self._recent_stats_for_product(sales_df, node_list[product_idx], max_timesteps)
+            
+            if product_idx is not None:
+                final_prediction = float(predictions[product_idx].item())
                 
-                if product_idx is not None:
-                    final_prediction = float(predictions[product_idx].item())
+                if self.debug:
+                    print(f"\n✓ Found product match:")
+                    print(f"  Requested: {requested_product}")
+                    print(f"  Matched: {node_list[product_idx]}")
+                    print(f"  Index: {product_idx}")
+                    print(f"  Raw prediction: {final_prediction:.4f}")
+                
+                # Inverse transform if scalers were used
+                if scalers and node_list[product_idx] in scalers:
+                    scaler_data = scalers[node_list[product_idx]]
+                    mean = np.array(scaler_data.get('mean_', [0.0]))
+                    scale = np.array(scaler_data.get('scale_', [1.0]))
+                    
+                    # Inverse scaling: x_original = x_scaled * scale + mean
+                    final_prediction = final_prediction * (scale[0] if scale.size else 1.0) + (mean[0] if mean.size else 0.0)
                     
                     if self.debug:
-                        print(f"\n✓ Found product match:")
-                        print(f"  Requested: {requested_product}")
-                        print(f"  Matched: {node_list[product_idx]}")
-                        print(f"  Index: {product_idx}")
-                        print(f"  Raw prediction: {final_prediction:.4f}")
+                        print(f"  Inverse scaled: {final_prediction:.4f} (mean={mean[0]:.2f}, scale={scale[0]:.2f})")
                     
-                    # Inverse transform if scalers were used
-                    if scalers and node_list[product_idx] in scalers:
-                        scaler_data = scalers[node_list[product_idx]]
-                        mean = np.array(scaler_data.get('mean_', [0.0]))
-                        scale = np.array(scaler_data.get('scale_', [1.0]))
-                        
-                        # Inverse scaling: x_original = x_scaled * scale + mean
-                        final_prediction = final_prediction * (scale[0] if scale.size else 1.0) + (mean[0] if mean.size else 0.0)
-                        
+                    # Calibration: adjust predictions based on recent trends
+                    recent_mean = recent_stats.get('mean', 0.0) if recent_stats else 0.0
+                    recent_max = recent_stats.get('max', 0.0) if recent_stats else 0.0
+                    trend = recent_stats.get('trend', 'stable') if recent_stats else 'stable'
+                    
+                    # If prediction is way above recent max, cap it
+                    upper_guard = max(recent_max * 1.5, recent_mean * 2.0, 100.0)
+                    if upper_guard > 0 and final_prediction > upper_guard:
                         if self.debug:
-                            print(f"  Inverse scaled: {final_prediction:.4f} (mean={mean[0]:.2f}, scale={scale[0]:.2f})")
-                        
-                        # Calibration: adjust predictions based on recent trends
-                        stats = self._recent_stats_for_product(sales_df, node_list[product_idx], max_timesteps)
-                        recent_mean = stats['mean']
-                        recent_max = stats['max']
-                        trend = stats.get('trend', 'stable')
-                        
-                        # If prediction is way above recent max, cap it
-                        upper_guard = max(recent_max * 1.5, recent_mean * 2.0, 100.0)
-                        if upper_guard > 0 and final_prediction > upper_guard:
+                            print(f"  ⚠️ Calibrating high prediction {final_prediction:.2f} → {upper_guard:.2f}")
+                        final_prediction = upper_guard
+                    
+                    # Light adjustment based on trend - only if prediction is clearly wrong
+                    if recent_mean > 0:
+                        if trend == 'down' and final_prediction > recent_mean * 1.2:
+                            adjusted = recent_mean * 0.95
                             if self.debug:
-                                print(f"  ⚠️ Calibrating high prediction {final_prediction:.2f} → {upper_guard:.2f}")
-                            final_prediction = upper_guard
-                        
-                        # Light adjustment based on trend - only if prediction is clearly wrong
-                        # Trust the model's prediction, only make small corrections if it's way off
-                        if recent_mean > 0:
-                            if trend == 'down' and final_prediction > recent_mean * 1.2:
-                                # Only adjust if prediction is way too high (>20% above recent mean)
-                                # This suggests the historical scaler is pulling it too high
-                                adjusted = recent_mean * 0.95  # Small 5% adjustment downward
-                                if self.debug:
-                                    print(f"  📉 Downward trend: slight adjustment {final_prediction:.2f} → {adjusted:.2f}")
-                                final_prediction = adjusted
-                            elif trend == 'up' and final_prediction < recent_mean * 0.8:
-                                # Only adjust if prediction is way too low (>20% below recent mean)
-                                adjusted = recent_mean * 1.05  # Small 5% adjustment upward
-                                if self.debug:
-                                    print(f"  📈 Upward trend: slight adjustment {final_prediction:.2f} → {adjusted:.2f}")
-                                final_prediction = adjusted
-                            # Otherwise, trust the model's prediction
-                        
-                        # Ensure non-negative
-                        if final_prediction < 0:
-                            final_prediction = 0.0
-                else:
-                    # Product not found
+                                print(f"  📉 Downward trend: slight adjustment {final_prediction:.2f} → {adjusted:.2f}")
+                            final_prediction = adjusted
+                        elif trend == 'up' and final_prediction < recent_mean * 0.8:
+                            adjusted = recent_mean * 1.05
+                            if self.debug:
+                                print(f"  📈 Upward trend: slight adjustment {final_prediction:.2f} → {adjusted:.2f}")
+                            final_prediction = adjusted
+                
+                if final_prediction < 0:
+                    final_prediction = 0.0
+            else:
+                if requested_product:
                     if self.debug:
                         print(f"\n⚠️  Product '{requested_product}' not found in node list")
                         print(f"  Available nodes: {node_list[:10]}...")
-                    
-                    # Use first node as fallback
-                    final_prediction = float(predictions[0].item())
-                    if scalers and node_list[0] in scalers:
-                        scaler_data = scalers[node_list[0]]
-                        mean = np.array(scaler_data.get('mean_', [0.0]))
-                        scale = np.array(scaler_data.get('scale_', [1.0]))
-                        final_prediction = final_prediction * (scale[0] if scale.size else 1.0) + (mean[0] if mean.size else 0.0)
-                        final_prediction = max(0, final_prediction)
-            else:
-                # No specific product, return first node's prediction
+                # Fallback to first node
                 final_prediction = float(predictions[0].item())
                 if scalers and node_list[0] in scalers:
                     scaler_data = scalers[node_list[0]]
                     mean = np.array(scaler_data.get('mean_', [0.0]))
                     scale = np.array(scaler_data.get('scale_', [1.0]))
                     final_prediction = final_prediction * (scale[0] if scale.size else 1.0) + (mean[0] if mean.size else 0.0)
-                    final_prediction = max(0, final_prediction)
+                final_prediction = max(0, final_prediction)
+                recent_stats = self._recent_stats_for_product(sales_df, node_list[0], max_timesteps)
             
             # Ensure prediction is positive
             final_prediction = max(0, final_prediction)
+            
+            if not recent_stats:
+                recent_stats = {'mean': final_prediction, 'max': final_prediction, 'trend': 'stable'}
+            
+            try:
+                forecast_days = int(forecast_days or 1)
+            except (TypeError, ValueError):
+                forecast_days = 1
+            forecast_days = max(1, min(forecast_days, 30))
+            
+            forecast_series = None
+            if forecast_days > 1:
+                forecast_series = self._generate_forecast_series(final_prediction, recent_stats, forecast_days)
             
             # Calculate confidence based on prediction variance
             pred_std = predictions.std().item()
@@ -564,7 +595,6 @@ class DemandPredictor:
             
             result = {
                 'company_id': company_id,
-                'prediction': [round(final_prediction, 2)],
                 'confidence': confidence,
                 'requested_product': requested_product,
                 'matched_node': node_list[product_idx] if product_idx is not None else None,
@@ -576,8 +606,22 @@ class DemandPredictor:
                     'mean': round(float(predictions.mean().item()), 4),
                     'std': round(float(predictions.std().item()), 4)
                 },
-                'timestamp': pd.Timestamp.now().isoformat()
+                'timestamp': pd.Timestamp.now().isoformat(),
+                'forecast_days': forecast_days
             }
+            
+            if forecast_series:
+                total_forecast = sum(forecast_series)
+                result['prediction'] = [round(v, 2) for v in forecast_series]
+                result['average_daily'] = round(total_forecast / forecast_days, 2)
+                result['total_30_days'] = round(total_forecast, 2)
+                result['prediction_series'] = result['prediction']
+                result['rawPredicted'] = round(max(forecast_series), 2)
+            else:
+                result['prediction'] = [round(final_prediction, 2)]
+                result['average_daily'] = round(final_prediction, 2)
+                result['total_30_days'] = round(final_prediction * min(forecast_days, 30), 2)
+                result['rawPredicted'] = round(final_prediction, 2)
             
             if self.debug:
                 print(f"\n✅ FINAL PREDICTION: {final_prediction:.2f}")

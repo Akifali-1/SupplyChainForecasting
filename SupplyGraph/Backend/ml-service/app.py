@@ -329,12 +329,13 @@ def generate_prediction():
         data = request.json
         company_id = data.get('company_id')
         input_data = data.get('input_data')
+        forecast_days = data.get('forecast_days', 1)
         
         if not company_id or not input_data:
             return jsonify({"error": "company_id and input_data are required"}), 400
         
         # Generate prediction
-        prediction = predictor.predict(company_id, input_data)
+        prediction = predictor.predict(company_id, input_data, forecast_days=forecast_days)
         return jsonify({"prediction": prediction})
     
     except Exception as e:

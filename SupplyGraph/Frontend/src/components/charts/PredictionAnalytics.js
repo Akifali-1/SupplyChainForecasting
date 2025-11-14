@@ -190,14 +190,24 @@ const PredictionAnalytics = ({
   const processedData = getFilteredData();
 
   // Calculate statistics
+  const derivedAverage = processedData.length > 0
+    ? processedData.reduce((sum, item) => sum + item.demand, 0) / processedData.length
+    : 0;
+  const derivedPeak = processedData.length > 0
+    ? Math.max(...processedData.map(item => item.demand))
+    : 0;
+  const derivedTotal = processedData.length > 0
+    ? processedData.reduce((sum, item) => sum + item.demand, 0)
+    : 0;
+
   const stats = {
     totalDataPoints: processedData.length,
-    averageDemand: processedData.length > 0
-      ? Math.round(processedData.reduce((sum, item) => sum + item.demand, 0) / processedData.length)
-      : 0,
-    peakDemand: processedData.length > 0
-      ? Math.max(...processedData.map(item => item.demand))
-      : 0,
+    averageDemand: Number.isFinite(prediction?.average_daily)
+      ? Math.round(prediction.average_daily)
+      : Math.round(derivedAverage),
+    peakDemand: Number.isFinite(prediction?.rawPredicted)
+      ? Math.round(prediction.rawPredicted)
+      : Math.round(derivedPeak),
     minDemand: processedData.length > 0
       ? Math.min(...processedData.map(item => item.demand))
       : 0,
@@ -205,11 +215,9 @@ const PredictionAnalytics = ({
       ? (prediction.predictedDemand || prediction.displayPredicted || prediction.rawPredicted || 0)
       : 0,
     trend: prediction?.trend || 'stable',
-    totalForecast: forecastData.length
-      ? Math.round(forecastData.reduce((sum, item) => sum + item.demand, 0))
-      : (prediction?.total_30_days
-          ? Math.round(prediction.total_30_days)
-          : Math.round((prediction?.predictedDemand || prediction?.displayPredicted || prediction?.rawPredicted || 0)))
+    totalForecast: Number.isFinite(prediction?.total_30_days)
+      ? Math.round(prediction.total_30_days)
+      : Math.round(derivedTotal || (prediction?.predictedDemand || prediction?.displayPredicted || prediction?.rawPredicted || 0) * 30 || 0)
   };
 
   // Chart data preparation

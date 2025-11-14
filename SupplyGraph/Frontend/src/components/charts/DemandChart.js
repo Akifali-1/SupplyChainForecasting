@@ -2,65 +2,92 @@ const DemandChart = ({
   historicalData = [],
   prediction = null,
   chartType = 'line',
-  title = 'Demand Analysis',
+  title = 'Demand Forecast - Next 30 Days',
   showPrediction = true,
   productName = '' // Add product name prop
 }) => {
-  // Process historical data with better error handling
-  // Filter data to only show the specific product
-  const filteredData = (Array.isArray(historicalData) ? historicalData : [])
-    .filter(item => item && typeof item === 'object')
-    .filter(item => {
-      // If productName is provided, try to match it with the product data
-      if (productName) {
-        // Check if item has product property
-        if (item.product) {
-          return item.product.toLowerCase().includes(productName.toLowerCase()) ||
-            productName.toLowerCase().includes(item.product.toLowerCase());
-        }
-        // If no product property, include all data (fallback)
-        return true;
-      }
-      return true; // If no product name specified, show all data
+  // Check if we have 30-day forecast - if yes, show only predictions (next 30 days)
+  // Check multiple possible paths for the forecast array
+  let forecastArray = null;
+  
+  if (prediction) {
+    // Try different possible paths for the 30-day forecast array
+    if (prediction.prediction && Array.isArray(prediction.prediction) && prediction.prediction.length === 30) {
+      forecastArray = prediction.prediction;
+    } else if (prediction.forecast && Array.isArray(prediction.forecast) && prediction.forecast.length === 30) {
+      forecastArray = prediction.forecast;
+    } else if (Array.isArray(prediction) && prediction.length === 30) {
+      forecastArray = prediction;
+    }
+  }
+  
+  // Debug log
+  if (prediction && !forecastArray) {
+    console.log('DemandChart: No 30-day forecast found. Prediction structure:', {
+      hasPrediction: !!prediction.prediction,
+      predictionType: typeof prediction.prediction,
+      predictionLength: Array.isArray(prediction.prediction) ? prediction.prediction.length : 'not array',
+      keys: Object.keys(prediction || {})
     });
+  }
 
-  const processedData = filteredData
-    .map(item => ({
-      date: item.date ? new Date(item.date).toLocaleDateString('en-US', {
-        month: 'short',
-        day: 'numeric'
-      }) : 'Unknown',
-      demand: typeof item.demand === 'number' && !isNaN(item.demand) ? item.demand : 0,
-      fullDate: item.date || new Date().toISOString(),
-      product: item.product || 'Unknown Product'
-    }))
-    .filter(item => item.demand > 0) // Only show positive demand values
-    .slice(-30); // Show only last 30 days of data
+  let finalData = [];
 
-  // Add prediction point if available and valid
-  const chartData = [...processedData];
-  if (showPrediction && prediction) {
-    const predictedValue = prediction.predictedDemand || prediction.displayPredicted || prediction.rawPredicted || 0;
+  // ALWAYS show only next 30 days when we have a 30-day forecast - ignore historical data completely
+  if (forecastArray && forecastArray.length === 30) {
+    // Show only next 30 days of predictions (no historical data)
+    const today = new Date();
+    today.setHours(0, 0, 0, 0); // Reset to start of day
+    const startDate = new Date(today);
+    startDate.setDate(today.getDate() + 1); // Start from tomorrow
+    
+    finalData = forecastArray.map((predValue, index) => {
+      const predDate = new Date(startDate);
+      predDate.setDate(startDate.getDate() + index);
+      
+      return {
+        date: predDate.toLocaleDateString('en-US', {
+          month: 'short',
+          day: 'numeric'
+        }),
+        demand: typeof predValue === 'number' ? predValue : 0,
+        fullDate: predDate.toISOString(),
+        isPrediction: true,
+        product: productName || 'Predicted Product'
+      };
+    });
+  } else if (showPrediction && prediction) {
+    // Single day prediction (backward compatibility)
+    const predictedValue = prediction.predictedDemand || prediction.displayPredicted || prediction.rawPredicted || 
+      (Array.isArray(prediction.prediction) ? prediction.prediction[0] : 0);
     if (typeof predictedValue === 'number' && predictedValue > 0) {
       const nextDate = new Date();
       nextDate.setDate(nextDate.getDate() + 1);
 
-      chartData.push({
-        date: 'Prediction',
+      finalData = [{
+        date: nextDate.toLocaleDateString('en-US', {
+          month: 'short',
+          day: 'numeric'
+        }),
         demand: predictedValue,
         fullDate: nextDate.toISOString(),
         isPrediction: true,
         product: productName || 'Predicted Product'
-      });
+      }];
     }
-  }
+  } else {
+    // Fallback: show recent historical data (last 30 days) if no predictions
+    const filteredData = (Array.isArray(historicalData) ? historicalData : [])
+      .filter(item => item && typeof item === 'object')
+      .filter(item => {
+        if (productName && item.product) {
+          return item.product.toLowerCase().includes(productName.toLowerCase()) ||
+            productName.toLowerCase().includes(item.product.toLowerCase());
+        }
+        return true;
+      });
 
-  // If we have no data after filtering, show all data (fallback)
-  let finalData = chartData;
-  if (chartData.length === 0 && processedData.length === 0 && productName) {
-    // Fallback to show all data if no matching product data found
-    const allData = (Array.isArray(historicalData) ? historicalData : [])
-      .filter(item => item && typeof item === 'object' && item.demand > 0)
+    finalData = filteredData
       .map(item => ({
         date: item.date ? new Date(item.date).toLocaleDateString('en-US', {
           month: 'short',
@@ -68,28 +95,11 @@ const DemandChart = ({
         }) : 'Unknown',
         demand: typeof item.demand === 'number' && !isNaN(item.demand) ? item.demand : 0,
         fullDate: item.date || new Date().toISOString(),
-        product: item.product || 'Product'
+        product: item.product || 'Unknown Product',
+        isPrediction: false
       }))
-      .slice(-30);
-
-    finalData = [...allData];
-
-    // Add prediction if available
-    if (showPrediction && prediction) {
-      const predictedValue = prediction.predictedDemand || prediction.displayPredicted || prediction.rawPredicted || 0;
-      if (typeof predictedValue === 'number' && predictedValue > 0) {
-        const nextDate = new Date();
-        nextDate.setDate(nextDate.getDate() + 1);
-
-        finalData.push({
-          date: 'Prediction',
-          demand: predictedValue,
-          fullDate: nextDate.toISOString(),
-          isPrediction: true,
-          product: productName || 'Predicted Product'
-        });
-      }
-    }
+      .filter(item => item.demand > 0)
+      .slice(-30); // Show only last 30 days
   }
 
   const labels = finalData.map(item => item.date);
@@ -102,6 +112,7 @@ const DemandChart = ({
     plugins: {
       legend: {
         position: 'top',
+        display: forecastArray ? true : true, // Show legend
         labels: {
           usePointStyle: true,
           padding: 20,
@@ -109,7 +120,20 @@ const DemandChart = ({
             size: 12,
             weight: '500'
           },
-          color: '#64748b' // Light mode text color
+          color: '#64748b', // Light mode text color
+          generateLabels: (chart) => {
+            // Customize legend labels based on whether we're showing predictions
+            if (forecastArray) {
+              return [{
+                text: 'Predicted Demand (Next 30 Days)',
+                fillStyle: '#8b5cf6',
+                strokeStyle: '#8b5cf6',
+                lineWidth: 2,
+                pointStyle: 'circle'
+              }];
+            }
+            return Chart.defaults.plugins.legend.labels.generateLabels(chart);
+          }
         }
       },
       tooltip: {
@@ -175,7 +199,27 @@ const DemandChart = ({
   // Line chart data
   const lineData = {
     labels,
-    datasets: [
+    datasets: forecastArray ? [
+      // Show only 30-day forecast
+      {
+        label: 'Predicted Demand (Next 30 Days)',
+        data: demandValues,
+        borderColor: 'rgb(139, 92, 246)', // Purple for predictions
+        backgroundColor: 'rgba(139, 92, 246, 0.1)',
+        borderWidth: 3,
+        fill: true,
+        tension: 0.4,
+        pointBackgroundColor: 'rgb(139, 92, 246)',
+        pointBorderColor: 'white',
+        pointBorderWidth: 2,
+        pointRadius: 5,
+        pointHoverRadius: 7,
+        pointHoverBackgroundColor: 'rgb(139, 92, 246)',
+        pointHoverBorderColor: 'white',
+        pointHoverBorderWidth: 3
+      }
+    ] : [
+      // Historical data (if no 30-day forecast)
       {
         label: productName ? `Historical Demand for ${productName}` : 'Historical Demand',
         data: demandValues.map((value, index) =>
@@ -189,7 +233,7 @@ const DemandChart = ({
         pointBackgroundColor: 'rgb(59, 130, 246)',
         pointBorderColor: 'white',
         pointBorderWidth: 2,
-        pointRadius: finalData.length > 0 ? 6 : 0, // Hide points if no data
+        pointRadius: finalData.length > 0 ? 6 : 0,
         pointHoverRadius: finalData.length > 0 ? 8 : 0,
         pointHoverBackgroundColor: 'rgb(59, 130, 246)',
         pointHoverBorderColor: 'white',
@@ -223,31 +267,39 @@ const DemandChart = ({
     labels,
     datasets: [
       {
-        label: productName ? `Demand for ${productName}` : 'Demand',
+        label: forecastArray ? 'Predicted Demand (Next 30 Days)' : (productName ? `Demand for ${productName}` : 'Demand'),
         data: demandValues,
-        backgroundColor: demandValues.map((value, index) =>
-          finalData[index]?.isPrediction
-            ? 'rgba(16, 185, 129, 0.8)'
-            : 'rgba(59, 130, 246, 0.8)'
-        ),
-        borderColor: demandValues.map((value, index) =>
-          finalData[index]?.isPrediction
-            ? 'rgb(16, 185, 129)'
-            : 'rgb(59, 130, 246)'
-        ),
+        backgroundColor: forecastArray 
+          ? 'rgba(139, 92, 246, 0.8)' // Purple for 30-day forecast
+          : demandValues.map((value, index) =>
+              finalData[index]?.isPrediction
+                ? 'rgba(16, 185, 129, 0.8)'
+                : 'rgba(59, 130, 246, 0.8)'
+            ),
+        borderColor: forecastArray
+          ? 'rgb(139, 92, 246)'
+          : demandValues.map((value, index) =>
+              finalData[index]?.isPrediction
+                ? 'rgb(16, 185, 129)'
+                : 'rgb(59, 130, 246)'
+            ),
         borderWidth: 2,
         borderRadius: 6,
         borderSkipped: false,
-        hoverBackgroundColor: demandValues.map((value, index) =>
-          finalData[index]?.isPrediction
-            ? 'rgba(16, 185, 129, 1)'
-            : 'rgba(59, 130, 246, 1)'
-        ),
-        hoverBorderColor: demandValues.map((value, index) =>
-          finalData[index]?.isPrediction
-            ? 'rgb(16, 185, 129)'
-            : 'rgb(59, 130, 246)'
-        ),
+        hoverBackgroundColor: forecastArray
+          ? 'rgba(139, 92, 246, 1)'
+          : demandValues.map((value, index) =>
+              finalData[index]?.isPrediction
+                ? 'rgba(16, 185, 129, 1)'
+                : 'rgba(59, 130, 246, 1)'
+            ),
+        hoverBorderColor: forecastArray
+          ? 'rgb(139, 92, 246)'
+          : demandValues.map((value, index) =>
+              finalData[index]?.isPrediction
+                ? 'rgb(16, 185, 129)'
+                : 'rgb(59, 130, 246)'
+            ),
         hoverBorderWidth: 3
       }
     ]

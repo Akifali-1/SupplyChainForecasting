@@ -166,7 +166,7 @@ router.get("/training-status/:companyId", async (req, res) => {
 router.post("/predict/:companyId", async (req, res) => {
   try {
     const { companyId } = req.params;
-    const { input_data } = req.body;
+    const { input_data, forecast_days } = req.body;
 
     if (!input_data) {
       return res.status(400).json({ error: "input_data is required" });
@@ -175,6 +175,7 @@ router.post("/predict/:companyId", async (req, res) => {
     const mlResponse = await axios.post(`${ML_SERVICE_URL}/predict`, {
       company_id: companyId,
       input_data: input_data,
+      forecast_days: forecast_days || 1,  // Default to 1 day, support 30 days
     });
 
     res.json(mlResponse.data);

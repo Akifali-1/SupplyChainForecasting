@@ -610,10 +610,10 @@ def get_trending_inventory(company_id):
                 
                 trending_items.append({
                     'product': str(product),
-                    'current_demand': round(historical_avg, 2),  # Keep field name for compatibility
-                    'predicted_demand': round(predicted_demand, 2),  # Keep field name for compatibility
-                    'current_sales': round(historical_avg, 2),
-                    'predicted_sales': round(predicted_demand, 2),
+                    'current_demand': int(round(historical_avg)),  # Round to integer
+                    'predicted_demand': int(round(predicted_demand)),  # Round to integer
+                    'current_sales': int(round(historical_avg)),
+                    'predicted_sales': int(round(predicted_demand)),
                     'growth_rate': round(growth_rate, 2),
                     'trend_direction': trend_direction,
                     'risk_level': risk_level,
@@ -626,10 +626,21 @@ def get_trending_inventory(company_id):
                     print(f"Error processing product {product}: {e}")
                 continue
         
-        # Filter for UP trends only, then sort by growth rate descending and take top 10
+        # Prioritize UP trends, but always return up to top 10 products overall
         up_trending = [item for item in trending_items if item['growth_rate'] > 0]
         up_trending.sort(key=lambda x: x['growth_rate'], reverse=True)
-        top_10 = up_trending[:10]
+        
+        # If fewer than 10 positive-growth products, backfill with the remaining highest-growth items
+        if len(up_trending) >= 10:
+            top_10 = up_trending[:10]
+        else:
+            selected_products = {item['product'] for item in up_trending}
+            remaining_candidates = [
+                item for item in trending_items
+                if item['product'] not in selected_products
+            ]
+            remaining_candidates.sort(key=lambda x: x['growth_rate'], reverse=True)
+            top_10 = up_trending + remaining_candidates[:max(0, 10 - len(up_trending))]
         
         return jsonify({
             "company_id": company_id,

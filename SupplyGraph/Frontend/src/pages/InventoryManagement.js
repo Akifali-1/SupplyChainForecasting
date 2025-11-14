@@ -69,6 +69,16 @@ const InventoryManagement = () => {
     await loadInventoryData();
   };
 
+  // Filter to only show "Stock Up" products (predicted > current * 1.15)
+  const stockUpItems = React.useMemo(() => {
+    return trendingItems.filter(item => {
+      const current = Number(item.current_demand || item.current_sales || 0);
+      const predicted = Number(item.predicted_demand || item.predicted_sales || 0);
+      const ratio = current > 0 ? predicted / current : (predicted > 0 ? 2 : 1);
+      return ratio > 1.15; // Stock Up condition
+    });
+  }, [trendingItems]);
+
   const getTrendIcon = (direction) => {
     switch (direction) {
       case 'up':
@@ -256,22 +266,22 @@ const InventoryManagement = () => {
           <CardHeader className="bg-gradient-to-r from-purple-50 to-pink-50 dark:from-slate-800 dark:to-slate-800 rounded-t-lg">
             <CardTitle className="flex items-center space-x-2 text-slate-900 dark:text-white">
               <BarChart3 className="h-6 w-6 text-purple-600 dark:text-purple-400" />
-              <span>Top 10 Trending Inventory Items</span>
+              <span>Stock Up Products</span>
               <Badge className="bg-white/80 text-purple-700 border-purple-200 shadow-sm dark:bg-slate-700 dark:text-purple-300 dark:border-purple-800">
                 {timeRange} Analysis
               </Badge>
             </CardTitle>
           </CardHeader>
           <CardContent className="p-6">
-            {trendingItems.length === 0 ? (
+            {stockUpItems.length === 0 ? (
               <div className="text-center py-12">
                 <Target className="h-16 w-16 text-slate-300 dark:text-slate-600 mx-auto mb-4" />
-                <h3 className="text-lg font-semibold text-slate-600 dark:text-slate-400 mb-2">No Trending Data Available</h3>
-                <p className="text-slate-500 dark:text-slate-400">Upload your data and train the model to see trending inventory insights.</p>
+                <h3 className="text-lg font-semibold text-slate-600 dark:text-slate-400 mb-2">No Stock Up Products Available</h3>
+                <p className="text-slate-500 dark:text-slate-400">No products currently require stock increases based on predictions.</p>
               </div>
             ) : (
               <div className="space-y-4">
-                {trendingItems.map((item, index) => (
+                {stockUpItems.map((item, index) => (
                   <div
                     key={item.product}
                     className="group p-4 bg-gradient-to-r from-slate-50 to-blue-50 dark:from-slate-800 dark:to-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 hover:from-blue-50 hover:to-purple-50 dark:hover:from-slate-700 dark:hover:to-slate-700 hover:border-blue-300 dark:hover:border-blue-700 transition-all duration-300 hover:shadow-md"

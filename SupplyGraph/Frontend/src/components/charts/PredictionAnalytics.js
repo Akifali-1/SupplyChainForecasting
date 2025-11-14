@@ -23,8 +23,7 @@ import {
   PieChart,
   Calendar,
   Target,
-  Zap,
-  RefreshCw
+  Zap
 } from 'lucide-react';
 
 // Register Chart.js components
@@ -48,7 +47,7 @@ const PredictionAnalytics = ({
   productName = ''
 }) => {
   const [activeChart, setActiveChart] = useState('line');
-  const [timeRange, setTimeRange] = useState('all');
+  const [timeRange, setTimeRange] = useState('month');
 
   // Process historical data based on time range
   const getFilteredData = () => {
@@ -62,9 +61,6 @@ const PredictionAnalytics = ({
         break;
       case 'month':
         filteredData = historicalData.slice(-30);
-        break;
-      case 'quarter':
-        filteredData = historicalData.slice(-90);
         break;
       default:
         filteredData = historicalData;
@@ -344,7 +340,7 @@ const PredictionAnalytics = ({
         <CardContent className="p-6">
           <div className="flex flex-wrap gap-4 mb-6">
             {/* Chart Type Selector */}
-            <div className="flex space-x-2">
+            <div className="flex space-x-2 flex-wrap">
               <Button
                 variant={activeChart === 'line' ? 'default' : 'outline'}
                 size="sm"
@@ -384,7 +380,7 @@ const PredictionAnalytics = ({
             </div>
 
             {/* Time Range Selector */}
-            <div className="flex space-x-2">
+            <div className="flex space-x-2 flex-wrap">
               <Button
                 variant={timeRange === 'week' ? 'default' : 'outline'}
                 size="sm"
@@ -402,24 +398,6 @@ const PredictionAnalytics = ({
               >
                 <Calendar className="h-4 w-4" />
                 <span>Month</span>
-              </Button>
-              <Button
-                variant={timeRange === 'quarter' ? 'default' : 'outline'}
-                size="sm"
-                onClick={() => setTimeRange('quarter')}
-                className="flex items-center space-x-2"
-              >
-                <Calendar className="h-4 w-4" />
-                <span>Quarter</span>
-              </Button>
-              <Button
-                variant={timeRange === 'all' ? 'default' : 'outline'}
-                size="sm"
-                onClick={() => setTimeRange('all')}
-                className="flex items-center space-x-2"
-              >
-                <RefreshCw className="h-4 w-4" />
-                <span>All</span>
               </Button>
             </div>
           </div>

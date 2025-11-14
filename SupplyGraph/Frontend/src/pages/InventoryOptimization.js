@@ -359,9 +359,9 @@ const InventoryOptimization = () => {
                     {decisions.map((d) => (
                       <tr key={d.product} className="border-t border-slate-200 dark:border-slate-700">
                         <td className="py-3 pr-4 font-medium text-slate-900 dark:text-white">{d.product}</td>
-                        <td className="py-3 pr-4 text-slate-700 dark:text-slate-300">{d.current.toFixed(2)}</td>
-                        <td className="py-3 pr-4 text-blue-700 dark:text-blue-300">{d.predicted.toFixed(2)}</td>
-                        <td className="py-3 pr-4">{d.delta >= 0 ? '+' : ''}{d.delta.toFixed(2)}</td>
+                        <td className="py-3 pr-4 text-slate-700 dark:text-slate-300">{Math.round(d.current)}</td>
+                        <td className="py-3 pr-4 text-blue-700 dark:text-blue-300">{Math.round(d.predicted)}</td>
+                        <td className="py-3 pr-4">{d.delta >= 0 ? '+' : ''}{Math.round(d.delta)}</td>
                         <td className="py-3 pr-4">{d.ratio.toFixed(2)}</td>
                         <td className="py-3 pr-4 capitalize">{d.trend}</td>
                         <td className="py-3 pr-4 capitalize">{d.risk}</td>

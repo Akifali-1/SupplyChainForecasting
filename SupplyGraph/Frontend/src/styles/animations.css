@@ -1,0 +1,151 @@
+@keyframes float {
+
+    0%,
+    100% {
+        transform: translateY(0) translateX(0);
+    }
+
+    25% {
+        transform: translateY(-10px) translateX(5px);
+    }
+
+    50% {
+        transform: translateY(0) translateX(10px);
+    }
+
+    75% {
+        transform: translateY(10px) translateX(5px);
+    }
+}
+
+.animate-fade-in-up {
+    animation: fadeInUp 0.8s ease-out forwards;
+}
+
+@keyframes fadeInUp {
+    from {
+        opacity: 0;
+        transform: translateY(30px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* Glassmorphism styles */
+.glass {
+    background: rgba(255, 255, 255, 0.7);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.glass-strong {
+    background: rgba(255, 255, 255, 0.8);
+    backdrop-filter: blur(15px);
+    -webkit-backdrop-filter: blur(15px);
+    border: 1px solid rgba(255, 255, 255, 0.3);
+}
+
+.dark .glass {
+    background: rgba(30, 41, 59, 0.7);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.dark .glass-strong {
+    background: rgba(30, 41, 59, 0.8);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+/* Floating animation */
+.floating {
+    animation: float 6s ease-in-out infinite;
+}
+
+/* Card depth */
+.card-depth {
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+}
+
+/* Neon glow */
+.neon-glow {
+    box-shadow: 0 0 15px rgba(59, 130, 246, 0.5);
+}
+
+/* Premium button glow */
+.btn-premium-glow {
+    box-shadow: 0 0 20px rgba(59, 130, 246, 0.3);
+}
+
+/* Ambient glow */
+.glow-ambient {
+    animation: glow 4s ease-in-out infinite alternate;
+}
+
+@keyframes glow {
+    from {
+        opacity: 0.3;
+    }
+
+    to {
+        opacity: 0.7;
+    }
+}
+
+/* Text overlap */
+.text-overlap {
+    position: relative;
+    z-index: 10;
+}
+
+/* Cinematic fade in */
+.cinematic-fade-in {
+    animation: fadeIn 1.5s ease-out forwards;
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+    }
+
+    to {
+        opacity: 1;
+    }
+}
+
+/* Section blend */
+.section-blend {
+    position: relative;
+}
+
+.section-blend::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 100px;
+    background: linear-gradient(to bottom, transparent, rgba(255, 255, 255, 0.8));
+    z-index: 1;
+}
+
+.dark .section-blend::before {
+    background: linear-gradient(to bottom, transparent, rgba(30, 41, 59, 0.8));
+}
+
+.footer-logo-container {
+    position: relative;
+    overflow: hidden;
+}
+
+.footer-logo-bg {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    opacity: 0.3;
+    z-index: 0;
+}

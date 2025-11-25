@@ -1,18 +1,18 @@
 #!/bin/bash
 set -e
 
-# Ensure python dependencies are available (Render caches build step but this is safe)
-pip install -r ml-service/requirements.txt >/tmp/ml-install.log 2>&1 || true
+echo "📌 Installing Python dependencies..."
+pip install -r ml-service/requirements.txt
 
-# Start ML service on internal port 5001
+echo "🚀 Starting ML service..."
 python ml-service/app.py &
 ML_PID=$!
 
-# Start Node/Express app (Bind to $PORT per Render requirements)
+echo "🚀 Starting Node backend..."
+# Node must bind to $PORT
+export PORT=${PORT:-5000}
 npm start &
 NODE_PID=$!
 
-# Wait for exits to propagate
 wait $ML_PID
 wait $NODE_PID
-

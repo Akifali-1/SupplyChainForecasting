@@ -17,17 +17,22 @@ const mongoose = require("mongoose"); // ✅ for User model
 const app = express();
 
 // ✅ Allow cookies/credentials for OAuth sessions
-app.use(cors({ origin: "http://localhost:3000", credentials: true }));
+const FRONTEND_URL = process.env.FRONTEND_URL || "http://localhost:3000";
+app.use(cors({ origin: FRONTEND_URL, credentials: true }));
 app.use(express.json());
 app.use("/uploads", express.static("uploads"));
 
 // ✅ Session middleware (needed for passport)
+const isProduction = process.env.NODE_ENV === 'production';
 app.use(
   session({
     secret: process.env.SESSION_SECRET || "secret_key",
     resave: false,
     saveUninitialized: false,
-    cookie: { secure: false }, // set true if using https
+    cookie: { 
+      secure: isProduction, // set true if using https
+      sameSite: isProduction ? 'none' : 'lax'
+    },
   })
 );
 
@@ -36,14 +41,18 @@ app.use(passport.initialize());
 app.use(passport.session());
 
 // ✅ Mongoose connection for User model
-const mongooseUri = process.env.MONGO_URI || "mongodb+srv://akifaliparvez:Akifmongo1@cluster0.lg4jnnj.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0";
-mongoose.connect(mongooseUri)
-  .then(() => {
-    console.log("✅ Connected to MongoDB via Mongoose");
-  })
-  .catch((err) => {
-    console.error("❌ Mongoose connection failed:", err.message);
-  });
+const mongooseUri = process.env.MONGO_URI;
+if (mongooseUri) {
+  mongoose.connect(mongooseUri)
+    .then(() => {
+      console.log("✅ Connected to MongoDB via Mongoose");
+    })
+    .catch((err) => {
+      console.error("❌ Mongoose connection failed:", err.message);
+    });
+} else {
+  console.warn("⚠️ MONGO_URI not set; MongoDB connection disabled");
+}
 
 // ✅ Routes
 app.use("/api/data", dataRoutes);
@@ -51,14 +60,14 @@ app.use("/api/ml", mlRoutes);
 app.use("/api/auth", authRoutes); // Google login/logout/me
 
 // Mongo (Atlas) minimal client - using same connection string as ML service
-const mongoUri = process.env.MONGO_URI || "mongodb+srv://akifaliparvez:Akifmongo1@cluster0.lg4jnnj.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0";
+const mongoUri = process.env.MONGO_URI;
 const mongoDbName = process.env.MONGO_DB || "supplychain";
 let mongoClient;
 let companiesCollection;
 let companiesDbName = null;
 
 async function initMongo() {
-  if (!mongoUri) {
+  if (!mongoUri || !mongoUri.trim()) {
     console.warn("⚠️ MONGO_URI not set; company registration disabled");
     return;
   }
@@ -135,7 +144,8 @@ app.post("/api/company/register", async (req, res) => {
 // Health check endpoint
 app.get("/api/health", async (req, res) => {
   try {
-    const mlResponse = await axios.get("http://localhost:5001/health");
+    const ML_SERVICE_URL = process.env.ML_SERVICE_URL || "http://localhost:5001";
+    const mlResponse = await axios.get(`${ML_SERVICE_URL}/health`);
     res.json({
       backend: "healthy",
       ml_service: mlResponse.data,
@@ -151,6 +161,7 @@ app.get("/api/health", async (req, res) => {
 });
 
 /* ------------------ Server Start ------------------ */
-app.listen(5000, () =>
-  console.log("🚀 Backend running on http://localhost:5000")
+const PORT = process.env.PORT || 5000;
+app.listen(PORT, () =>
+  console.log(`🚀 Backend running on port ${PORT}`)
 );

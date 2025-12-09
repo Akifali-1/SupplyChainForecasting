@@ -4,6 +4,18 @@ const axios = require("axios");
 
 const ML_SERVICE_URL = process.env.ML_SERVICE_URL || "http://localhost:5001";
 
+// Helper to log rich ML errors
+function logMlError(label, error) {
+  console.error(label, {
+    message: error?.message,
+    code: error?.code,
+    responseStatus: error?.response?.status,
+    responseData: error?.response?.data,
+    requestUrl: error?.config?.url,
+    stack: error?.stack,
+  });
+}
+
 // Health check
 router.get("/health", async (req, res) => {
   try {
@@ -118,7 +130,7 @@ router.post("/fine-tune/:companyId", async (req, res) => {
       });
     }
   } catch (error) {
-    console.error("Error starting fine-tuning:", error);
+    logMlError("Error starting fine-tuning", error);
 
     let errorDetails = "Unknown error occurred";
     if (error.code === 'ECONNREFUSED') {
@@ -157,7 +169,7 @@ router.get("/training-status/:companyId", async (req, res) => {
       timestamp: new Date().toISOString(),
     });
   } catch (error) {
-    console.error("Error getting training status:", error);
+    logMlError("Error getting training status", error);
     res.status(500).json({ error: "Failed to get training status" });
   }
 });
@@ -180,7 +192,7 @@ router.post("/predict/:companyId", async (req, res) => {
 
     res.json(mlResponse.data);
   } catch (error) {
-    console.error("Error generating prediction:", error);
+    logMlError("Error generating prediction", error);
     res.status(500).json({ error: "Failed to generate prediction" });
   }
 });
@@ -196,7 +208,7 @@ router.get("/model-info/:companyId", async (req, res) => {
 
     res.json(mlResponse.data);
   } catch (error) {
-    console.error("Error getting model info:", error);
+    logMlError("Error getting model info", error);
     res.status(500).json({ error: "Failed to get model info" });
   }
 });
@@ -212,7 +224,7 @@ router.get("/validate-data/:companyId", async (req, res) => {
 
     res.json(mlResponse.data);
   } catch (error) {
-    console.error("Error validating data:", error);
+    logMlError("Error validating data", error);
     res.status(500).json({ error: "Failed to validate data" });
   }
 });
@@ -228,7 +240,7 @@ router.get("/historical-data/:companyId", async (req, res) => {
 
     res.json(mlResponse.data);
   } catch (error) {
-    console.error("Error getting historical data:", error);
+    logMlError("Error getting historical data", error);
     res.status(500).json({ error: "Failed to get historical data" });
   }
 });
@@ -245,7 +257,7 @@ router.get("/inventory/trending/:companyId", async (req, res) => {
 
     res.json(mlResponse.data);
   } catch (error) {
-    console.error("Error getting trending inventory:", error);
+    logMlError("Error getting trending inventory", error);
     res.status(500).json({ error: "Failed to get trending inventory data" });
   }
 });
@@ -261,7 +273,7 @@ router.get("/inventory/analytics/:companyId", async (req, res) => {
 
     res.json(mlResponse.data);
   } catch (error) {
-    console.error("Error getting inventory analytics:", error);
+    logMlError("Error getting inventory analytics", error);
     res.status(500).json({ error: "Failed to get inventory analytics" });
   }
 });

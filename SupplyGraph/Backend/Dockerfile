@@ -9,30 +9,28 @@ RUN apt-get update && \
     apt-get clean && rm -rf /var/lib/apt/lists/* && \
     pip install --no-cache-dir --upgrade pip
 
+# All files are inside Backend because of Root Directory in Render
 WORKDIR /app
 
-# Install backend Node deps
-COPY Backend/package*.json Backend/
-RUN cd Backend && npm install --production
+# Install Node backend dependencies
+COPY package*.json ./
+RUN npm install --production
 
-# Install ML Python deps
-COPY Backend/ml-service/requirements.txt Backend/ml-service/requirements.txt
-RUN pip install --no-cache-dir -r Backend/ml-service/requirements.txt
+# Install ML Python dependencies
+COPY ml-service/requirements.txt ml-service/requirements.txt
+RUN pip install --no-cache-dir -r ml-service/requirements.txt
 
-# Copy backend source (Node + ML)
-COPY Backend Backend
+# Copy the backend source code (Node + ML + uploads)
+COPY . .
 
-WORKDIR /app/Backend
-
-# Ports: Render sets $PORT for Node. ML binds to 5001 internally.
+# Environment ports
 ENV PORT=10000
 ENV ML_PORT=5001
 
 EXPOSE 10000
 
-# Supervisor config to run both ML (5001) and Node ($PORT)
+# Add supervisor config
 COPY supervisor.conf /etc/supervisor/conf.d/supervisor.conf
 
-# Run supervisor in the foreground (Render expects one foreground process)
+# Start supervisor (keeps both Node + Flask running)
 CMD ["supervisord", "-c", "/etc/supervisor/conf.d/supervisor.conf", "-n"]
-

@@ -12,11 +12,13 @@ if ! command -v "$PYTHON_BIN" >/dev/null 2>&1; then
 fi
 
 echo "🚀 Starting ML service with $PYTHON_BIN ..."
-$PYTHON_BIN ml-service/app.py &
+ML_PORT=5001
+PORT=$ML_PORT $PYTHON_BIN ml-service/app.py &
 ML_PID=$!
 
 echo "🚀 Starting Node backend..."
-export PORT=${PORT:-5000}
+RENDER_PORT=${PORT:-10000}
+export PORT=$RENDER_PORT
 npm start &
 NODE_PID=$!
 

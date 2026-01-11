@@ -18,21 +18,43 @@ router.get(
   (req, res, next) => {
     console.log('🔐 OAuth: Callback received');
     console.log('🔐 OAuth: Query params:', req.query);
+    console.log('🔐 OAuth: Error param:', req.query.error);
+    console.log('🔐 OAuth: Code param:', req.query.code ? 'present' : 'missing');
+    
+    if (req.query.error) {
+      console.error('❌ OAuth Error from Google:', req.query.error, req.query.error_description);
+      return res.redirect(`${FRONTEND_URL}/login?error=oauth_failed&details=${encodeURIComponent(req.query.error_description || req.query.error)}`);
+    }
     
     passport.authenticate("google", { 
       failureRedirect: `${FRONTEND_URL}/login?error=oauth_failed`,
       session: true
-    })(req, res, (err) => {
+    }, (err, user, info) => {
       if (err) {
-        console.error('❌ OAuth Error:', err);
+        console.error('❌ OAuth Passport Error:', err);
+        console.error('❌ Error stack:', err.stack);
         return res.redirect(`${FRONTEND_URL}/login?error=oauth_failed&details=${encodeURIComponent(err.message)}`);
       }
       
-      // Success - redirect to frontend OAuth callback handler
-      console.log('✅ OAuth: Success, redirecting to frontend');
-      console.log('✅ OAuth: User:', req.user ? req.user.email : 'No user');
-      res.redirect(`${FRONTEND_URL}/oauth/callback`);
-    });
+      if (!user) {
+        console.error('❌ OAuth: No user returned from Passport');
+        console.error('❌ Passport info:', info);
+        return res.redirect(`${FRONTEND_URL}/login?error=oauth_failed`);
+      }
+      
+      // Log in the user
+      req.logIn(user, (loginErr) => {
+        if (loginErr) {
+          console.error('❌ OAuth: Login error:', loginErr);
+          return res.redirect(`${FRONTEND_URL}/login?error=oauth_failed&details=${encodeURIComponent(loginErr.message)}`);
+        }
+        
+        // Success - redirect to frontend OAuth callback handler
+        console.log('✅ OAuth: Success, redirecting to frontend');
+        console.log('✅ OAuth: User:', user.email);
+        res.redirect(`${FRONTEND_URL}/oauth/callback`);
+      });
+    })(req, res, next);
   }
 );
 
@@ -46,12 +68,10 @@ router.get("/logout", (req, res) => {
 // Get current user
 router.get("/me", (req, res) => {
   // Log session info for debugging
-  if (process.env.NODE_ENV !== 'production' || process.env.ML_DEBUG === '1') {
-    console.log('🔐 /me endpoint called');
-    console.log('🔐 Session ID:', req.sessionID);
-    console.log('🔐 User:', req.user ? req.user.email : 'No user');
-    console.log('🔐 Session exists:', !!req.session);
-  }
+  console.log('🔐 /me endpoint called');
+  console.log('🔐 Session ID:', req.sessionID);
+  console.log('🔐 User:', req.user ? req.user.email : 'No user');
+  console.log('🔐 Session exists:', !!req.session);
   res.json(req.user || null);
 });
 

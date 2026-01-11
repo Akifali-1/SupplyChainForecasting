@@ -19,10 +19,8 @@ const getCallbackURL = () => {
   
   const callbackURL = `${url}/api/auth/google/callback`;
   
-  // Log the callback URL for debugging (only in development or if ML_DEBUG is set)
-  if (process.env.NODE_ENV !== 'production' || process.env.ML_DEBUG === '1') {
-    console.log('🔐 OAuth Callback URL:', callbackURL);
-  }
+  // Log the callback URL for debugging
+  console.log('🔐 OAuth Callback URL:', callbackURL);
   
   return callbackURL;
 };

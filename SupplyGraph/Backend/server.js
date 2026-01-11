@@ -27,9 +27,23 @@ const allowedOrigins = [FRONTEND_URL, ...extraOrigins];
 app.use(
   cors({
     origin: (origin, callback) => {
-      if (!origin) return callback(null, true);
-      if (allowedOrigins.includes(origin)) return callback(null, true);
-      return callback(new Error("Not allowed by CORS"));
+      // Allow requests with no origin (like mobile apps, Postman, or server-to-server)
+      if (!origin) {
+        return callback(null, true);
+      }
+      
+      // Check if origin is in allowed list
+      if (allowedOrigins.includes(origin)) {
+        return callback(null, true);
+      }
+      
+      // Log CORS rejections for debugging
+      if (process.env.NODE_ENV !== 'production' || process.env.ML_DEBUG === '1') {
+        console.log('⚠️  CORS blocked origin:', origin);
+        console.log('✅ Allowed origins:', allowedOrigins);
+      }
+      
+      return callback(new Error(`CORS: Origin ${origin} not allowed`));
     },
     credentials: true,
     optionsSuccessStatus: 200,
@@ -40,17 +54,29 @@ app.use("/uploads", express.static("uploads"));
 
 // ✅ Session middleware (needed for passport)
 const isProduction = process.env.NODE_ENV === 'production';
-app.use(
-  session({
-    secret: process.env.SESSION_SECRET || "secret_key",
-    resave: false,
-    saveUninitialized: false,
-    cookie: { 
-      secure: isProduction, // set true if using https
-      sameSite: isProduction ? 'none' : 'lax'
-    },
-  })
-);
+// For Render, we need secure cookies with sameSite: 'none' for cross-origin requests
+const sessionConfig = {
+  secret: process.env.SESSION_SECRET || "secret_key",
+  resave: false,
+  saveUninitialized: false,
+  cookie: { 
+    secure: isProduction, // HTTPS required in production
+    sameSite: isProduction ? 'none' : 'lax', // 'none' allows cross-origin cookies
+    httpOnly: true, // Prevents XSS attacks
+    maxAge: 24 * 60 * 60 * 1000 // 24 hours
+  },
+};
+
+// Log session config in development
+if (!isProduction || process.env.ML_DEBUG === '1') {
+  console.log('🍪 Session Config:', {
+    secure: sessionConfig.cookie.secure,
+    sameSite: sessionConfig.cookie.sameSite,
+    httpOnly: sessionConfig.cookie.httpOnly
+  });
+}
+
+app.use(session(sessionConfig));
 
 // ✅ Passport init
 app.use(passport.initialize());
@@ -174,6 +200,49 @@ app.get("/api/health", async (req, res) => {
       timestamp: new Date().toISOString(),
     });
   }
+});
+
+// OAuth diagnostic endpoint (for debugging)
+app.get("/api/auth/debug", (req, res) => {
+  const isProduction = process.env.NODE_ENV === 'production';
+  
+  // Calculate callback URL the same way passport does
+  const backendUrl = process.env.BACKEND_URL || 
+                     process.env.RENDER_EXTERNAL_URL || 
+                     (process.env.PORT ? `https://${process.env.RENDER_SERVICE_NAME || 'your-backend'}.onrender.com` : null) ||
+                     "http://localhost:5000";
+  let url = backendUrl;
+  if (!url.startsWith('http://') && !url.startsWith('https://')) {
+    url = isProduction ? `https://${url}` : `http://${url}`;
+  }
+  const callbackURL = `${url}/api/auth/google/callback`;
+  
+  res.json({
+    environment: {
+      node_env: process.env.NODE_ENV || 'not set',
+      is_production: isProduction,
+      backend_url: process.env.BACKEND_URL || 'not set',
+      frontend_url: process.env.FRONTEND_URL || 'not set',
+      render_external_url: process.env.RENDER_EXTERNAL_URL || 'not set',
+    },
+    oauth: {
+      client_id_set: !!process.env.GOOGLE_CLIENT_ID,
+      client_secret_set: !!process.env.GOOGLE_CLIENT_SECRET,
+      callback_url: callbackURL,
+    },
+    session: {
+      secret_set: !!process.env.SESSION_SECRET,
+      session_id: req.sessionID,
+      user: req.user ? { email: req.user.email, id: req.user.id } : null,
+    },
+    cors: {
+      allowed_origins: allowedOrigins,
+    },
+    cookies: {
+      secure: isProduction,
+      sameSite: isProduction ? 'none' : 'lax',
+    }
+  });
 });
 
 /* ------------------ Server Start ------------------ */

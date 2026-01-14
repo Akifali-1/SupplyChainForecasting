@@ -76,7 +76,9 @@ export async function fineTune(companyId, nodes, edges, demand) {
 
 export async function getTrainingStatus(companyId) {
   logger.info('API', 'Fetching training status', { companyId });
-  const res = await fetch(`${API_BASE}/api/ml/training-status/${companyId}`);
+  const res = await fetch(`${API_BASE}/api/ml/training-status/${companyId}`, {
+    credentials: "include"
+  });
 
   if (!res.ok) {
     const errorData = await res.json().catch(() => ({}));

@@ -6,6 +6,12 @@ const { processRawCSV } = require("../utils/dataProcessor");
 
 const router = express.Router();
 
+// Ensure upload directories exist
+const uploadsRawDir = path.join(__dirname, '../uploads/raw');
+if (!fs.existsSync(uploadsRawDir)) {
+  fs.mkdirSync(uploadsRawDir, { recursive: true });
+}
+
 // Simplified multer configuration
 const storage = multer.diskStorage({
   destination: function (req, file, cb) {
@@ -16,7 +22,7 @@ const storage = multer.diskStorage({
   }
 });
 
-const upload = multer({ 
+const upload = multer({
   storage: storage,
   fileFilter: function (req, file, cb) {
     console.log('Multer fileFilter - file:', file);
@@ -27,23 +33,23 @@ const upload = multer({
 router.post("/convert/:companyId", upload.single("file"), async (req, res) => {
   try {
     const { companyId } = req.params;
-    
+
     // Debug logging
     console.log("Request received for company:", companyId);
     console.log("Request body:", req.body);
     console.log("Request file:", req.file);
-    
+
     // Validate company ID
     if (!companyId || companyId.trim() === '') {
-      return res.status(400).json({ 
+      return res.status(400).json({
         error: "Company ID is required",
         details: "Please provide a valid company identifier"
       });
     }
-    
+
     // Validate file upload
     if (!req.file) {
-      return res.status(400).json({ 
+      return res.status(400).json({
         error: "No file uploaded",
         details: "Please select a CSV file to upload. Ensure the field name is 'file'",
         receivedFields: Object.keys(req.body),
@@ -97,7 +103,7 @@ router.post("/convert/:companyId", upload.single("file"), async (req, res) => {
     });
   } catch (err) {
     console.error("❌ Error processing raw file:", err);
-    
+
     // Provide detailed error information
     let errorDetails = "Unknown error occurred during file processing";
     if (err.message.includes("ENOENT")) {
@@ -107,8 +113,8 @@ router.post("/convert/:companyId", upload.single("file"), async (req, res) => {
     } else if (err.message.includes("validation")) {
       errorDetails = err.message;
     }
-    
-    res.status(500).json({ 
+
+    res.status(500).json({
       error: "Failed to process file",
       details: errorDetails,
       originalError: err.message,

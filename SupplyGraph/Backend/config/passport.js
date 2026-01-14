@@ -1,3 +1,6 @@
+// Load environment variables FIRST before anything else
+require("dotenv").config();
+
 const passport = require("passport");
 const GoogleStrategy = require("passport-google-oauth20").Strategy;
 
@@ -5,29 +8,26 @@ const GoogleStrategy = require("passport-google-oauth20").Strategy;
 const getCallbackURL = () => {
   // In production, Render provides the full URL via BACKEND_URL or RENDER_EXTERNAL_URL
   // For OAuth, we need the full URL including https://
-  const backendUrl = process.env.BACKEND_URL || 
-                     process.env.RENDER_EXTERNAL_URL || 
-                     (process.env.PORT ? `https://${process.env.RENDER_SERVICE_NAME || 'your-backend'}.onrender.com` : null) ||
-                     "http://localhost:5000";
-  
+  const backendUrl = process.env.BACKEND_URL ||
+    process.env.RENDER_EXTERNAL_URL ||
+    (process.env.PORT ? `https://${process.env.RENDER_SERVICE_NAME || 'your-backend'}.onrender.com` : null) ||
+    "http://localhost:5000";
+
   // Ensure we have the protocol
   let url = backendUrl;
   if (!url.startsWith('http://') && !url.startsWith('https://')) {
     // If no protocol, assume https in production, http in development
     url = process.env.NODE_ENV === 'production' ? `https://${url}` : `http://${url}`;
   }
-  
+
   const callbackURL = `${url}/api/auth/google/callback`;
-  
+
   // Log the callback URL for debugging
   console.log('🔐 OAuth Callback URL:', callbackURL);
-  
+
   return callbackURL;
 };
 const User = require("../models/User");
-
-//Load environment variables
-require("dotenv").config();
 
 // Validate OAuth credentials
 if (!process.env.GOOGLE_CLIENT_ID || !process.env.GOOGLE_CLIENT_SECRET) {
@@ -47,10 +47,10 @@ passport.use(
           console.error('❌ OAuth Error: No email in profile', profile);
           return done(new Error('No email found in Google profile'), null);
         }
-        
+
         const email = profile.emails[0].value;
         let user = await User.findOne({ googleId: profile.id });
-        
+
         if (!user) {
           user = await User.create({
             googleId: profile.id,
@@ -61,7 +61,7 @@ passport.use(
         } else {
           console.log('✅ Existing user logged in via OAuth:', email);
         }
-        
+
         return done(null, user);
       } catch (err) {
         console.error('❌ OAuth Error:', err);
@@ -76,8 +76,13 @@ passport.serializeUser((user, done) => {
 });
 
 passport.deserializeUser(async (id, done) => {
-  const user = await User.findById(id);
-  done(null, user);
+  try {
+    const user = await User.findById(id);
+    done(null, user);
+  } catch (err) {
+    console.error('❌ Deserialize user error:', err);
+    done(err, null);
+  }
 });
 
 module.exports = passport;

@@ -41,7 +41,8 @@ class HybridGATLSTM(nn.Module):
 
 class ModelTrainer:
     def __init__(self):
-        self.mongo_uri = "mongodb+srv://akifaliparvez:Akifmongo1@cluster0.lg4jnnj.mongodb.net/supplychain?retryWrites=true&w=majority"
+        # Use environment variable - credentials should NEVER be hardcoded
+        self.mongo_uri = os.getenv('MONGO_URI')
         self.client = None
         self.db = None
         self.training_status = {}

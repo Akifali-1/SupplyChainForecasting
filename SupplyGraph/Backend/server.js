@@ -2,7 +2,7 @@ const express = require("express");
 const cors = require("cors");
 const session = require("express-session");
 const passport = require("./config/passport");   // ✅ Google strategy
-const dataRoutes = require("./routes/dataRotes");
+const dataRoutes = require("./routes/dataRoutes");
 const mlRoutes = require("./routes/mlRoutes");
 const authRoutes = require("./routes/authRoutes");
 require("dotenv").config();
@@ -31,18 +31,18 @@ app.use(
       if (!origin) {
         return callback(null, true);
       }
-      
+
       // Check if origin is in allowed list
       if (allowedOrigins.includes(origin)) {
         return callback(null, true);
       }
-      
+
       // Log CORS rejections for debugging
       if (process.env.NODE_ENV !== 'production' || process.env.ML_DEBUG === '1') {
         console.log('⚠️  CORS blocked origin:', origin);
         console.log('✅ Allowed origins:', allowedOrigins);
       }
-      
+
       return callback(new Error(`CORS: Origin ${origin} not allowed`));
     },
     credentials: true,
@@ -59,7 +59,7 @@ const sessionConfig = {
   secret: process.env.SESSION_SECRET || "secret_key",
   resave: false,
   saveUninitialized: false,
-  cookie: { 
+  cookie: {
     secure: isProduction, // HTTPS required in production
     sameSite: isProduction ? 'none' : 'lax', // 'none' allows cross-origin cookies
     httpOnly: true, // Prevents XSS attacks
@@ -205,18 +205,18 @@ app.get("/api/health", async (req, res) => {
 // OAuth diagnostic endpoint (for debugging)
 app.get("/api/auth/debug", (req, res) => {
   const isProduction = process.env.NODE_ENV === 'production';
-  
+
   // Calculate callback URL the same way passport does
-  const backendUrl = process.env.BACKEND_URL || 
-                     process.env.RENDER_EXTERNAL_URL || 
-                     (process.env.PORT ? `https://${process.env.RENDER_SERVICE_NAME || 'your-backend'}.onrender.com` : null) ||
-                     "http://localhost:5000";
+  const backendUrl = process.env.BACKEND_URL ||
+    process.env.RENDER_EXTERNAL_URL ||
+    (process.env.PORT ? `https://${process.env.RENDER_SERVICE_NAME || 'your-backend'}.onrender.com` : null) ||
+    "http://localhost:5000";
   let url = backendUrl;
   if (!url.startsWith('http://') && !url.startsWith('https://')) {
     url = isProduction ? `https://${url}` : `http://${url}`;
   }
   const callbackURL = `${url}/api/auth/google/callback`;
-  
+
   res.json({
     environment: {
       node_env: process.env.NODE_ENV || 'not set',

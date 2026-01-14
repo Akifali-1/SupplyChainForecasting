@@ -16,6 +16,10 @@ const mongoose = require("mongoose"); // ✅ for User model
 
 const app = express();
 
+// ✅ Trust Render's proxy so secure cookies work behind TLS termination
+//    This is required for `cookie.secure: true` on Render.
+app.set("trust proxy", 1);
+
 // ✅ Allow cookies/credentials for OAuth sessions
 const FRONTEND_URL = process.env.FRONTEND_URL || "http://localhost:3000";
 const extraOrigins = (process.env.ALLOWED_ORIGINS || "")
@@ -56,9 +60,11 @@ app.use("/uploads", express.static("uploads"));
 const isProduction = process.env.NODE_ENV === 'production';
 // For Render, we need secure cookies with sameSite: 'none' for cross-origin requests
 const sessionConfig = {
+  name: "scm.sid",
   secret: process.env.SESSION_SECRET || "secret_key",
   resave: false,
   saveUninitialized: false,
+  proxy: true,
   cookie: {
     secure: isProduction, // HTTPS required in production
     sameSite: isProduction ? 'none' : 'lax', // 'none' allows cross-origin cookies

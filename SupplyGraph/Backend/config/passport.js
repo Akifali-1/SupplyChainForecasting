@@ -72,15 +72,19 @@ passport.use(
 );
 
 passport.serializeUser((user, done) => {
-  done(null, user.id);
+  // Store the MongoDB _id as a string in the session
+  done(null, user._id.toString());
 });
 
 passport.deserializeUser(async (id, done) => {
   try {
     const user = await User.findById(id);
+    if (!user) {
+      console.error("❌ Deserialize failed: user not found for id", id);
+    }
     done(null, user);
   } catch (err) {
-    console.error('❌ Deserialize user error:', err);
+    console.error("❌ Deserialize user error:", err);
     done(err, null);
   }
 });

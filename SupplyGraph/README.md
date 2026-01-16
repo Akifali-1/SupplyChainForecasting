@@ -10,7 +10,6 @@ A full-stack application that leverages **Graph Attention Networks (GAT) combine
 - **Real-Time Predictions**: Get demand forecasts with confidence scores
 - **Historical Analytics**: Visualize historical demand data with product filtering and time aggregation
 - **Inventory Management**: Analyze and get a structured way to analyze your Inventory
-- **Modern UI**: Beautiful, responsive interface built with React and Tailwind CSS
 - **MongoDB Atlas Integration**: Cloud-based model storage and retrieval 
 
 ## 🏗️ Architecture

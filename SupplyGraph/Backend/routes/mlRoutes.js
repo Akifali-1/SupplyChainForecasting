@@ -1,6 +1,8 @@
 const express = require("express");
 const router = express.Router();
 const axios = require("axios");
+const { etagMiddleware } = require("../utils/etag");
+const { idempotencyMiddleware } = require("../utils/idempotency");
 
 // ML service runs in same container via supervisor, use localhost
 const ML_SERVICE_URL = process.env.ML_SERVICE_URL || "http://127.0.0.1:5001";
@@ -36,7 +38,7 @@ router.get("/health", async (req, res) => {
 });
 
 // Create sample dataset
-router.post("/create-sample/:companyId", async (req, res) => {
+router.post("/create-sample/:companyId", idempotencyMiddleware({ ttl: 60 * 60 * 1000 }), async (req, res) => {
   try {
     const { companyId } = req.params;
     const { size = "small" } = req.body;
@@ -66,8 +68,8 @@ router.post("/create-sample/:companyId", async (req, res) => {
   }
 });
 
-// Fine-tune model
-router.post("/fine-tune/:companyId", async (req, res) => {
+// Fine-tune model - CRITICAL: Requires idempotency to prevent duplicate training jobs
+router.post("/fine-tune/:companyId", idempotencyMiddleware({ ttl: 24 * 60 * 60 * 1000 }), async (req, res) => {
   try {
     const { companyId } = req.params;
     const { nodes, edges, demand, force_retrain } = req.body;
@@ -155,8 +157,8 @@ router.post("/fine-tune/:companyId", async (req, res) => {
   }
 });
 
-// Get training status
-router.get("/training-status/:companyId", async (req, res) => {
+// Get training status - ETag enabled for caching when status is stable
+router.get("/training-status/:companyId", etagMiddleware, async (req, res) => {
   try {
     const { companyId } = req.params;
 
@@ -175,8 +177,8 @@ router.get("/training-status/:companyId", async (req, res) => {
   }
 });
 
-// Make prediction
-router.post("/predict/:companyId", async (req, res) => {
+// Make prediction - Idempotent (same input = same output)
+router.post("/predict/:companyId", idempotencyMiddleware({ ttl: 60 * 60 * 1000 }), async (req, res) => {
   try {
     const { companyId } = req.params;
     const { input_data, forecast_days } = req.body;
@@ -198,8 +200,8 @@ router.post("/predict/:companyId", async (req, res) => {
   }
 });
 
-// Get model info
-router.get("/model-info/:companyId", async (req, res) => {
+// Get model info - ETag enabled (model metadata rarely changes)
+router.get("/model-info/:companyId", etagMiddleware, async (req, res) => {
   try {
     const { companyId } = req.params;
 
@@ -214,8 +216,8 @@ router.get("/model-info/:companyId", async (req, res) => {
   }
 });
 
-// Validate company data
-router.get("/validate-data/:companyId", async (req, res) => {
+// Validate company data - ETag enabled
+router.get("/validate-data/:companyId", etagMiddleware, async (req, res) => {
   try {
     const { companyId } = req.params;
 
@@ -230,8 +232,8 @@ router.get("/validate-data/:companyId", async (req, res) => {
   }
 });
 
-// Get historical data for charts
-router.get("/historical-data/:companyId", async (req, res) => {
+// Get historical data for charts - ETag enabled (historical data is immutable)
+router.get("/historical-data/:companyId", etagMiddleware, async (req, res) => {
   try {
     const { companyId } = req.params;
 
@@ -246,8 +248,8 @@ router.get("/historical-data/:companyId", async (req, res) => {
   }
 });
 
-// Get inventory analytics - Top trending items
-router.get("/inventory/trending/:companyId", async (req, res) => {
+// Get inventory analytics - Top trending items - ETag enabled
+router.get("/inventory/trending/:companyId", etagMiddleware, async (req, res) => {
   try {
     const { companyId } = req.params;
     const { timeRange = '30d' } = req.query;
@@ -263,8 +265,8 @@ router.get("/inventory/trending/:companyId", async (req, res) => {
   }
 });
 
-// Get inventory analytics summary
-router.get("/inventory/analytics/:companyId", async (req, res) => {
+// Get inventory analytics summary - ETag enabled
+router.get("/inventory/analytics/:companyId", etagMiddleware, async (req, res) => {
   try {
     const { companyId } = req.params;
 

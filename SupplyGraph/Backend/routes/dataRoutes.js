@@ -3,6 +3,7 @@ const multer = require("multer");
 const path = require("path");
 const fs = require("fs");
 const { processRawCSV } = require("../utils/dataProcessor");
+const { idempotencyMiddleware } = require("../utils/idempotency");
 
 const router = express.Router();
 
@@ -30,7 +31,9 @@ const upload = multer({
   }
 });
 
-router.post("/convert/:companyId", upload.single("file"), async (req, res) => {
+// File upload with idempotency - prevents duplicate file processing
+// Note: Idempotency key includes file hash, so same file = same key
+router.post("/convert/:companyId", upload.single("file"), idempotencyMiddleware({ ttl: 60 * 60 * 1000 }), async (req, res) => {
   try {
     const { companyId } = req.params;
 

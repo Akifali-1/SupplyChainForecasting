@@ -189,7 +189,7 @@ app.post("/api/company/register", async (req, res) => {
   }
 });
 
-// Health check endpoint
+// Health check endpoint - No ETag (health status changes frequently)
 app.get("/api/health", async (req, res) => {
   try {
     const ML_SERVICE_URL = process.env.ML_SERVICE_URL || "http://localhost:5001";
@@ -206,6 +206,21 @@ app.get("/api/health", async (req, res) => {
       timestamp: new Date().toISOString(),
     });
   }
+});
+
+// Idempotency cache stats (for debugging/monitoring)
+// Security: Does not expose actual keys
+app.get("/api/debug/idempotency", (req, res) => {
+  // Clear require cache to ensure we get latest version
+  delete require.cache[require.resolve("./utils/idempotency")];
+  const { getCacheStats } = require("./utils/idempotency");
+  const stats = getCacheStats();
+  // Explicitly construct response object - ONLY include these fields
+  res.json({
+    cache_size: typeof stats.size === 'number' ? stats.size : 0,
+    active_keys: typeof stats.active_keys === 'number' ? stats.active_keys : 0,
+    in_flight_requests: typeof stats.in_flight === 'number' ? stats.in_flight : 0
+  });
 });
 
 // OAuth diagnostic endpoint (for debugging)

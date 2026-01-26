@@ -1,6 +1,7 @@
 const express = require("express");
 const passport = require("passport");
 const router = express.Router();
+const { etagMiddleware } = require("../utils/etag");
 
 // Get frontend URL from environment
 const FRONTEND_URL = process.env.FRONTEND_URL || "http://localhost:3000";
@@ -65,8 +66,8 @@ router.get("/logout", (req, res) => {
   });
 });
 
-// Get current user
-router.get("/me", (req, res) => {
+// Get current user - ETag enabled (user data changes infrequently)
+router.get("/me", etagMiddleware, (req, res) => {
   // Log session info for debugging
   console.log('🔐 /me endpoint called');
   console.log('🔐 Session ID:', req.sessionID);

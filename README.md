@@ -262,11 +262,7 @@ Sample datasets are available in `Backend/test_data/`:
    - Check network access (MongoDB Atlas whitelist)
    - Ensure database name is correct
 
-## 📚 Documentation
 
-- **Backend README**: `Backend/README.md` - Detailed backend architecture
-- **OAuth Setup**: `Backend/OAUTH_SETUP.md` - Google OAuth configuration guide
-- **Frontend README**: `Frontend/README.md` - Frontend setup and usage
 
 
 ## 📝 License

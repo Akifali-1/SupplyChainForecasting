@@ -8,6 +8,8 @@ import torch.nn.functional as F
 from torch_geometric.nn import GATConv
 from torch_geometric.data import Data
 from sklearn.preprocessing import StandardScaler
+from sklearn.metrics import mean_absolute_percentage_error
+from torch.optim.lr_scheduler import ReduceLROnPlateau
 from pymongo import MongoClient
 
 class HybridGATLSTM(nn.Module):
@@ -182,7 +184,15 @@ class ModelTrainer:
         return errors
 
     def _prepare_training_data(self, nodes_path, edges_path, sales_path):
-        """Prepare training data from new CSV format"""
+        """Prepare training data using sliding-window approach (matches base model).
+        
+        Returns:
+            train_datas, val_datas, test_datas: Lists of PyG Data objects
+            scalers: Dict of StandardScaler per node (fit on training portion only)
+            node_to_idx: Dict mapping node name to index
+            edge_index: Tensor of graph edges
+            node_list: List of node names
+        """
         try:
             print("Loading CSV files...")
             nodes_df = pd.read_csv(nodes_path)
@@ -190,31 +200,23 @@ class ModelTrainer:
             sales_df = pd.read_csv(sales_path)
             
             print(f"Loaded: {len(nodes_df)} nodes, {len(edges_df)} edges, {len(sales_df)} sales records")
-            print(f"Nodes columns: {list(nodes_df.columns)}")
-            print(f"Edges columns: {list(edges_df.columns)}")
-            print(f"Sales columns: {list(sales_df.columns)}")
             
             # Auto-add missing edge nodes to nodes DataFrame
             if 'Node' in nodes_df.columns and 'node1' in edges_df.columns and 'node2' in edges_df.columns:
-                # Convert to strings for consistent comparison
                 node_ids = set(str(n) for n in nodes_df['Node'].dropna())
                 edge_nodes = set(str(n) for n in edges_df['node1'].dropna() if pd.notna(n) and str(n).strip() != '')
                 edge_nodes = edge_nodes.union(set(str(n) for n in edges_df['node2'].dropna() if pd.notna(n) and str(n).strip() != ''))
                 missing_nodes = edge_nodes - node_ids
                 
                 if missing_nodes:
-                    print(f"Auto-adding {len(missing_nodes)} missing edge nodes to nodes list...")
-                    # Create new rows for missing nodes
+                    print(f"Auto-adding {len(missing_nodes)} missing edge nodes...")
                     new_nodes = []
                     for node in missing_nodes:
                         node_str = str(node).strip()
                         new_node = {'Node': node_str}
-                        # Add Plant column if it exists in nodes_df
                         if 'Plant' in nodes_df.columns:
-                            # Try to find Plant from edges if available
                             plant_val = ''
                             if 'Plant' in edges_df.columns:
-                                # Convert edge values to strings for comparison
                                 plant_rows = edges_df[
                                     (edges_df['node1'].astype(str).str.strip() == node_str) | 
                                     (edges_df['node2'].astype(str).str.strip() == node_str)
@@ -223,151 +225,130 @@ class ModelTrainer:
                                     plant_val = str(plant_rows.iloc[0].get('Plant', '')).strip()
                             new_node['Plant'] = plant_val if plant_val else ''
                         new_nodes.append(new_node)
-                    
-                    # Append new nodes to nodes_df
                     new_nodes_df = pd.DataFrame(new_nodes)
                     nodes_df = pd.concat([nodes_df, new_nodes_df], ignore_index=True)
-                    print(f"Added nodes: {list(missing_nodes)[:10]}...")
             
             # Validate data
-            print("Validating data consistency...")
             validation_errors = self._validate_csv_data(nodes_df, edges_df, sales_df)
             if validation_errors:
                 error_msg = "Data validation failed:\n" + "\n".join(validation_errors)
                 print(f"VALIDATION ERRORS:\n{error_msg}")
                 raise ValueError(error_msg)
             
-            # Create node mapping (convert to strings for consistency)
-            node_list = [str(node).strip() for node in nodes_df['Node'].tolist()]
+            # Sort sales by date
+            sales_df['Date'] = pd.to_datetime(sales_df['Date'])
+            sales_df = sales_df.sort_values('Date')
+            product_columns = [col for col in sales_df.columns if col != 'Date']
+            num_times = len(sales_df)
+            print(f"Number of time steps (days): {num_times}")
+            
+            # Build node list — only keep nodes that have sales data with variance
+            node_list = []
+            series = []
+            for node in nodes_df['Node']:
+                node_str = str(node).strip()
+                if node_str in product_columns:
+                    node_series = pd.to_numeric(sales_df[node_str], errors='coerce').fillna(0.0).values
+                    zero_prop = np.sum(node_series == 0) / len(node_series)
+                    if np.std(node_series) > 0 and zero_prop < 0.9:
+                        node_list.append(node_str)
+                        series.append(node_series)
+            
+            if len(node_list) == 0:
+                raise RuntimeError("No valid nodes found after filtering (need non-zero variance)")
+            
+            series = np.array(series)  # shape: (num_nodes, num_times)
             node_to_idx = {node: idx for idx, node in enumerate(node_list)}
+            print(f"Valid nodes for training: {len(node_list)}")
             
-            print(f"Created node mapping with {len(node_list)} nodes")
-            print(f"First 10 nodes: {node_list[:10]}")
+            # Temporal split: 70% train, 20% val, 10% test
+            train_end = int(0.7 * num_times)
+            val_end = train_end + int(0.2 * num_times)
             
-            # Prepare node features (Plant column if available)
-            if 'Plant' in nodes_df.columns:
-                plant_dummies = pd.get_dummies(nodes_df['Plant'], prefix='Plant')
-                node_features = plant_dummies.values
-                feature_columns = list(plant_dummies.columns)
-            else:
-                node_features = np.ones((len(nodes_df), 1))
-                feature_columns = ['default_feature']
+            # Fit scalers on TRAINING data only (no leakage)
+            scalers = {}
+            scaled_series = np.zeros_like(series, dtype=float)
+            for i, node in enumerate(node_list):
+                train_portion = series[i, :train_end]
+                if np.std(train_portion) > 0:
+                    scaler = StandardScaler().fit(train_portion.reshape(-1, 1))
+                    scalers[node] = scaler
+                    scaled_series[i] = scaler.transform(series[i].reshape(-1, 1)).flatten()
+                else:
+                    scalers[node] = StandardScaler()
+                    scaled_series[i] = series[i]
             
-            print(f"Node features shape: {node_features.shape}")
+            print(f"Scalers fit on training data only (first {train_end} of {num_times} timesteps)")
             
-            # Prepare edges
+            # Build graph edges
             edge_list = []
             for _, row in edges_df.iterrows():
-                node1 = row['node1']
-                node2 = row['node2']
-                
-                # Skip empty edges
-                if pd.isna(node1) or pd.isna(node2) or str(node1).strip() == '' or str(node2).strip() == '':
+                node1 = str(row.get('node1', '')).strip()
+                node2 = str(row.get('node2', '')).strip()
+                if pd.isna(row.get('node1')) or pd.isna(row.get('node2')):
                     continue
-                
-                # Convert to strings for consistent lookup
-                node1_str = str(node1).strip()
-                node2_str = str(node2).strip()
-                
-                if node1_str in node_to_idx and node2_str in node_to_idx:
-                    edge_list.append([node_to_idx[node1_str], node_to_idx[node2_str]])
+                if node1 in node_to_idx and node2 in node_to_idx:
+                    edge_list.append([node_to_idx[node1], node_to_idx[node2]])
+            
+            # Add Product-Plant edges
+            if 'Plant' in nodes_df.columns:
+                for _, row in nodes_df.iterrows():
+                    node = str(row['Node']).strip()
+                    plant = str(row.get('Plant', '')).strip()
+                    if node in node_to_idx and plant in node_to_idx:
+                        edge_list.append([node_to_idx[node], node_to_idx[plant]])
+                        edge_list.append([node_to_idx[plant], node_to_idx[node]])
             
             if not edge_list:
-                print("WARNING: No valid edges found, creating minimal edge structure")
-                edge_list = [[0, 1], [1, 0]] if len(node_list) > 1 else [[0, 0]]
+                print("WARNING: No valid edges found, GAT will behave like LSTM")
+                edge_list = [[0, 0]]
             
             edge_index = torch.tensor(edge_list, dtype=torch.long).t().contiguous()
             print(f"Created {len(edge_list)} edges")
             
-            # Prepare time series data from sales
-            product_columns = [col for col in sales_df.columns if col != 'Date']
-            print(f"Found {len(product_columns)} product columns: {product_columns[:10]}")
+            # Sliding window max_timesteps (use model default of 5)
+            max_timesteps = min(5, train_end - 1)
             
-            # Sort sales by date
-            sales_df['Date'] = pd.to_datetime(sales_df['Date'])
-            sales_df = sales_df.sort_values('Date')
+            # Create sliding-window Data objects
+            # For each timestep t: x = scaled_series[:, t-max_timesteps:t], y = scaled_series[:, t]
+            def create_datas(start, end):
+                datas = []
+                for t in range(start, end):
+                    x = torch.tensor(
+                        scaled_series[:, t - max_timesteps: t], dtype=torch.float
+                    ).unsqueeze(-1)  # (num_nodes, max_timesteps, 1)
+                    y = torch.tensor(
+                        scaled_series[:, t], dtype=torch.float
+                    ).view(-1, 1)    # (num_nodes, 1)
+                    datas.append(Data(x=x, edge_index=edge_index, y=y))
+                return datas
             
-            # Determine max timesteps (limit to 20 for memory efficiency)
-            max_timesteps = min(len(sales_df), 20)
-            print(f"Using max_timesteps: {max_timesteps}")
-            
-            # Create time series data (num_nodes, max_timesteps, 1)
-            time_series_x = np.zeros((len(node_list), max_timesteps, 1))
-            
-            # Fill in time series for each product (node)
-            for product in product_columns:
-                product_str = str(product).strip()
-                if product_str in node_to_idx:
-                    node_idx = node_to_idx[product_str]
-                    
-                    # Get sales values for this product
-                    sales_values = sales_df[product].values[-max_timesteps:]
-                    
-                    # Left-pad if shorter than max_timesteps
-                    if len(sales_values) < max_timesteps:
-                        sales_values = np.pad(sales_values, (max_timesteps - len(sales_values), 0), mode='constant')
-                    
-                    time_series_x[node_idx, :, 0] = sales_values
-            
-            print(f"Time series data shape: {time_series_x.shape}")
-            print(f"Time series stats: min={time_series_x.min():.2f}, max={time_series_x.max():.2f}, mean={time_series_x.mean():.2f}")
-            
-            # Create targets (average sales for each product)
-            y = np.zeros(len(node_list))
-            products_with_sales = 0
-            
-            for product in product_columns:
-                product_str = str(product).strip()
-                if product_str in node_to_idx:
-                    node_idx = node_to_idx[product_str]
-                    sales_values = sales_df[product].values
-                    
-                    # Calculate average sales
-                    non_zero_sales = sales_values[sales_values > 0]
-                    if len(non_zero_sales) > 0:
-                        y[node_idx] = non_zero_sales.mean()
-                        products_with_sales += 1
-            
-            print(f"Products with sales data: {products_with_sales}")
-            print(f"Target stats: min={y.min():.2f}, max={y.max():.2f}, mean={y.mean():.2f}")
-            
-            # Convert to PyTorch tensors
-            x_tensor = torch.tensor(time_series_x, dtype=torch.float)
-            y_tensor = torch.tensor(y, dtype=torch.float).unsqueeze(1)
-            
-            # Create Data object
-            data = Data(x=x_tensor, edge_index=edge_index, y=y_tensor)
-            data.max_timesteps = max_timesteps
-            data.x_ids = torch.arange(len(node_list))
-            
-            # Identify nodes with non-zero targets
-            store_indices = np.where(y > 0)[0]
-            data.y_store_ids = torch.tensor(store_indices)
-            
-            print(f"Store node indices: {len(store_indices)} nodes with non-zero sales")
-            
-            # Prepare scalers for each node
-            training_scalers = {}
-            for node_id, idx in node_to_idx.items():
-                series_vals = time_series_x[idx, :, 0].reshape(-1, 1)
-                try:
-                    scaler = StandardScaler().fit(series_vals)
-                    training_scalers[node_id] = {
-                        'mean_': scaler.mean_.tolist(),
-                        'scale_': scaler.scale_.tolist()
-                    }
-                except Exception:
-                    training_scalers[node_id] = {
-                        'mean_': [float(series_vals.mean())],
-                        'scale_': [float(series_vals.std() if series_vals.std() != 0 else 1.0)]
-                    }
+            train_datas = create_datas(max_timesteps, train_end)
+            val_datas = create_datas(max(train_end, max_timesteps), val_end)
+            test_datas = create_datas(max(val_end, max_timesteps), num_times)
+            print(f"Train windows: {len(train_datas)}, Val: {len(val_datas)}, Test: {len(test_datas)}")
             
             # Store for later use
             self._training_node_to_idx = node_to_idx
-            self._training_scalers = {k: type('obj', (), {'mean_': np.array(v['mean_']), 'scale_': np.array(v['scale_'])}) 
-                                     for k, v in training_scalers.items()}
+            self._training_scalers = scalers
+            self._training_node_list = node_list
+            self._training_edge_index = edge_index
+            self._training_max_timesteps = max_timesteps
             
-            return data, feature_columns
+            # Store last window for prediction bootstrap
+            last_x_raw = series[:, -max_timesteps:]  # (num_nodes, max_timesteps)
+            last_x_scaled = np.zeros_like(last_x_raw, dtype=float)
+            for i, node in enumerate(node_list):
+                if node in scalers and hasattr(scalers[node], 'mean_'):
+                    last_x_scaled[i] = scalers[node].transform(last_x_raw[i].reshape(-1, 1)).flatten()
+                else:
+                    last_x_scaled[i] = last_x_raw[i]
+            self._last_x = torch.tensor(last_x_scaled, dtype=torch.float).unsqueeze(-1)  # (num_nodes, max_timesteps, 1)
+            
+            # Get feature columns for metadata
+            feature_columns = node_list
+            
+            return train_datas, val_datas, test_datas, feature_columns
             
         except Exception as e:
             print(f"Error preparing training data: {e}")
@@ -375,63 +356,107 @@ class ModelTrainer:
             traceback.print_exc()
             raise
     
-    def _fine_tune_model(self, model, data, epochs=50, company_id=None):
-        """Fine-tune the model on company data"""
+    def _fine_tune_model(self, model, train_datas, val_datas, epochs=100, company_id=None):
+        """Fine-tune the model using sliding-window approach (matches base model training)."""
         try:
-            optimizer = torch.optim.Adam(model.parameters(), lr=0.01)
-            criterion = torch.nn.MSELoss()
+            optimizer = torch.optim.Adam(model.parameters(), lr=0.001, weight_decay=5e-4)
+            scheduler = ReduceLROnPlateau(optimizer, mode='min', factor=0.5, patience=10)
             
             model.train()
-            losses = []
+            best_val_loss = float('inf')
+            best_model_state = None
+            wait = 0
+            patience = 20
+            train_losses = []
             
-            if not hasattr(data, 'y_store_ids') or len(data.y_store_ids) == 0:
-                print("❌ CRITICAL: No store nodes found for training!")
-                raise ValueError("No store nodes found for training")
+            if len(train_datas) == 0:
+                raise ValueError("No training windows available")
             
-            print(f"Starting training with {len(data.y_store_ids)} store nodes...")
+            print(f"Starting fine-tuning: {len(train_datas)} train windows, {len(val_datas)} val windows")
             
-            for epoch in range(epochs):
-                optimizer.zero_grad()
+            for epoch in range(1, epochs + 1):
+                # Training loop
+                model.train()
+                total_loss = 0.0
+                total_train_len = len(train_datas)
+                for step, data in enumerate(train_datas):
+                    optimizer.zero_grad()
+                    out = model(data.x, data.edge_index)
+                    loss = F.huber_loss(out, data.y, delta=1.0)
+                    loss.backward()
+                    torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
+                    optimizer.step()
+                    total_loss += loss.item()
+                    
+                    # Update progress in real-time within the epoch
+                    if company_id and step % max(1, total_train_len // 5) == 0:
+                        progress = 50.0 + ((epoch - 1) + (step / total_train_len)) / epochs * 40.0
+                        self._update_training_status(company_id, "training", round(progress, 1),
+                            f"Training Epoch {epoch}/{epochs} ({step}/{total_train_len})")
                 
-                # Forward pass
-                out = model(data.x, data.edge_index)
+                train_loss = total_loss / len(train_datas)
+                train_losses.append(train_loss)
                 
-                # Calculate loss only on store nodes
-                store_indices = data.y_store_ids
-                store_predictions = out[store_indices]
-                store_targets = data.y[store_indices]
+                # Validation loop
+                val_loss = 0.0
+                val_mape = 0.0
+                if val_datas:
+                    model.eval()
+                    with torch.no_grad():
+                        for data in val_datas:
+                            out = model(data.x, data.edge_index)
+                            loss = F.huber_loss(out, data.y, delta=1.0)
+                            val_loss += loss.item()
+                            y_true_real = np.zeros(len(self._training_node_list))
+                            y_pred_real = np.zeros(len(self._training_node_list))
+                            
+                            for i, node in enumerate(self._training_node_list):
+                                scaler = self._training_scalers.get(node)
+                                mean = scaler.mean_[0] if scaler and hasattr(scaler, 'mean_') else 0.0
+                                scale = scaler.scale_[0] if scaler and hasattr(scaler, 'scale_') else 1.0
+                                
+                                y_true_real[i] = max(0, data.y[i].item() * scale + mean)
+                                y_pred_real[i] = max(0, out[i].item() * scale + mean)
+                                
+                            mask = y_true_real > 0.1  # Avoid zero-division
+                            if np.any(mask):
+                                val_mape += mean_absolute_percentage_error(y_true_real[mask], y_pred_real[mask])
+                    val_loss /= len(val_datas)
+                    val_mape /= len(val_datas)
+                    scheduler.step(val_loss)
                 
-                loss = criterion(store_predictions, store_targets)
-                
-                # Backward pass
-                loss.backward()
-                optimizer.step()
-                losses.append(loss.item())
-                
-                # Update progress
+                # Update progress at end of epoch with metrics
                 if company_id:
-                    progress = 50 + int((epoch + 1) / epochs * 40)
-                    self._update_training_status(company_id, "training", progress, 
-                                               f"Training epoch {epoch+1}/{epochs}, Loss: {loss.item():.4f}")
+                    progress = 50.0 + (epoch / epochs) * 40.0
+                    self._update_training_status(company_id, "training", round(progress, 1),
+                        f"Epoch {epoch}/{epochs}, Train: {train_loss:.4f}, Val: {val_loss:.4f}, MAPE: {val_mape:.2%}")
                 
-                # Logging
-                if (epoch + 1) % 10 == 0:
-                    print(f'Epoch {epoch+1:03d}, Loss: {loss.item():.4f}')
-                    print(f'  Predictions: {store_predictions.squeeze().detach().numpy()[:5]}...')
-                    print(f'  Targets:     {store_targets.squeeze().numpy()[:5]}...')
+                if epoch % 10 == 0 or epoch == 1:
+                    print(f"Epoch {epoch:03d} | Train: {train_loss:.4f} | Val: {val_loss:.4f} | MAPE: {val_mape:.2%}")
                 
-                # Early stopping
-                if loss.item() < 1e-6:
-                    print(f"Early stopping at epoch {epoch+1}")
-                    break
+                # Early stopping on validation loss
+                if val_datas and val_loss < best_val_loss:
+                    best_val_loss = val_loss
+                    wait = 0
+                    best_model_state = {k: v.cpu().clone() for k, v in model.state_dict().items()}
+                else:
+                    wait += 1
+                    if wait >= patience:
+                        print(f"Early stopping at epoch {epoch}")
+                        break
             
-            return losses
+            # Restore best model
+            if best_model_state is not None:
+                model.load_state_dict(best_model_state)
+                print(f"Restored best model (val_loss={best_val_loss:.4f})")
+            
+            return train_losses, best_val_loss, val_mape
             
         except Exception as e:
             print(f"Error during fine-tuning: {e}")
             raise
     
-    def save_company_model_to_atlas(self, company_id, model, feature_columns, metrics, scalers=None, node_to_idx=None, last_x=None):
+    def save_company_model_to_atlas(self, company_id, model, feature_columns, metrics, scalers=None, node_to_idx=None, last_x=None, max_timesteps=5):
         """Save fine-tuned model to MongoDB Atlas"""
         try:
             if self.db is None:
@@ -459,7 +484,7 @@ class ModelTrainer:
                 'model_type': 'GAT-LSTM Hybrid',
                 'base_model_id': 'base_gat_lstm_model',
                 'architecture': {
-                    'max_timesteps': getattr(model, 'max_timesteps', 5),
+                    'max_timesteps': max_timesteps,
                     'gat_hidden': 4,
                     'gat_heads': 6,
                     'lstm_hidden': 64,
@@ -472,6 +497,10 @@ class ModelTrainer:
                 'metrics': metrics,
                 'created_at': pd.Timestamp.now()
             }
+            
+            # Store last_x for prediction bootstrap
+            if last_x is not None:
+                model_doc['last_x'] = last_x.numpy().tolist()
             
             # Use GridFS for large models
             if model_size_mb > 15:
@@ -518,31 +547,24 @@ class ModelTrainer:
     def fine_tune_company_model(self, company_id, nodes_path, edges_path, sales_path, force_retrain=False):
         """Complete fine-tuning pipeline"""
         try:
-            print(f"Starting fine-tuning for company {company_id}")
-            print(f"Nodes: {nodes_path}")
-            print(f"Edges: {edges_path}")
-            print(f"Sales: {sales_path}")
+            action = "retraining" if force_retrain else "training"
+            print(f"Starting {action} for company {company_id} (force_retrain={force_retrain})")
+            self._update_training_status(company_id, "starting", 0, f"Initializing {'re' if force_retrain else ''}training...")
             
-            self._update_training_status(company_id, "starting", 0, "Initializing...")
-            
-            # Check existing model
+            # Check existing model — skipped entirely when force_retrain=True
             if not force_retrain:
                 existing_model = self.check_company_model_exists(company_id)
                 if existing_model.get("exists", False):
-                    print(f"Model already exists for company {company_id}")
-                    self._update_training_status(company_id, "completed", 100, "Model already trained")
+                    print(f"Model already exists for company {company_id}. Use force_retrain=True to retrain.")
+                    self._update_training_status(company_id, "completed", 100, "Model already trained (use Force Retrain to retrain)")
                     return True
             
             # Validate files
             self._update_training_status(company_id, "validating", 10, "Checking files...")
             missing_files = []
-            if not os.path.exists(nodes_path):
-                missing_files.append(f"Nodes: {nodes_path}")
-            if not os.path.exists(edges_path):
-                missing_files.append(f"Edges: {edges_path}")
-            if not os.path.exists(sales_path):
-                missing_files.append(f"Sales: {sales_path}")
-            
+            for label, path in [("Nodes", nodes_path), ("Edges", edges_path), ("Sales", sales_path)]:
+                if not os.path.exists(path):
+                    missing_files.append(f"{label}: {path}")
             if missing_files:
                 error_msg = "Missing files:\n" + "\n".join(missing_files)
                 self._update_training_status(company_id, "failed", 0, "File validation failed", error_msg)
@@ -550,32 +572,82 @@ class ModelTrainer:
             
             # Load base model
             self._update_training_status(company_id, "loading_model", 20, "Loading base model...")
-            model, node_list, scalers, node_to_idx = self._load_base_model()
+            model, _, _, _ = self._load_base_model()
             
-            # Prepare data
+            # When force-retraining, reset the output head so the model starts
+            # predicting from a neutral distribution rather than carrying over
+            # stale biases that produce 100k+ outputs on new data.
+            if force_retrain:
+                import torch.nn as nn
+                nn.init.xavier_uniform_(model.lin.weight)
+                nn.init.zeros_(model.lin.bias)
+                print("Output head re-initialized for fresh fine-tuning")
+            
+            # Prepare data (sliding-window approach)
             self._update_training_status(company_id, "preparing_data", 30, "Preparing training data...")
-            data, feature_columns = self._prepare_training_data(nodes_path, edges_path, sales_path)
+            train_datas, val_datas, test_datas, feature_columns = self._prepare_training_data(
+                nodes_path, edges_path, sales_path
+            )
             
-            # Fine-tune
+            # Fine-tune with proper training loop
             self._update_training_status(company_id, "training", 50, "Training model...")
-            losses = self._fine_tune_model(model, data, epochs=50, company_id=company_id)
+            train_losses, best_val_loss, val_mape = self._fine_tune_model(
+                model, train_datas, val_datas, epochs=100, company_id=company_id
+            )
+            
+            # Evaluate on test set
+            test_loss = 0.0
+            test_mape = 0.0
+            if test_datas:
+                model.eval()
+                with torch.no_grad():
+                    for data in test_datas:
+                        out = model(data.x, data.edge_index)
+                        loss = F.huber_loss(out, data.y, delta=1.0)
+                        test_loss += loss.item()
+                        y_true_real = np.zeros(len(self._training_node_list))
+                        y_pred_real = np.zeros(len(self._training_node_list))
+                        
+                        for i, node in enumerate(self._training_node_list):
+                            scaler = self._training_scalers.get(node)
+                            mean = scaler.mean_[0] if scaler and hasattr(scaler, 'mean_') else 0.0
+                            scale = scaler.scale_[0] if scaler and hasattr(scaler, 'scale_') else 1.0
+                            
+                            y_true_real[i] = max(0, data.y[i].item() * scale + mean)
+                            y_pred_real[i] = max(0, out[i].item() * scale + mean)
+                            
+                        mask = y_true_real > 0.1
+                        if np.any(mask):
+                            test_mape += mean_absolute_percentage_error(y_true_real[mask], y_pred_real[mask])
+                test_loss /= len(test_datas)
+                test_mape /= len(test_datas)
+                print(f"Test Loss: {test_loss:.4f}, Test MAPE: {test_mape:.2%}")
             
             # Save model
             self._update_training_status(company_id, "saving", 90, "Saving model...")
             metrics = {
-                'final_loss': losses[-1] if losses else 0,
-                'training_epochs': len(losses),
-                'loss_history': losses
+                'final_train_loss': train_losses[-1] if train_losses else 0,
+                'best_val_loss': best_val_loss,
+                'val_mape': val_mape,
+                'test_loss': test_loss,
+                'test_mape': test_mape,
+                'training_epochs': len(train_losses),
+                'loss_history': train_losses[-20:]  # Last 20 to keep doc small
             }
             
             scalers = getattr(self, '_training_scalers', None)
             node_to_idx = getattr(self, '_training_node_to_idx', None)
+            last_x = getattr(self, '_last_x', None)
+            max_timesteps = getattr(self, '_training_max_timesteps', 5)
             
-            success = self.save_company_model_to_atlas(company_id, model, feature_columns, metrics, scalers, node_to_idx)
+            success = self.save_company_model_to_atlas(
+                company_id, model, feature_columns, metrics,
+                scalers, node_to_idx, last_x, max_timesteps
+            )
             
             if success:
-                self._update_training_status(company_id, "completed", 100, 
-                                           f"Training completed! Final loss: {losses[-1]:.4f}")
+                self._update_training_status(company_id, "completed", 100,
+                    f"Training completed! Val MAPE: {val_mape:.2%}, Test MAPE: {test_mape:.2%}")
                 return True
             else:
                 self._update_training_status(company_id, "failed", 90, "Model saving failed")

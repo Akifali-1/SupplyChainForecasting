@@ -1,6 +1,5 @@
 import os
 import pickle
-import math
 import pandas as pd
 import numpy as np
 import torch
@@ -307,69 +306,23 @@ class DemandPredictor:
         except Exception:
             return {'mean': 0.0, 'max': 0.0, 'trend': 'stable'}
     
-    def _generate_forecast_series(self, base_value, recent_stats, days):
-        """
-        Create a smooth multi-day forecast using the single-step prediction plus recent trends.
-        This is a heuristic to provide the UI with a 30-day trajectory.
-        """
-        if days <= 1:
-            return [round(max(0.0, base_value), 2)]
-        
-        mean = recent_stats.get('mean', base_value) or base_value
-        max_val = max(recent_stats.get('max', base_value), base_value)
-        trend = recent_stats.get('trend', 'stable') or 'stable'
-        
-        amplitude = max(5.0, abs(mean) * 0.15, abs(max_val - mean) * 0.5, abs(base_value) * 0.1)
-        if amplitude == 0:
-            amplitude = max(1.0, base_value * 0.1)
-        
-        values = []
-        for day in range(days):
-            progress = day / max(1, days - 1)
-            if trend == 'up':
-                target = base_value + amplitude * (0.5 + progress)
-            elif trend == 'down':
-                target = max(0.0, base_value - amplitude * (0.5 + progress))
-            else:
-                target = mean + math.sin(progress * math.pi) * amplitude
-            blended = (base_value * 0.4) + (target * 0.6)
-            values.append(round(max(0.0, blended), 2))
-        return values
-    
     def _build_edge_index_from_edges(self, edges_df, node_list):
-        """
-        Build edge_index from Edges (Plant).csv format.
-        
-        Format: Plant, node1, node2
-        - Creates edges between Plant-node1, Plant-node2, node1-node2
-        - Case-insensitive matching
-        """
+        """Build edge_index from Edges (Plant).csv format."""
         try:
             if edges_df is None or len(edges_df) == 0:
-                if self.debug:
-                    print("⚠️ No edges data, using self-loops")
                 return self._build_safe_edge_index(len(node_list))
             
-            # Create case-insensitive node mapping
             node_to_idx = {str(node).strip().upper(): i for i, node in enumerate(node_list)}
-            
-            if self.debug:
-                print(f"\n🔧 Building edge index from {len(edges_df)} edge records...")
-                print(f"  Node mapping sample (first 5): {list(node_to_idx.items())[:5]}")
-            
             edge_pairs = []
-            edges_created = 0
             
             for _, row in edges_df.iterrows():
                 plant = str(row.get('Plant', '')).strip().upper()
                 n1 = str(row.get('node1', '')).strip().upper()
                 n2 = str(row.get('node2', '')).strip().upper()
                 
-                # Skip empty nodes
                 if not plant and not n1 and not n2:
                     continue
                 
-                # Create edges between all valid pairs
                 pairs_to_add = []
                 if plant and n1:
                     pairs_to_add.append((plant, n1))
@@ -381,61 +334,46 @@ class DemandPredictor:
                 for src, dst in pairs_to_add:
                     if src in node_to_idx and dst in node_to_idx:
                         edge_pairs.append((node_to_idx[src], node_to_idx[dst]))
-                        edges_created += 1
-            
-            if self.debug:
-                print(f"  Created {edges_created} directed edges")
             
             # Add self-loops for isolated nodes
             all_nodes = set(range(len(node_list)))
             connected = {s for s, _ in edge_pairs} | {t for _, t in edge_pairs}
             isolated = all_nodes - connected
-            
             for idx in isolated:
                 edge_pairs.append((idx, idx))
             
-            if self.debug and isolated:
-                print(f"  Added {len(isolated)} self-loops for isolated nodes")
-            
             if not edge_pairs:
-                if self.debug:
-                    print("  ⚠️ No valid edges created, using fallback")
                 return self._build_safe_edge_index(len(node_list))
             
-            edge_index = torch.tensor(edge_pairs, dtype=torch.long).t().contiguous()
-            
-            if self.debug:
-                print(f"✓ Built edge_index: {edge_index.shape}")
-            
-            return edge_index
+            return torch.tensor(edge_pairs, dtype=torch.long).t().contiguous()
             
         except Exception as e:
-            print(f"✗ Error building edge_index: {e}")
-            import traceback
-            traceback.print_exc()
+            print(f"Error building edge_index: {e}")
             return self._build_safe_edge_index(len(node_list))
-        
+    
     def _build_safe_edge_index(self, num_nodes):
-        """Create self-loop edge_index as fallback"""
+        """Create self-loop edge_index as fallback."""
         if num_nodes <= 0:
             return torch.empty((2, 0), dtype=torch.long)
-        
         indices = torch.arange(num_nodes, dtype=torch.long)
-        edge_index = torch.stack([indices, indices], dim=0)
-        
-        if self.debug:
-            print(f"  Created fallback edge_index with {num_nodes} self-loops")
-        
-        return edge_index
+        return torch.stack([indices, indices], dim=0)
     
-    def predict(self, company_id, input_data, forecast_days=1):
-        """Generate demand prediction for a company using REAL data"""
+    def predict(self, company_id, input_data, forecast_days=30):
+        """Generate demand prediction using autoregressive rollout for N days.
+        
+        For each forecast day:
+        1. Run model forward pass to get next-day prediction for all nodes
+        2. Shift the input window: drop oldest timestep, append prediction as newest
+        3. Inverse-scale the prediction and store it
+        4. Repeat for forecast_days
+        
+        Returns dict with day-wise predictions array and 30-day total.
+        """
         try:
             if self.debug:
                 print(f"\n{'='*60}")
-                print(f"🔮 MAKING PREDICTION FOR COMPANY: {company_id}")
+                print(f"MAKING PREDICTION FOR COMPANY: {company_id}")
                 print(f"{'='*60}")
-                print(f"Input data: {input_data}")
             
             # 1. Load model and metadata
             model, model_doc = self._load_company_model(company_id)
@@ -446,192 +384,110 @@ class DemandPredictor:
             max_timesteps = model_doc.get('architecture', {}).get('max_timesteps', 5)
             
             if self.debug:
-                print(f"\n📊 Model Info:")
-                print(f"  Type: {model_doc.get('model_type')}")
-                print(f"  Nodes: {len(node_list)}")
-                print(f"  Max timesteps: {max_timesteps}")
-                print(f"  Has scalers: {len(scalers) > 0}")
-                print(f"  Node list (first 10): {node_list[:10]}")
+                print(f"  Nodes: {len(node_list)}, Max timesteps: {max_timesteps}")
             
-            # 2. Load company's REAL data
+            # 2. Load company's data and prepare initial input
             sales_df, edges_df, nodes_df = self._load_company_data(company_id)
-            
-            # 3. Prepare REAL time series input from Sales Order data
             x = self._prepare_time_series_from_sales(sales_df, node_list, max_timesteps, scalers)
-            
-            # 4. Build edge index from Edges (Plant).csv
             edge_index = self._build_edge_index_from_edges(edges_df, node_list)
             
-            if self.debug:
-                print(f"\n🔧 Prepared model inputs:")
-                print(f"  x shape: {x.shape}")
-                print(f"  edge_index shape: {edge_index.shape}")
-            
-            # 5. Make prediction
-            model.eval()
-            with torch.no_grad():
-                predictions = model(x, edge_index)
-                
-                if self.debug:
-                    print(f"\n📈 Raw Predictions:")
-                    print(f"  Shape: {predictions.shape}")
-                    print(f"  Range: [{predictions.min().item():.4f}, {predictions.max().item():.4f}]")
-                    print(f"  Mean: {predictions.mean().item():.4f}")
-                    print(f"  Std: {predictions.std().item():.4f}")
-                    
-                    # Show first 5 predictions
-                    print(f"\n  First 5 raw predictions:")
-                    for i in range(min(5, len(predictions))):
-                        print(f"    {node_list[i]}: {predictions[i].item():.4f}")
-            
-            # 6. Find requested product
+            # 3. Find requested product (exact case-insensitive match only)
             requested_product = None
             if isinstance(input_data, list) and len(input_data) > 0:
                 requested_product = input_data[0].get('product', '')
             
-            # 7. Extract and post-process specific prediction
             product_idx = None
             if requested_product:
-                # Case-insensitive matching
                 requested_upper = requested_product.strip().upper()
                 for i, node in enumerate(node_list):
-                    node_upper = node.strip().upper()
-                    if requested_upper == node_upper or requested_upper in node_upper or node_upper in requested_upper:
+                    if node.strip().upper() == requested_upper:
                         product_idx = i
                         break
             
-            recent_stats = None
-            if product_idx is not None:
-                recent_stats = self._recent_stats_for_product(sales_df, node_list[product_idx], max_timesteps)
-            
-            if product_idx is not None:
-                final_prediction = float(predictions[product_idx].item())
-                
+            if product_idx is None and requested_product:
                 if self.debug:
-                    print(f"\n✓ Found product match:")
-                    print(f"  Requested: {requested_product}")
-                    print(f"  Matched: {node_list[product_idx]}")
-                    print(f"  Index: {product_idx}")
-                    print(f"  Raw prediction: {final_prediction:.4f}")
-                
-                # Inverse transform if scalers were used
-                if scalers and node_list[product_idx] in scalers:
-                    scaler_data = scalers[node_list[product_idx]]
-                    mean = np.array(scaler_data.get('mean_', [0.0]))
-                    scale = np.array(scaler_data.get('scale_', [1.0]))
-                    
-                    # Inverse scaling: x_original = x_scaled * scale + mean
-                    final_prediction = final_prediction * (scale[0] if scale.size else 1.0) + (mean[0] if mean.size else 0.0)
-                    
-                    if self.debug:
-                        print(f"  Inverse scaled: {final_prediction:.4f} (mean={mean[0]:.2f}, scale={scale[0]:.2f})")
-                    
-                    # Calibration: adjust predictions based on recent trends
-                    recent_mean = recent_stats.get('mean', 0.0) if recent_stats else 0.0
-                    recent_max = recent_stats.get('max', 0.0) if recent_stats else 0.0
-                    trend = recent_stats.get('trend', 'stable') if recent_stats else 'stable'
-                    
-                    # If prediction is way above recent max, cap it
-                    upper_guard = max(recent_max * 1.5, recent_mean * 2.0, 100.0)
-                    if upper_guard > 0 and final_prediction > upper_guard:
-                        if self.debug:
-                            print(f"  ⚠️ Calibrating high prediction {final_prediction:.2f} → {upper_guard:.2f}")
-                        final_prediction = upper_guard
-                    
-                    # Light adjustment based on trend - only if prediction is clearly wrong
-                    if recent_mean > 0:
-                        if trend == 'down' and final_prediction > recent_mean * 1.2:
-                            adjusted = recent_mean * 0.95
-                            if self.debug:
-                                print(f"  📉 Downward trend: slight adjustment {final_prediction:.2f} → {adjusted:.2f}")
-                            final_prediction = adjusted
-                        elif trend == 'up' and final_prediction < recent_mean * 0.8:
-                            adjusted = recent_mean * 1.05
-                            if self.debug:
-                                print(f"  📈 Upward trend: slight adjustment {final_prediction:.2f} → {adjusted:.2f}")
-                            final_prediction = adjusted
-                
-                if final_prediction < 0:
-                    final_prediction = 0.0
-            else:
-                if requested_product:
-                    if self.debug:
-                        print(f"\n⚠️  Product '{requested_product}' not found in node list")
-                        print(f"  Available nodes: {node_list[:10]}...")
-                # Fallback to first node
-                final_prediction = float(predictions[0].item())
-                if scalers and node_list[0] in scalers:
-                    scaler_data = scalers[node_list[0]]
-                    mean = np.array(scaler_data.get('mean_', [0.0]))
-                    scale = np.array(scaler_data.get('scale_', [1.0]))
-                    final_prediction = final_prediction * (scale[0] if scale.size else 1.0) + (mean[0] if mean.size else 0.0)
-                final_prediction = max(0, final_prediction)
-                recent_stats = self._recent_stats_for_product(sales_df, node_list[0], max_timesteps)
+                    print(f"  Product '{requested_product}' not found in node list")
+                    print(f"  Available: {node_list[:10]}...")
+                # Return error instead of silently falling back
+                raise ValueError(f"Product '{requested_product}' not found. Available: {node_list[:10]}")
             
-            # Ensure prediction is positive
-            final_prediction = max(0, final_prediction)
+            if product_idx is None:
+                product_idx = 0  # Default to first node if no product specified
             
-            if not recent_stats:
-                recent_stats = {'mean': final_prediction, 'max': final_prediction, 'trend': 'stable'}
-            
+            # 4. Parse forecast days
             try:
-                forecast_days = int(forecast_days or 1)
+                forecast_days = int(forecast_days or 30)
             except (TypeError, ValueError):
-                forecast_days = 1
+                forecast_days = 30
             forecast_days = max(1, min(forecast_days, 30))
             
-            forecast_series = None
-            if forecast_days > 1:
-                forecast_series = self._generate_forecast_series(final_prediction, recent_stats, forecast_days)
+            # 5. Autoregressive rollout for forecast_days
+            model.eval()
+            daily_predictions = []
+            current_x = x.clone()  # (num_nodes, max_timesteps, 1)
             
-            # Calculate confidence based on prediction variance
-            pred_std = predictions.std().item()
-            if pred_std < 0.01:
-                confidence = 60  # Low confidence for low variance
-            elif pred_std < 0.1:
-                confidence = 75
-            else:
-                confidence = 85
+            with torch.no_grad():
+                for day in range(forecast_days):
+                    # Forward pass — get next-day prediction for all nodes
+                    pred = model(current_x, edge_index)  # (num_nodes, 1)
+                    
+                    # Extract prediction for target product (in scaled space)
+                    scaled_pred = pred[product_idx].item()
+                    
+                    # Inverse-scale to get real units
+                    real_pred = scaled_pred
+                    if scalers and node_list[product_idx] in scalers:
+                        scaler_data = scalers[node_list[product_idx]]
+                        mean = np.array(scaler_data.get('mean_', [0.0]))
+                        scale = np.array(scaler_data.get('scale_', [1.0]))
+                        real_pred = scaled_pred * (scale[0] if scale.size else 1.0) + (mean[0] if mean.size else 0.0)
+                    
+                    # Floor at zero (demand can't be negative)
+                    real_pred = max(0.0, real_pred)
+                    daily_predictions.append(round(real_pred, 2))
+                    
+                    # Shift window: drop oldest timestep, append prediction (in scaled space)
+                    new_step = pred.unsqueeze(-1)  # (num_nodes, 1, 1)
+                    current_x = torch.cat([current_x[:, 1:, :], new_step], dim=1)
+                    
+                    # Always print first 5 days so we can verify sanity in the terminal
+                    if day < 5:
+                        print(f"  [Predict] Day {day+1}: scaled={scaled_pred:.4f} | real={real_pred:.2f} | node={node_list[product_idx]}")
+            
+            # 6. Compute summary statistics
+            total_30_days = sum(daily_predictions)
+            average_daily = total_30_days / len(daily_predictions) if daily_predictions else 0.0
+            
+            if self.debug:
+                print(f"\n  Forecast summary ({forecast_days} days):")
+                print(f"    Total: {total_30_days:.2f}")
+                print(f"    Avg daily: {average_daily:.2f}")
+                print(f"    Range: [{min(daily_predictions):.2f}, {max(daily_predictions):.2f}]")
             
             result = {
                 'company_id': company_id,
-                'confidence': confidence,
                 'requested_product': requested_product,
-                'matched_node': node_list[product_idx] if product_idx is not None else None,
+                'matched_node': node_list[product_idx],
                 'model_type': 'GAT-LSTM Hybrid',
+                'forecast_days': forecast_days,
+                'prediction': daily_predictions,
+                'prediction_series': daily_predictions,
+                'average_daily': round(average_daily, 2),
+                'total_30_days': round(total_30_days, 2),
+                'rawPredicted': round(max(daily_predictions) if daily_predictions else 0.0, 2),
+                'confidence': 75,  # Base confidence, can be improved with proper uncertainty estimation
                 'input_shape': list(x.shape),
-                'prediction_stats': {
-                    'min': round(float(predictions.min().item()), 4),
-                    'max': round(float(predictions.max().item()), 4),
-                    'mean': round(float(predictions.mean().item()), 4),
-                    'std': round(float(predictions.std().item()), 4)
-                },
-                'timestamp': pd.Timestamp.now().isoformat(),
-                'forecast_days': forecast_days
+                'timestamp': pd.Timestamp.now().isoformat()
             }
             
-            if forecast_series:
-                total_forecast = sum(forecast_series)
-                result['prediction'] = [round(v, 2) for v in forecast_series]
-                result['average_daily'] = round(total_forecast / forecast_days, 2)
-                result['total_30_days'] = round(total_forecast, 2)
-                result['prediction_series'] = result['prediction']
-                result['rawPredicted'] = round(max(forecast_series), 2)
-            else:
-                result['prediction'] = [round(final_prediction, 2)]
-                result['average_daily'] = round(final_prediction, 2)
-                result['total_30_days'] = round(final_prediction * min(forecast_days, 30), 2)
-                result['rawPredicted'] = round(final_prediction, 2)
-            
             if self.debug:
-                print(f"\n✅ FINAL PREDICTION: {final_prediction:.2f}")
-                print(f"   Confidence: {confidence}%")
+                print(f"\n  FINAL: {forecast_days}-day total = {total_30_days:.2f}")
                 print(f"{'='*60}\n")
             
             return result
             
         except Exception as e:
-            print(f"\n✗ Error generating prediction: {e}")
+            print(f"\nError generating prediction: {e}")
             import traceback
             traceback.print_exc()
             raise

@@ -54,12 +54,23 @@ export async function convertRaw(companyId, file) {
   return result;
 }
 
-export async function fineTune(companyId, nodes, edges, demand) {
-  logger.info('API', 'Starting fine-tuning process', { companyId, nodes, edges, demand });
+export async function fineTune(companyId, nodes, edges, demand, forceRetrain = true) {
+  logger.info('API', 'Starting fine-tuning process', { companyId, nodes, edges, demand, forceRetrain });
+  
+  // Generate a unique idempotency key for this specific training request.
+  // This prevents the backend's idempotency middleware from aggressively caching
+  // the 200 OK response from a previous run (which prevents retraining with identical files).
+  const idempotencyKey = `train-${companyId}-${Date.now()}`;
+  
   const res = await fetch(`${API_BASE}/api/ml/fine-tune/${companyId}`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ nodes, edges, demand })
+    headers: { 
+      "Content-Type": "application/json",
+      "Idempotency-Key": idempotencyKey
+    },
+    // force_retrain=true by default: the user explicitly clicked Train/Retrain,
+    // so we must never silently skip training due to a stale existing model.
+    body: JSON.stringify({ nodes, edges, demand, force_retrain: forceRetrain })
   });
 
   if (!res.ok) {
@@ -75,7 +86,8 @@ export async function fineTune(companyId, nodes, edges, demand) {
 }
 
 export async function getTrainingStatus(companyId) {
-  logger.info('API', 'Fetching training status', { companyId });
+  // Commented out to prevent console spam during 500ms interval polling
+  // logger.info('API', 'Fetching training status', { companyId });
   const res = await fetch(`${API_BASE}/api/ml/training-status/${companyId}`, {
     credentials: "include"
   });
@@ -88,7 +100,8 @@ export async function getTrainingStatus(companyId) {
   }
 
   const result = await res.json();
-  logger.info('API', 'Training status fetched', result);
+  // Commented out to prevent console spam during 500ms interval polling
+  // logger.info('API', 'Training status fetched', result);
   return result;
 }
 

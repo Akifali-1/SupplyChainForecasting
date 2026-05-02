@@ -183,13 +183,17 @@ function idempotencyMiddleware(options = {}) {
         responseHeaders[key] = res.getHeaders()[key];
       });
       
-      // Store in idempotency cache
-      idempotencyStore.set(idempotencyKey, {
-        response: data,
-        statusCode,
-        headers: responseHeaders,
-        expiresAt: Date.now() + ttl
-      });
+      // Only cache successful (2xx) responses.
+      // Error responses (4xx/5xx, e.g. ML service temporarily unavailable)
+      // must NOT be cached so the client can retry after the transient failure.
+      if (statusCode >= 200 && statusCode < 300) {
+        idempotencyStore.set(idempotencyKey, {
+          response: data,
+          statusCode,
+          headers: responseHeaders,
+          expiresAt: Date.now() + ttl
+        });
+      }
       
       // Remove from in-flight requests
       inFlightRequests.delete(idempotencyKey);

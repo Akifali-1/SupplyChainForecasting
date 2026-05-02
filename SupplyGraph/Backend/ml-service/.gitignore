@@ -73,3 +73,6 @@ Thumbs.db
 # Backup files
 *.bak
 *.backup
+
+# Base model training script (Colab reference only)
+base_model_training.py

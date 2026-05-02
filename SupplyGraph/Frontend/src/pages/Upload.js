@@ -160,7 +160,9 @@ const Upload = () => {
     }
   };
 
-  const handleFineTuning = async () => {
+  const handleFineTuning = async (forceRetrain = true) => {
+    // Always reset completion so UI shows progress on every run
+    setFineTuningComplete(false);
     setFineTuning(true);
     setFineTuningProgress(0);
 
@@ -194,10 +196,6 @@ const Upload = () => {
 
       console.log('[Training] File paths determined', { nodesPath, edgesPath, demandPath });
 
-      // Start fine-tuning
-      const fineTuneResponse = await fineTune(companyId, nodesPath, edgesPath, demandPath);
-      console.log('[Training] Fine-tuning initiated', fineTuneResponse);
-
       // Show initial training message
       setTrainingStatusMessage('Initializing model training...');
 
@@ -205,12 +203,13 @@ const Upload = () => {
       const pollStart = Date.now();
       const poll = setInterval(async () => {
         try {
-          console.log('[Training] Polling training status');
+          // Remove redundant log to avoid console spam
+          // console.log('[Training] Polling training status');
           const statusResponse = await getTrainingStatus(companyId);
           const status = statusResponse?.status || statusResponse?.ml_status?.status;
-          const progress = statusResponse?.progress || 0;
-          const message = statusResponse?.message || '';
-          const error = statusResponse?.error;
+          const progress = statusResponse?.progress !== undefined ? statusResponse.progress : (statusResponse?.ml_status?.progress || 0);
+          const message = statusResponse?.message || statusResponse?.ml_status?.message || '';
+          const error = statusResponse?.error || statusResponse?.ml_status?.error;
           const metrics = statusResponse?.metrics || null;
 
           // Log detailed training metrics if available
@@ -230,7 +229,8 @@ const Upload = () => {
             }
           }
 
-          console.log('[Training] Status update', { status, progress, message });
+          // Reduce console spam for the 500ms status checks
+          // console.log('[Training] Status update', { status, progress, message });
 
           // Update progress bar and status message
           setFineTuningProgress(progress);
@@ -240,28 +240,38 @@ const Upload = () => {
 
           if (status === 'completed') {
             clearInterval(poll);
-            setFineTuningComplete(true);
-            setFineTuningProgress(100);
-            console.log('[Training] Training completed successfully');
+            setFineTuningComplete(prev => {
+              if (!prev) {
+                setFineTuningProgress(100);
+                console.log('[Training] Training completed successfully');
 
-            // Log final model metrics
-            if (metrics) {
-              console.log('[Training] Final model metrics', {
-                finalLoss: metrics.loss !== undefined ? metrics.loss.toFixed(6) : 'N/A',
-                finalAccuracy: metrics.accuracy !== undefined ? `${(metrics.accuracy * 100).toFixed(2)}%` : 'N/A',
-                totalEpochs: metrics.epoch !== undefined ? metrics.epoch : 'N/A'
-              });
-            }
+                // Log final model metrics
+                if (metrics) {
+                  console.log('[Training] Final model metrics', {
+                    finalLoss: metrics.loss !== undefined ? metrics.loss.toFixed(6) : 'N/A',
+                    finalAccuracy: metrics.accuracy !== undefined ? `${(metrics.accuracy * 100).toFixed(2)}%` : 'N/A',
+                    totalEpochs: metrics.epoch !== undefined ? metrics.epoch : 'N/A'
+                  });
+                }
 
-            toast({
-              title: 'Success!',
-              description: 'Fine-tuning completed successfully!'
+                toast({
+                  title: 'Success!',
+                  description: 'Fine-tuning completed successfully!'
+                });
+                setTimeout(() => navigate('/prediction'), 1500);
+              }
+              return true;
             });
-            setTimeout(() => navigate('/prediction'), 1500);
           } else if (status === 'failed') {
             clearInterval(poll);
             console.error('[Training] Training failed', error);
-            throw new Error(error || 'Training failed');
+            setTrainingStatusMessage('Training failed: ' + (error || 'Unknown error'));
+            toast({
+              title: "Training Failed",
+              description: error || "Training failed. Please try again.",
+              variant: "destructive"
+            });
+            // We shouldn't throw inside setInterval
           } else if (status === 'training') {
             // Provide more detailed training updates
             if (metrics && metrics.epoch !== undefined) {
@@ -273,13 +283,38 @@ const Upload = () => {
           // Don't break on polling errors, continue trying
         }
 
-        // Timeout after 5 minutes
-        if (Date.now() - pollStart > 300000) {
+        // Timeout after 30 minutes (1,800,000 ms) for large datasets
+        if (Date.now() - pollStart > 1800000) {
           clearInterval(poll);
           console.error('[Training] Training timeout');
-          throw new Error('Training timeout - please check status manually');
+          // Don't throw here to avoid unhandled promise rejection in interval
+          setTrainingStatusMessage('Training timeout - please check status manually');
         }
-      }, 2000); // Poll every 2 seconds
+      }, 500); // Poll every 500ms for faster real-time updates
+
+      try {
+        // Start fine-tuning
+        const fineTuneResponse = await fineTune(companyId, nodesPath, edgesPath, demandPath, forceRetrain);
+        console.log('[Training] Fine-tuning completed', fineTuneResponse);
+        
+        clearInterval(poll);
+        // Only trigger completion if the interval hasn't already done it
+        setFineTuningComplete(prev => {
+          if (!prev) {
+            setFineTuningProgress(100);
+            toast({
+              title: 'Success!',
+              description: 'Fine-tuning completed successfully!'
+            });
+            setTimeout(() => navigate('/prediction'), 1500);
+          }
+          return true;
+        });
+      } catch (fineTuneError) {
+        clearInterval(poll);
+        setFineTuning(false);
+        throw fineTuneError;
+      }
 
     } catch (error) {
       console.error('[Training] Fine-tuning error', error);
@@ -288,7 +323,6 @@ const Upload = () => {
         description: error.message || "Fine-tuning failed. Please try again.",
         variant: "destructive"
       });
-    } finally {
       setFineTuning(false);
     }
   };
@@ -690,21 +724,23 @@ const Upload = () => {
                   )}
                 </div>
 
+                {/* Single Train button — always does a fresh force-retrain */}
                 <Button
-                  onClick={handleFineTuning}
-                  disabled={fineTuning || fineTuningComplete}
+                  onClick={() => handleFineTuning(true)}
+                  disabled={fineTuning}
                   size="lg"
                   className="px-10 py-3 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 dark:from-purple-700 dark:to-pink-700 dark:hover:from-purple-600 dark:hover:to-pink-600 text-white font-semibold transition-all duration-300 hover:scale-105 hover:shadow-xl group border-0 rounded-xl"
                 >
                   {fineTuning ? (
                     <>
                       <Brain className="mr-2 h-5 w-5 animate-pulse" />
-                      Fine-tuning in Progress...
+                      Training in Progress...
                     </>
                   ) : fineTuningComplete ? (
                     <>
-                      <CheckCircle className="mr-2 h-5 w-5 animate-bounce-gentle" />
-                      Fine-tuning Complete
+                      <Zap className="mr-2 h-5 w-5" />
+                      Retrain Model
+                      <ArrowRight className="ml-2 h-5 w-5 group-hover:translate-x-1 transition-transform" />
                     </>
                   ) : (
                     <>

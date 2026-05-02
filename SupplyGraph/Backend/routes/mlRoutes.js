@@ -71,6 +71,9 @@ router.post("/create-sample/:companyId", idempotencyMiddleware({ ttl: 60 * 60 * 
 // Fine-tune model - CRITICAL: Requires idempotency to prevent duplicate training jobs
 router.post("/fine-tune/:companyId", idempotencyMiddleware({ ttl: 24 * 60 * 60 * 1000 }), async (req, res) => {
   try {
+    // Disable Node.js server timeout for this request since training can take 12+ minutes
+    req.setTimeout(0);
+    
     const { companyId } = req.params;
     const { nodes, edges, demand, force_retrain } = req.body;
 

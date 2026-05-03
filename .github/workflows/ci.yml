@@ -23,7 +23,7 @@ jobs:
         cache: 'npm'
         cache-dependency-path: './SupplyGraph/Frontend/package-lock.json'
     - name: Install dependencies
-      run: npm install
+      run: npm install --legacy-peer-deps
     - name: Run tests
       run: CI=true npm run test
 
@@ -57,7 +57,7 @@ jobs:
         cache: 'npm'
         cache-dependency-path: './SupplyGraph/Backend/package-lock.json'
     - name: Install dependencies
-      run: npm install
+      run: npm install --legacy-peer-deps
     - name: Run tests
       run: npm run test
 

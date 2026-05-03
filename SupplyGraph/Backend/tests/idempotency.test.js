@@ -1,8 +1,15 @@
 const { idempotencyMiddleware, clearIdempotencyCache, clearCleanupInterval } = require('../utils/idempotency');
+const mongoose = require('mongoose');
+const { getMongoClient } = require('../server');
 
 describe('Idempotency Middleware', () => {
-  afterAll(() => {
+  afterAll(async () => {
     clearCleanupInterval();
+    if (mongoose.connection.readyState !== 0) {
+      await mongoose.disconnect();
+    }
+    const client = getMongoClient();
+    if (client) await client.close();
   });
 
   beforeEach(() => {

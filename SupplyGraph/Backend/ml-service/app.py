@@ -491,6 +491,14 @@ def get_trending_inventory(company_id):
         
         trending_items = []
         
+        # O(1) batch prediction for all products
+        try:
+            batch_predictions = predictor.predict_all(company_id, forecast_days=30)
+        except Exception as e:
+            if DEBUG_LOG:
+                print(f"Batch prediction failed: {e}")
+            batch_predictions = {}
+        
         for product in products:
             try:
                 
@@ -498,7 +506,7 @@ def get_trending_inventory(company_id):
                 sales_values = None
                 product_data = None
                 
-                # Get RECENT average (last 30 days or last 10 data points) for current demand
+                # Get RECENT average (last 30 days) for current demand
                 # This ensures we compare predictions against recent trends, not overall historical average
                 if 'Date' in sales_df.columns:
                     if product in sales_df.columns:
@@ -510,8 +518,8 @@ def get_trending_inventory(company_id):
                         sales_values = pd.to_numeric(df_sorted[product], errors='coerce').dropna()
                         sales_values = sales_values[sales_values > 0]
                         
-                        # Use recent average (last 10 data points or last 30 days worth)
-                        recent_count = min(10, len(sales_values))
+                        # Use recent average (last 30 days worth)
+                        recent_count = min(30, len(sales_values))
                         if recent_count > 0:
                             recent_values = sales_values.tail(recent_count)
                             historical_avg = float(recent_values.mean())
@@ -526,8 +534,8 @@ def get_trending_inventory(company_id):
                         # Sort by date if available
                         if 'date' in product_data.columns:
                             product_data = product_data.sort_values('date')
-                        # Use recent average
-                        recent_count = min(10, len(product_data))
+                        # Use recent average (last 30 days)
+                        recent_count = min(30, len(product_data))
                         if recent_count > 0:
                             historical_avg = float(product_data.tail(recent_count)['demand'].mean())
                         else:
@@ -537,44 +545,38 @@ def get_trending_inventory(company_id):
                 else:
                     continue
                 
-                # Get prediction for this product
+                # --- Trend direction from ACTUAL historical momentum ---
+                # Compare recent-half vs prior-half of last 30 days of real sales
+                growth_rate = 0
+                if 'Date' in sales_df.columns and product in sales_df.columns:
+                    recent_30 = pd.to_numeric(df_sorted[product], errors='coerce').dropna().tail(30)
+                    if len(recent_30) >= 6:
+                        half = len(recent_30) // 2
+                        prior_avg = float(recent_30.iloc[:half].mean())
+                        recent_avg = float(recent_30.iloc[half:].mean())
+                        if prior_avg > 0:
+                            growth_rate = ((recent_avg - prior_avg) / prior_avg) * 100
+                elif 'node_id' in sales_df.columns and product_data is not None and 'demand' in product_data.columns:
+                    recent_30 = pd.to_numeric(product_data['demand'], errors='coerce').dropna().tail(30)
+                    if len(recent_30) >= 6:
+                        half = len(recent_30) // 2
+                        prior_avg = float(recent_30.iloc[:half].mean())
+                        recent_avg = float(recent_30.iloc[half:].mean())
+                        if prior_avg > 0:
+                            growth_rate = ((recent_avg - prior_avg) / prior_avg) * 100
+
+                trend_direction = "up" if growth_rate > 2 else "down" if growth_rate < -2 else "stable"
+
+                # --- Predicted demand from ML model (display only) ---
                 try:
-                    prediction_result = predictor.predict(company_id, [{"node_type": "store", "company": company_id, "product": str(product)}])
-                    matched_node = prediction_result.get('matched_node')
-                    predicted_demand = prediction_result['prediction'][0] if prediction_result.get('prediction') else historical_avg
-                    # If no matched node, skip to avoid using a generic fallback
-                    if matched_node is None:
-                        continue
-                except Exception as pred_error:
-                    if DEBUG_LOG:
-                        print(f"Prediction failed for {product}: {pred_error}")
-                    # Use a simple trend estimation if prediction fails
-                    if 'Date' in sales_df.columns and product in sales_df.columns:
-                        # Sales Order.csv format: use recent values
-                        recent_values = pd.to_numeric(sales_df[product], errors='coerce').dropna().tail(3)
-                        if len(recent_values) > 0:
-                            recent_avg = float(recent_values.mean())
-                            predicted_demand = recent_avg * 1.1  # Simple 10% growth assumption
-                        else:
-                            predicted_demand = historical_avg
-                    elif 'node_id' in sales_df.columns:
-                        # Long format: use product_data
-                        product_data = sales_df[sales_df['node_id'] == product]
-                        if len(product_data) > 1 and 'demand' in product_data.columns:
-                            recent_avg = float(product_data.tail(3)['demand'].mean())
-                            predicted_demand = recent_avg * 1.1  # Simple 10% growth assumption
-                        else:
-                            predicted_demand = historical_avg
+                    product_str = str(product)
+                    if product_str in batch_predictions:
+                        prediction_result = batch_predictions[product_str]
+                        predicted_demand = prediction_result.get('average_daily', historical_avg)
                     else:
                         predicted_demand = historical_avg
-                
-                # Calculate trend metrics
-                if historical_avg > 0:
-                    growth_rate = ((predicted_demand - historical_avg) / historical_avg) * 100
-                else:
-                    growth_rate = 0
-                
-                trend_direction = "up" if growth_rate > 5 else "down" if growth_rate < -5 else "stable"
+                except Exception:
+                    predicted_demand = historical_avg
                 
                 # Risk assessment based on volatility
                 try:

@@ -30,7 +30,7 @@ const Navbar = () => {
               <TrendingUp className="h-6 w-6 text-white dark:text-slate-900" />
             </div>
             <span className="text-xl font-bold text-slate-900 dark:text-white group-hover:text-slate-700 dark:group-hover:text-slate-300 transition-colors">
-              ForecastAI
+              SupplyGraph
             </span>
           </Link>
 
@@ -38,6 +38,13 @@ const Navbar = () => {
           <div className="hidden md:flex items-center space-x-8">
             {isAuthenticated ? (
               <>
+                <Link
+                  to="/dashboard"
+                  className={`font-medium transition-colors hover:text-slate-900 dark:hover:text-white ${isActive('/dashboard') ? 'text-slate-900 dark:text-white' : 'text-slate-600 dark:text-slate-300'
+                    }`}
+                >
+                  Dashboard
+                </Link>
                 <Link
                   to="/upload"
                   className={`font-medium transition-colors hover:text-slate-900 dark:hover:text-white ${isActive('/upload') ? 'text-slate-900 dark:text-white' : 'text-slate-600 dark:text-slate-300'
@@ -58,13 +65,6 @@ const Navbar = () => {
                     }`}
                 >
                   Inventory
-                </Link>
-                <Link
-                  to="/inventory-optimization"
-                  className={`font-medium transition-colors hover:text-slate-900 dark:hover:text-white ${isActive('/inventory-optimization') ? 'text-slate-900 dark:text-white' : 'text-slate-600 dark:text-slate-300'
-                    }`}
-                >
-                  Optimization
                 </Link>
                 <div className="flex items-center space-x-4">
                   <div className="flex items-center space-x-2 text-sm text-slate-600 dark:text-slate-300">

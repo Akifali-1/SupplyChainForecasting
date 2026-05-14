@@ -8,11 +8,9 @@ import Homepage from "./pages/Homepage";
 import Registration from "./pages/Registration";
 import Login from "./pages/Login";
 import Upload from "./pages/Upload";
+import Dashboard from "./pages/Dashboard";
 import Prediction from "./pages/Prediction";
-import InventoryManagement from "./pages/InventoryManagement";
-import InventoryOptimization from "./pages/InventoryOptimization";
-import TestDarkMode from "./pages/TestDarkMode";
-import TestTheme from "./pages/TestTheme";
+import Inventory from "./pages/Inventory";
 import { Toaster } from "./components/ui/toaster";
 
 // OAuth Callback Handler
@@ -41,7 +39,7 @@ const OAuthCallback = () => {
         }
 
         // Redirect to upload page
-        window.location.href = '/upload';
+        window.location.href = '/dashboard';
       } else if (!loading && !isAuthenticated) {
         // If OAuth failed, redirect to login
         window.location.href = '/login?error=oauth_failed';
@@ -80,6 +78,11 @@ function App() {
               <Route path="/register" element={<Registration />} />
               <Route path="/login" element={<Login />} />
               <Route path="/oauth/callback" element={<OAuthCallback />} />
+              <Route path="/dashboard" element={
+                <ProtectedRoute>
+                  <Dashboard />
+                </ProtectedRoute>
+              } />
               <Route path="/upload" element={
                 <ProtectedRoute>
                   <Upload />
@@ -92,16 +95,10 @@ function App() {
               } />
               <Route path="/inventory" element={
                 <ProtectedRoute>
-                  <InventoryManagement />
+                  <Inventory />
                 </ProtectedRoute>
               } />
-              <Route path="/inventory-optimization" element={
-                <ProtectedRoute>
-                  <InventoryOptimization />
-                </ProtectedRoute>
-              } />
-              <Route path="/test-dark-mode" element={<TestDarkMode />} />
-              <Route path="/test-theme" element={<TestTheme />} />
+              <Route path="/inventory-optimization" element={<Navigate to="/inventory" />} />
             </Routes>
             <Toaster />
           </BrowserRouter>

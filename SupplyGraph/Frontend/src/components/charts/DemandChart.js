@@ -173,7 +173,13 @@ const DemandChart = ({
         }
       },
       y: {
-        beginAtZero: true,
+        beginAtZero: false,
+        suggestedMin: demandValues.length > 0
+          ? Math.floor(Math.min(...demandValues) * 0.9)
+          : 0,
+        suggestedMax: demandValues.length > 0
+          ? Math.ceil(Math.max(...demandValues) * 1.1)
+          : 100,
         grid: {
           color: 'rgba(148, 163, 184, 0.1)',
           drawBorder: false

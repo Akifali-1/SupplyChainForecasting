@@ -1,4 +1,4 @@
-﻿// Homepage component
+// Homepage component
 import React, { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Button } from '../components/ui/button';
@@ -543,10 +543,10 @@ const Homepage = () => {
                     </div>
                     <div>
                       <h4 className={`text-lg font-semibold mb-1 ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>
-                        CSV & Excel Files
+                        CSV Upload
                       </h4>
                       <p className={isDarkMode ? 'text-blue-100' : 'text-slate-600'}>
-                        Direct upload of spreadsheets with automatic schema detection.
+                        Upload sales, nodes, and edges files directly with automatic schema detection and validation.
                       </p>
                     </div>
                   </div>
@@ -557,10 +557,10 @@ const Homepage = () => {
                     </div>
                     <div>
                       <h4 className={`text-lg font-semibold mb-1 ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>
-                        Database Connections
+                        Multi-Format Support
                       </h4>
                       <p className={isDarkMode ? 'text-blue-100' : 'text-slate-600'}>
-                        Connect directly to SQL, NoSQL, and data warehouses.
+                        Supports wide-format, long-format, and time-series CSV layouts with automatic normalization.
                       </p>
                     </div>
                   </div>
@@ -571,10 +571,10 @@ const Homepage = () => {
                     </div>
                     <div>
                       <h4 className={`text-lg font-semibold mb-1 ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>
-                        API Integrations
+                        Graph-Structured Data
                       </h4>
                       <p className={isDarkMode ? 'text-blue-100' : 'text-slate-600'}>
-                        Real-time data synchronization with REST and GraphQL APIs.
+                        Node and edge files define supply chain topology for Graph Attention Network processing.
                       </p>
                     </div>
                   </div>
@@ -585,10 +585,10 @@ const Homepage = () => {
                     </div>
                     <div>
                       <h4 className={`text-lg font-semibold mb-1 ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>
-                        Streaming Data
+                        Sample Data Generator
                       </h4>
                       <p className={isDarkMode ? 'text-blue-100' : 'text-slate-600'}>
-                        Process real-time data streams with Kafka and Kinesis.
+                        Instantly generate realistic supply chain datasets for testing and demonstration.
                       </p>
                     </div>
                   </div>

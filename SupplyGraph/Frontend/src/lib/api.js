@@ -105,6 +105,28 @@ export async function getTrainingStatus(companyId) {
   return result;
 }
 
+export async function cancelTraining(companyId) {
+  logger.info('API', 'Cancelling training', { companyId });
+  const res = await fetch(`${API_BASE}/api/ml/cancel-training/${companyId}`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    credentials: "include"
+  });
+
+  if (!res.ok) {
+    const errorData = await res.json().catch(() => ({}));
+    const errorMessage = errorData.details || errorData.error || `HTTP ${res.status}: ${res.statusText}`;
+    logger.error('API', 'Failed to cancel training', { error: errorMessage, status: res.status });
+    throw new Error(errorMessage);
+  }
+
+  const result = await res.json();
+  logger.info('API', 'Training cancelled', result);
+  return result;
+}
+
 export async function predict(companyId, input_data, forecastDays = 30) {
   logger.info('API', 'Making prediction', { companyId, input_data_length: input_data?.length, forecastDays });
   const res = await fetch(`${API_BASE}/api/ml/predict/${companyId}`, {

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '../components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
@@ -7,8 +7,7 @@ import { Input } from '../components/ui/input';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs';
 import { Progress } from '../components/ui/progress';
 import { useToast } from '../hooks/use-toast';
-import { mockUpload } from '../utils/mockData';
-import { convertRaw, fineTune, getTrainingStatus, createSample } from '../lib/api';
+import { convertRaw, fineTune, getTrainingStatus, createSample, cancelTraining } from '../lib/api';
 import StatusDisplay from '../components/StatusDisplay';
 import {
   Upload as UploadIcon,
@@ -46,6 +45,82 @@ const Upload = () => {
   });
   const navigate = useNavigate();
   const { toast } = useToast();
+  const [checkingState, setCheckingState] = useState(true);
+  const pollRef = useRef(null);
+
+  // On mount: check if training is already in progress and resume UI
+  useEffect(() => {
+    const checkActiveTraining = async () => {
+      try {
+        let companyId = localStorage.getItem('companyId');
+        if (!companyId) {
+          const user = localStorage.getItem('user');
+          if (user) companyId = JSON.parse(user).companyId;
+        }
+        if (!companyId) return;
+        const { getTrainingStatus } = await import('../lib/api');
+        const statusData = await getTrainingStatus(companyId);
+        const mlStatus = statusData?.ml_status || statusData || {};
+        const status = mlStatus.status;
+        const progress = mlStatus.progress || 0;
+        const message = mlStatus.message || '';
+
+        if (status === 'training' || status === 'saving') {
+          // Resume training UI
+          setUploadComplete(true);
+          setFineTuning(true);
+          setFineTuningProgress(progress);
+          setTrainingStatusMessage(message || 'Training in progress...');
+
+          // Resume polling
+          if (pollRef.current) clearInterval(pollRef.current);
+          pollRef.current = setInterval(async () => {
+            try {
+              const s = await getTrainingStatus(companyId);
+              const mlSt = s?.ml_status || s || {};
+              const st = mlSt.status;
+              const pr = mlSt.progress || 0;
+              const msg = mlSt.message || '';
+              
+              setFineTuningProgress(pr);
+              setTrainingStatusMessage(msg);
+              if (st === 'completed') {
+                clearInterval(pollRef.current);
+                pollRef.current = null;
+                setFineTuningProgress(100);
+                setFineTuningComplete(true);
+                toast({ title: '🎉 Training Complete!', description: msg || 'Model trained successfully.' });
+                setTimeout(() => navigate('/prediction'), 2000);
+              } else if (st === 'failed') {
+                clearInterval(pollRef.current);
+                pollRef.current = null;
+                setFineTuning(false);
+                toast({ title: 'Training Failed', description: s?.error || 'Unknown error', variant: 'destructive' });
+              }
+            } catch (e) { /* continue polling */ }
+          }, 1000);
+        } else if (status === 'completed') {
+          // Already done — show brief notification
+          setUploadComplete(true);
+          setFineTuningComplete(true);
+          setFineTuningProgress(100);
+          setTrainingStatusMessage(message || 'Training completed!');
+        }
+      } catch (e) {
+        /* no active training */
+      } finally {
+        setCheckingState(false);
+      }
+    };
+    checkActiveTraining();
+
+    return () => {
+      if (pollRef.current) {
+        clearInterval(pollRef.current);
+        pollRef.current = null;
+      }
+    };
+  }, []);
 
   const handleFileChange = (type, file) => {
     setFiles(prev => ({
@@ -178,20 +253,20 @@ const Upload = () => {
 
       // Determine nodes/edges/demand paths
       let nodesPath, edgesPath, demandPath;
-      if (uploadType === 'single') {
-        if (!convertedPaths) throw new Error('Files not processed');
+      if (uploadType === 'single' && convertedPaths) {
         nodesPath = convertedPaths.nodes;
         edgesPath = convertedPaths.edges;
         demandPath = convertedPaths.demand;
+      } else if (uploadType === 'multiple' && manualPaths.nodes && manualPaths.edges && manualPaths.demand) {
+        nodesPath = manualPaths.nodes;
+        edgesPath = manualPaths.edges;
+        demandPath = manualPaths.demand;
       } else {
-        // Use manual paths or sample paths
-        if (manualPaths.nodes && manualPaths.edges && manualPaths.demand) {
-          nodesPath = manualPaths.nodes;
-          edgesPath = manualPaths.edges;
-          demandPath = manualPaths.demand;
-        } else {
-          throw new Error('Please provide file paths or create a sample dataset');
-        }
+        // Fallback to existing dataset on the server if no new files were just uploaded
+        console.log('[Training] No new files uploaded this session, using existing dataset from server');
+        nodesPath = `uploads/${companyId}/nodes.csv`;
+        edgesPath = `uploads/${companyId}/Edges (Plant).csv`;
+        demandPath = `uploads/${companyId}/Sales Order.csv`;
       }
 
       console.log('[Training] File paths determined', { nodesPath, edgesPath, demandPath });
@@ -201,7 +276,8 @@ const Upload = () => {
 
       // Poll training status with real-time updates
       const pollStart = Date.now();
-      const poll = setInterval(async () => {
+      if (pollRef.current) clearInterval(pollRef.current);
+      pollRef.current = setInterval(async () => {
         try {
           // Remove redundant log to avoid console spam
           // console.log('[Training] Polling training status');
@@ -239,7 +315,8 @@ const Upload = () => {
           }
 
           if (status === 'completed') {
-            clearInterval(poll);
+            clearInterval(pollRef.current);
+            pollRef.current = null;
             setFineTuningComplete(prev => {
               if (!prev) {
                 setFineTuningProgress(100);
@@ -263,7 +340,8 @@ const Upload = () => {
               return true;
             });
           } else if (status === 'failed') {
-            clearInterval(poll);
+            clearInterval(pollRef.current);
+            pollRef.current = null;
             console.error('[Training] Training failed', error);
             setTrainingStatusMessage('Training failed: ' + (error || 'Unknown error'));
             toast({
@@ -285,7 +363,8 @@ const Upload = () => {
 
         // Timeout after 30 minutes (1,800,000 ms) for large datasets
         if (Date.now() - pollStart > 1800000) {
-          clearInterval(poll);
+          clearInterval(pollRef.current);
+          pollRef.current = null;
           console.error('[Training] Training timeout');
           // Don't throw here to avoid unhandled promise rejection in interval
           setTrainingStatusMessage('Training timeout - please check status manually');
@@ -297,7 +376,8 @@ const Upload = () => {
         const fineTuneResponse = await fineTune(companyId, nodesPath, edgesPath, demandPath, forceRetrain);
         console.log('[Training] Fine-tuning completed', fineTuneResponse);
         
-        clearInterval(poll);
+        clearInterval(pollRef.current);
+        pollRef.current = null;
         // Only trigger completion if the interval hasn't already done it
         setFineTuningComplete(prev => {
           if (!prev) {
@@ -311,7 +391,8 @@ const Upload = () => {
           return true;
         });
       } catch (fineTuneError) {
-        clearInterval(poll);
+        clearInterval(pollRef.current);
+        pollRef.current = null;
         setFineTuning(false);
         throw fineTuneError;
       }
@@ -324,6 +405,42 @@ const Upload = () => {
         variant: "destructive"
       });
       setFineTuning(false);
+    }
+  };
+
+  const handleCancelTraining = async () => {
+    try {
+      let companyId = localStorage.getItem('companyId');
+      if (!companyId) {
+        const user = localStorage.getItem('user');
+        if (user) companyId = JSON.parse(user).companyId;
+      }
+      
+      if (!companyId) return;
+      
+      await cancelTraining(companyId);
+      
+      // Stop polling
+      if (pollRef.current) {
+        clearInterval(pollRef.current);
+        pollRef.current = null;
+      }
+      
+      setFineTuning(false);
+      setFineTuningComplete(false);
+      setTrainingStatusMessage('');
+      
+      toast({
+        title: "Training Cancelled",
+        description: "The fine-tuning process was successfully cancelled.",
+        variant: "default"
+      });
+    } catch (e) {
+      toast({
+        title: "Cancel Failed",
+        description: e.message || "Failed to cancel training. It may have already completed.",
+        variant: "destructive"
+      });
     }
   };
 
@@ -408,6 +525,17 @@ const Upload = () => {
     </Card>
   );
 
+  if (checkingState) {
+    return (
+      <div className="min-h-screen py-12 px-4 flex justify-center items-center bg-gradient-to-br from-slate-50 to-blue-50 dark:from-slate-900 dark:to-slate-900">
+        <div className="text-center animate-pulse">
+          <Brain className="h-12 w-12 text-blue-500 mx-auto mb-4" />
+          <p className="text-slate-600 dark:text-slate-400">Loading workspace...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen py-12 px-4 sm:px-6 lg:px-8 bg-gradient-to-br from-slate-50 to-blue-50 dark:from-slate-900 dark:to-slate-900">
       <div className="max-w-4xl mx-auto">
@@ -426,8 +554,10 @@ const Upload = () => {
           </p>
         </div>
 
-        {/* Main Upload Card */}
-        <Card className="shadow-2xl border-0 bg-white/90 dark:bg-slate-800/90 backdrop-blur-sm animate-fade-in-up mb-8" style={{ animationDelay: '0.1s' }}>
+        {/* Main Upload Card - Hide during training or when completed */}
+        {!(fineTuning || fineTuningComplete) && (
+          <>
+            <Card className="shadow-2xl border-0 bg-white/90 dark:bg-slate-800/90 backdrop-blur-sm animate-fade-in-up mb-8" style={{ animationDelay: '0.1s' }}>
           <CardHeader className="bg-gradient-to-r from-blue-50 to-purple-50 dark:from-slate-800 dark:to-slate-800 rounded-t-lg">
             <CardTitle className="flex items-center space-x-2 text-slate-900 dark:text-white">
               <Database className="h-6 w-6 text-blue-600 dark:text-blue-400" />
@@ -584,22 +714,22 @@ const Upload = () => {
             <div className="mt-8 flex justify-center">
               <Button
                 onClick={handleUpload}
-                disabled={uploading || uploadComplete}
+                disabled={uploading}
                 className="px-10 py-3 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 dark:from-blue-700 dark:to-purple-700 dark:hover:from-blue-600 dark:hover:to-purple-600 text-white font-semibold transition-all duration-300 hover:scale-105 hover:shadow-xl group border-0 rounded-xl"
               >
                 {uploading ? (
                   <>
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Uploading...
+                    Uploading & Processing...
                   </>
-                ) : uploadComplete ? (
+                ) : uploadComplete && (convertedPaths || (manualPaths && manualPaths.nodes)) ? (
                   <>
                     <CheckCircle className="mr-2 h-4 w-4 animate-bounce-gentle" />
                     Upload Complete
                   </>
                 ) : (
                   <>
-                    Upload Files
+                    Process & Upload Files
                     <UploadIcon className="ml-2 h-4 w-4 group-hover:translate-y-[-2px] transition-transform" />
                   </>
                 )}
@@ -676,9 +806,11 @@ const Upload = () => {
             )}
           </CardContent>
         </Card>
+        </>
+        )}
 
         {/* Fine-tuning Section */}
-        {uploadComplete && (
+        {(uploadComplete || fineTuning) && (
           <Card className="shadow-2xl border-0 bg-white/90 dark:bg-slate-800/90 backdrop-blur-sm animate-fade-in-up">
             <CardHeader className="bg-gradient-to-r from-purple-50 to-pink-50 dark:from-slate-800 dark:to-slate-800 rounded-t-lg">
               <CardTitle className="flex items-center space-x-2 text-slate-900 dark:text-white">
@@ -724,32 +856,60 @@ const Upload = () => {
                   )}
                 </div>
 
-                {/* Single Train button — always does a fresh force-retrain */}
-                <Button
-                  onClick={() => handleFineTuning(true)}
-                  disabled={fineTuning}
-                  size="lg"
-                  className="px-10 py-3 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 dark:from-purple-700 dark:to-pink-700 dark:hover:from-purple-600 dark:hover:to-pink-600 text-white font-semibold transition-all duration-300 hover:scale-105 hover:shadow-xl group border-0 rounded-xl"
-                >
-                  {fineTuning ? (
-                    <>
-                      <Brain className="mr-2 h-5 w-5 animate-pulse" />
-                      Training in Progress...
-                    </>
-                  ) : fineTuningComplete ? (
-                    <>
-                      <Zap className="mr-2 h-5 w-5" />
-                      Retrain Model
-                      <ArrowRight className="ml-2 h-5 w-5 group-hover:translate-x-1 transition-transform" />
-                    </>
-                  ) : (
-                    <>
-                      <Zap className="mr-2 h-5 w-5" />
-                      Start AI Fine-tuning
-                      <ArrowRight className="ml-2 h-5 w-5 group-hover:translate-x-1 transition-transform" />
-                    </>
+                <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
+                  {fineTuningComplete && (
+                    <Button
+                      variant="outline"
+                      onClick={() => {
+                        setFineTuningComplete(false);
+                        setUploadComplete(false);
+                        setFineTuning(false);
+                      }}
+                      size="lg"
+                      className="px-8 py-3 border-2 border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 font-semibold rounded-xl"
+                    >
+                      <Database className="mr-2 h-5 w-5" />
+                      Upload New Data
+                    </Button>
                   )}
-                </Button>
+                  {/* Single Train button — always does a fresh force-retrain */}
+                  <Button
+                    onClick={() => handleFineTuning(true)}
+                    disabled={fineTuning}
+                    size="lg"
+                    className="px-10 py-3 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 dark:from-purple-700 dark:to-pink-700 dark:hover:from-purple-600 dark:hover:to-pink-600 text-white font-semibold transition-all duration-300 hover:scale-105 hover:shadow-xl group border-0 rounded-xl"
+                  >
+                    {fineTuning ? (
+                      <>
+                        <Brain className="mr-2 h-5 w-5 animate-pulse" />
+                        Training in Progress...
+                      </>
+                    ) : fineTuningComplete ? (
+                      <>
+                        <Zap className="mr-2 h-5 w-5" />
+                        Retrain Model
+                        <ArrowRight className="ml-2 h-5 w-5 group-hover:translate-x-1 transition-transform" />
+                      </>
+                    ) : (
+                      <>
+                        <Zap className="mr-2 h-5 w-5" />
+                        Start AI Fine-tuning
+                        <ArrowRight className="ml-2 h-5 w-5 group-hover:translate-x-1 transition-transform" />
+                      </>
+                    )}
+                  </Button>
+                  
+                  {fineTuning && !fineTuningComplete && (
+                    <Button
+                      onClick={handleCancelTraining}
+                      variant="destructive"
+                      size="lg"
+                      className="px-8 py-3 bg-red-500 hover:bg-red-600 dark:bg-red-600 dark:hover:bg-red-700 text-white font-semibold transition-all duration-300 rounded-xl"
+                    >
+                      Cancel Training
+                    </Button>
+                  )}
+                </div>
 
                 {fineTuningComplete && (
                   <div className="animate-fade-in space-y-2">

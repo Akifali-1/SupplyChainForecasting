@@ -20,7 +20,6 @@ class DemandPredictor:
                 raise ValueError("MONGO_URI environment variable not set")
             self.client = MongoClient(self.mongo_uri, 
                                     tls=True,
-                                    tlsAllowInvalidCertificates=True,
                                     serverSelectionTimeoutMS=30000)
             self.db = self.client.supplychain
             if self.debug:
@@ -448,6 +447,19 @@ class DemandPredictor:
                     
                     # Shift window: drop oldest timestep, append prediction (in scaled space)
                     new_step = pred.unsqueeze(-1)  # (num_nodes, 1, 1)
+                    
+                    # Inject noise + momentum to prevent autoregressive mean collapse
+                    # Without this, predictions converge to the model's mean after ~5 steps
+                    if day > 1:
+                        noise_scale = 0.03 * (1 + day * 0.01)
+                        noise = torch.randn_like(new_step) * noise_scale
+                        # Blend with running average to prevent pure drift
+                        if day > 3:
+                            running_mean = current_x.mean(dim=1, keepdim=True)
+                            new_step = 0.85 * new_step + 0.15 * running_mean + noise
+                        else:
+                            new_step = new_step + noise
+                    
                     current_x = torch.cat([current_x[:, 1:, :], new_step], dim=1)
                     
                     # Always print first 5 days so we can verify sanity in the terminal
@@ -491,3 +503,82 @@ class DemandPredictor:
             import traceback
             traceback.print_exc()
             raise
+
+    def predict_all(self, company_id, forecast_days=30):
+        """Generate demand prediction using autoregressive rollout for N days for ALL nodes simultaneously.
+        
+        Returns a dictionary mapping node_id (product name) to its prediction result.
+        """
+        try:
+            if self.debug:
+                print(f"\n{'='*60}")
+                print(f"MAKING BATCH PREDICTION FOR COMPANY: {company_id}")
+                print(f"{'='*60}")
+            
+            # 1. Load model and metadata
+            model, model_doc = self._load_company_model(company_id)
+            node_list = model_doc.get('node_list', [])
+            if not node_list and model_doc.get('node_to_idx'):
+                node_list = list(model_doc['node_to_idx'].keys())
+            scalers = model_doc.get('scalers', {})
+            max_timesteps = model_doc.get('architecture', {}).get('max_timesteps', 5)
+            
+            # 2. Load company's data and prepare initial input
+            sales_df, edges_df, nodes_df = self._load_company_data(company_id)
+            x = self._prepare_time_series_from_sales(sales_df, node_list, max_timesteps, scalers)
+            edge_index = self._build_edge_index_from_edges(edges_df, node_list)
+            
+            # 3. Parse forecast days
+            try:
+                forecast_days = int(forecast_days or 30)
+            except (TypeError, ValueError):
+                forecast_days = 30
+            forecast_days = max(1, min(forecast_days, 30))
+            
+            # 4. Autoregressive rollout for forecast_days
+            model.eval()
+            num_nodes = len(node_list)
+            daily_predictions = {node: [] for node in node_list}
+            current_x = x.clone()
+            
+            with torch.no_grad():
+                for day in range(forecast_days):
+                    # Forward pass — get next-day prediction for all nodes
+                    pred = model(current_x, edge_index)  # (num_nodes, 1)
+                    
+                    for i, node in enumerate(node_list):
+                        scaled_pred = pred[i].item()
+                        real_pred = scaled_pred
+                        if scalers and node in scalers:
+                            scaler_data = scalers[node]
+                            mean = np.array(scaler_data.get('mean_', [0.0]))
+                            scale = np.array(scaler_data.get('scale_', [1.0]))
+                            real_pred = scaled_pred * (scale[0] if scale.size else 1.0) + (mean[0] if mean.size else 0.0)
+                        
+                        real_pred = max(0.0, real_pred)
+                        daily_predictions[node].append(round(real_pred, 2))
+                    
+                    # Shift window
+                    new_step = pred.unsqueeze(-1)  # (num_nodes, 1, 1)
+                    current_x = torch.cat([current_x[:, 1:, :], new_step], dim=1)
+            
+            # 5. Build results dictionary
+            results = {}
+            for node in node_list:
+                preds = daily_predictions[node]
+                total_30_days = sum(preds)
+                average_daily = total_30_days / len(preds) if preds else 0.0
+                results[node] = {
+                    'prediction': preds,
+                    'average_daily': round(average_daily, 2),
+                    'total_30_days': round(total_30_days, 2)
+                }
+            
+            return results
+            
+        except Exception as e:
+            print(f"\nError generating batch prediction: {e}")
+            import traceback
+            traceback.print_exc()
+            raise
+

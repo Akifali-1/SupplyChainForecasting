@@ -84,13 +84,13 @@ const Login = () => {
             <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg flex items-center justify-center">
               <TrendingUp className="h-6 w-6 text-white" />
             </div>
-            <span className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">ForecastAI</span>
+            <span className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">SupplyGraph</span>
           </Link>
           <div className="inline-flex items-center space-x-2 bg-blue-100 dark:bg-blue-900/50 px-4 py-2 rounded-full mb-4">
             <Sparkles className="h-4 w-4 text-blue-600 dark:text-blue-400" />
             <span className="text-sm font-medium text-blue-700 dark:text-blue-300">Welcome Back</span>
           </div>
-          <h2 className="text-3xl font-bold text-slate-900 dark:text-white mb-2">Sign in to ForecastAI</h2>
+          <h2 className="text-3xl font-bold text-slate-900 dark:text-white mb-2">Sign in to SupplyGraph</h2>
           <p className="text-slate-600 dark:text-slate-400">Access your forecasting dashboard</p>
         </div>
 

@@ -11,11 +11,20 @@ from datetime import datetime
 from dotenv import load_dotenv
 from training.trainer import ModelTrainer
 from prediction.predictor import DemandPredictor
+import time
+
+# Simple memory cache to dramatically speed up Dashboard loading
+TRENDING_CACHE = {}
+ANALYTICS_CACHE = {}
+CACHE_TTL = 300  # 5 minutes
 
 load_dotenv()
 
 app = Flask(__name__)
-CORS(app)
+CORS(app, origins=[
+    os.getenv('BACKEND_ORIGIN', 'http://localhost:5000'),
+    'http://127.0.0.1:5000'
+])
 DEBUG_LOG = os.getenv('ML_DEBUG', '').lower() == '1'
 
 # Initialize ML components
@@ -254,6 +263,13 @@ def start_fine_tuning():
         edges_full_path = os.path.join(backend_dir, edges_path)
         sales_full_path = os.path.join(backend_dir, sales_path)
         
+        # Clear cache when fine-tuning starts to ensure fresh data
+        global TRENDING_CACHE, ANALYTICS_CACHE
+        if company_id in TRENDING_CACHE:
+            del TRENDING_CACHE[company_id]
+        if company_id in ANALYTICS_CACHE:
+            del ANALYTICS_CACHE[company_id]
+
         # Start fine-tuning process with full paths
         result = trainer.fine_tune_company_model(
             company_id,
@@ -292,6 +308,14 @@ def start_fine_tuning():
         print(f"Error in fine-tuning: {e}")
         import traceback
         traceback.print_exc()
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/cancel-training/<company_id>', methods=['POST'])
+def cancel_training(company_id):
+    try:
+        trainer.cancel_training(company_id)
+        return jsonify({"success": True, "message": "Training cancellation requested"}), 200
+    except Exception as e:
         return jsonify({"error": str(e)}), 500
 
 @app.route('/training-status/<company_id>', methods=['GET'])
@@ -455,9 +479,15 @@ def get_historical_data(company_id):
 @app.route('/inventory/trending/<company_id>', methods=['GET'])
 def get_trending_inventory(company_id):
     try:
-        time_range = request.args.get('timeRange', '30d')
+        time_range = request.args.get('time_range', '30d')
         
-        # Load company data
+        # Check cache first
+        cache_key = f"{company_id}_{time_range}"
+        if cache_key in TRENDING_CACHE:
+            entry = TRENDING_CACHE[cache_key]
+            if time.time() - entry['timestamp'] < CACHE_TTL:
+                return jsonify(entry['data'])
+                
         data_loader = DataLoader()
         company_data = data_loader.load_company_data(company_id)
         
@@ -518,13 +548,19 @@ def get_trending_inventory(company_id):
                         sales_values = pd.to_numeric(df_sorted[product], errors='coerce').dropna()
                         sales_values = sales_values[sales_values > 0]
                         
-                        # Use recent average (last 30 days worth)
-                        recent_count = min(30, len(sales_values))
+                        # IMPORTANT: Data has multiple stores per day. Model predicts AGGREGATED
+                        # demand per day (summed across stores). So we must aggregate here too.
+                        daily_agg = df_sorted.groupby('Date')[product].sum()
+                        daily_agg = daily_agg.dropna()
+                        daily_agg = daily_agg[daily_agg > 0]
+                        
+                        # Use recent average (last 30 unique days)
+                        recent_count = min(30, len(daily_agg))
                         if recent_count > 0:
-                            recent_values = sales_values.tail(recent_count)
+                            recent_values = daily_agg.tail(recent_count)
                             historical_avg = float(recent_values.mean())
                         else:
-                            historical_avg = float(sales_values.mean()) if len(sales_values) > 0 else 0
+                            historical_avg = float(daily_agg.mean()) if len(daily_agg) > 0 else 0
                     else:
                         continue
                 # Handle long format
@@ -549,11 +585,12 @@ def get_trending_inventory(company_id):
                 # Compare recent-half vs prior-half of last 30 days of real sales
                 growth_rate = 0
                 if 'Date' in sales_df.columns and product in sales_df.columns:
-                    recent_30 = pd.to_numeric(df_sorted[product], errors='coerce').dropna().tail(30)
-                    if len(recent_30) >= 6:
-                        half = len(recent_30) // 2
-                        prior_avg = float(recent_30.iloc[:half].mean())
-                        recent_avg = float(recent_30.iloc[half:].mean())
+                    # Use daily aggregated values for trend (consistent with historical_avg)
+                    agg_30 = daily_agg.tail(30) if 'daily_agg' in dir() and daily_agg is not None else pd.to_numeric(df_sorted[product], errors='coerce').dropna().tail(30)
+                    if len(agg_30) >= 6:
+                        half = len(agg_30) // 2
+                        prior_avg = float(agg_30.iloc[:half].mean())
+                        recent_avg = float(agg_30.iloc[half:].mean())
                         if prior_avg > 0:
                             growth_rate = ((recent_avg - prior_avg) / prior_avg) * 100
                 elif 'node_id' in sales_df.columns and product_data is not None and 'demand' in product_data.columns:
@@ -629,28 +666,21 @@ def get_trending_inventory(company_id):
                     print(f"Error processing product {product}: {e}")
                 continue
         
-        # Prioritize UP trends, but always return up to top 10 products overall
-        up_trending = [item for item in trending_items if item['growth_rate'] > 0]
-        up_trending.sort(key=lambda x: x['growth_rate'], reverse=True)
+        # Sort all items by growth rate (highest first)
+        trending_items.sort(key=lambda x: x['growth_rate'], reverse=True)
         
-        # If fewer than 10 positive-growth products, backfill with the remaining highest-growth items
-        if len(up_trending) >= 10:
-            top_10 = up_trending[:10]
-        else:
-            selected_products = {item['product'] for item in up_trending}
-            remaining_candidates = [
-                item for item in trending_items
-                if item['product'] not in selected_products
-            ]
-            remaining_candidates.sort(key=lambda x: x['growth_rate'], reverse=True)
-            top_10 = up_trending + remaining_candidates[:max(0, 10 - len(up_trending))]
-        
-        return jsonify({
+        result_data = {
             "company_id": company_id,
             "time_range": time_range,
-            "trending_items": top_10,
+            "trending_items": trending_items,
             "total_analyzed": len(trending_items)
-        })
+        }
+        
+        # Save to cache
+        cache_key = f"{company_id}_{time_range}"
+        TRENDING_CACHE[cache_key] = {'timestamp': time.time(), 'data': result_data}
+        
+        return jsonify(result_data)
     
     except Exception as e:
         print(f"Error in get_trending_inventory: {e}")
@@ -661,6 +691,12 @@ def get_trending_inventory(company_id):
 @app.route('/inventory/analytics/<company_id>', methods=['GET'])
 def get_inventory_analytics(company_id):
     try:
+        # Check cache first
+        if company_id in ANALYTICS_CACHE:
+            entry = ANALYTICS_CACHE[company_id]
+            if time.time() - entry['timestamp'] < CACHE_TTL:
+                return jsonify(entry['data'])
+        
         # Load company data
         data_loader = DataLoader()
         company_data = data_loader.load_company_data(company_id)
@@ -725,7 +761,7 @@ def get_inventory_analytics(company_id):
         trending_down = max(1, total_products // 5)
         stable = total_products - trending_up - trending_down
         
-        return jsonify({
+        result_data = {
             "company_id": company_id,
             "summary": {
                 "total_products": total_products,
@@ -737,7 +773,12 @@ def get_inventory_analytics(company_id):
                 "trending_down": trending_down,
                 "stable": max(0, stable)
             }
-        })
+        }
+        
+        # Save to cache
+        ANALYTICS_CACHE[company_id] = {'timestamp': time.time(), 'data': result_data}
+        
+        return jsonify(result_data)
     
     except Exception as e:
         print(f"Error in get_inventory_analytics: {e}")

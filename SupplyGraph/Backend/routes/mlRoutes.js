@@ -180,6 +180,22 @@ router.get("/training-status/:companyId", etagMiddleware, async (req, res) => {
   }
 });
 
+// Cancel training
+router.post("/cancel-training/:companyId", async (req, res) => {
+  try {
+    const { companyId } = req.params;
+
+    const mlResponse = await axios.post(
+      `${ML_SERVICE_URL}/cancel-training/${companyId}`
+    );
+
+    res.json(mlResponse.data);
+  } catch (error) {
+    logMlError("Error cancelling training", error);
+    res.status(500).json({ error: "Failed to cancel training" });
+  }
+});
+
 // Make prediction - Idempotent (same input = same output)
 router.post("/predict/:companyId", idempotencyMiddleware({ ttl: 60 * 60 * 1000 }), async (req, res) => {
   try {

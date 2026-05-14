@@ -48,13 +48,13 @@ class ModelTrainer:
         self.client = None
         self.db = None
         self.training_status = {}
+        self.cancel_flags = {}
         self._connect_mongo()
     
     def _connect_mongo(self):
         try:
             self.client = MongoClient(self.mongo_uri, 
                                     tls=True,
-                                    tlsAllowInvalidCertificates=True,
                                     serverSelectionTimeoutMS=30000)
             self.db = self.client.supplychain
             print("Connected to MongoDB Atlas")
@@ -356,7 +356,7 @@ class ModelTrainer:
             traceback.print_exc()
             raise
     
-    def _fine_tune_model(self, model, train_datas, val_datas, epochs=100, company_id=None):
+    def _fine_tune_model(self, model, train_datas, val_datas, epochs=100, patience=15, company_id=None):
         """Fine-tune the model using sliding-window approach (matches base model training)."""
         try:
             optimizer = torch.optim.Adam(model.parameters(), lr=0.001, weight_decay=5e-4)
@@ -366,7 +366,6 @@ class ModelTrainer:
             best_val_loss = float('inf')
             best_model_state = None
             wait = 0
-            patience = 20
             train_losses = []
             
             if len(train_datas) == 0:
@@ -380,6 +379,11 @@ class ModelTrainer:
                 total_loss = 0.0
                 total_train_len = len(train_datas)
                 for step, data in enumerate(train_datas):
+                    if company_id and self.cancel_flags.get(company_id, False):
+                        print(f"Training cancelled for company {company_id} at epoch {epoch}, step {step}")
+                        self._update_training_status(company_id, "failed", 0, "Training cancelled by user")
+                        return [], best_val_loss, val_mape
+                        
                     optimizer.zero_grad()
                     out = model(data.x, data.edge_index)
                     loss = F.huber_loss(out, data.y, delta=1.0)
@@ -444,6 +448,11 @@ class ModelTrainer:
                     if wait >= patience:
                         print(f"Early stopping at epoch {epoch}")
                         break
+                        
+                if company_id and self.cancel_flags.get(company_id, False):
+                    print(f"Training cancelled for company {company_id} after epoch {epoch}")
+                    self._update_training_status(company_id, "failed", 0, "Training cancelled by user")
+                    return [], best_val_loss, val_mape
             
             # Restore best model
             if best_model_state is not None:
@@ -547,6 +556,10 @@ class ModelTrainer:
     def fine_tune_company_model(self, company_id, nodes_path, edges_path, sales_path, force_retrain=False):
         """Complete fine-tuning pipeline"""
         try:
+            # Clear any stale cancel flag
+            if company_id in self.cancel_flags:
+                self.cancel_flags[company_id] = False
+                
             action = "retraining" if force_retrain else "training"
             print(f"Starting {action} for company {company_id} (force_retrain={force_retrain})")
             self._update_training_status(company_id, "starting", 0, f"Initializing {'re' if force_retrain else ''}training...")
@@ -592,7 +605,7 @@ class ModelTrainer:
             # Fine-tune with proper training loop
             self._update_training_status(company_id, "training", 50, "Training model...")
             train_losses, best_val_loss, val_mape = self._fine_tune_model(
-                model, train_datas, val_datas, epochs=100, company_id=company_id
+                model, train_datas, val_datas, epochs=50, patience=10, company_id=company_id
             )
             
             # Evaluate on test set
@@ -661,6 +674,11 @@ class ModelTrainer:
             self._update_training_status(company_id, "failed", 0, "Training failed", error_msg)
             return False
     
+    def cancel_training(self, company_id):
+        """Flag a training session for cancellation"""
+        self.cancel_flags[company_id] = True
+        self._update_training_status(company_id, "failed", 0, "Training cancelled by user")
+
     def _update_training_status(self, company_id, status, progress=0, message="", error=None):
         """Update training status"""
         self.training_status[company_id] = {

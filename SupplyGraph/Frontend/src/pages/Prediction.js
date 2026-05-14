@@ -1,11 +1,11 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import { Badge } from '../components/ui/badge';
+import ReorderIntelligence from '../components/charts/ReorderIntelligence';
 import { useToast } from '../hooks/use-toast';
-import { mockPrediction } from '../utils/mockData';
 import { predict, getModelInfo, getHistoricalData } from '../lib/api';
 import DemandChart from '../components/charts/DemandChart';
 import PredictionAnalytics from '../components/charts/PredictionAnalytics';
@@ -24,8 +24,71 @@ import {
   Zap,
   BarChart,
   LineChart,
-  Activity
+  Activity,
+  Download,
+  Search
 } from 'lucide-react';
+
+// Searchable product autocomplete — shows 6 at a time, filters as you type
+const ProductSearch = ({ nodeList, value, onChange }) => {
+  const [query, setQuery] = useState(value || '');
+  const [open, setOpen] = useState(false);
+  const ref = React.useRef(null);
+
+  // Close on outside click
+  React.useEffect(() => {
+    const handler = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, []);
+
+  // Sync external value
+  React.useEffect(() => { setQuery(value || ''); }, [value]);
+
+  const sorted = [...nodeList].sort((a, b) => a.localeCompare(b));
+  const filtered = query
+    ? sorted.filter(n => n.toLowerCase().includes(query.toLowerCase()))
+    : sorted;
+
+  return (
+    <div ref={ref} className="relative">
+      <Search className="absolute left-3 top-3.5 h-4 w-4 text-slate-400 dark:text-slate-500 z-10" />
+      <input
+        id="productSearch"
+        type="text"
+        autoComplete="off"
+        value={query}
+        placeholder="Search products..."
+        onFocus={() => setOpen(true)}
+        onChange={(e) => { setQuery(e.target.value); setOpen(true); onChange(''); }}
+        className="pl-10 h-12 w-full border border-slate-300 dark:border-slate-600 focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 dark:focus:border-purple-400 transition-all duration-300 rounded-lg bg-white dark:bg-slate-800 text-slate-900 dark:text-white"
+      />
+      {value && (
+        <button type="button" onClick={() => { setQuery(''); onChange(''); }}
+          className="absolute right-3 top-3.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300">
+          ✕
+        </button>
+      )}
+      {open && filtered.length > 0 && (
+        <ul className="absolute z-50 mt-1 w-full max-h-[220px] overflow-y-auto bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg shadow-xl">
+          {filtered.slice(0, 50).map((node, i) => (
+            <li key={node}>
+              <button type="button"
+                onClick={() => { onChange(node); setQuery(node); setOpen(false); }}
+                className={`w-full text-left px-4 py-2.5 text-sm hover:bg-purple-50 dark:hover:bg-slate-700 transition-colors flex items-center space-x-2 ${value === node ? 'bg-purple-50 dark:bg-slate-700 text-purple-700 dark:text-purple-300 font-medium' : 'text-slate-700 dark:text-slate-300'} ${i === 0 ? 'rounded-t-lg' : ''}`}>
+                <Package className="h-3.5 w-3.5 text-slate-400 flex-shrink-0" />
+                <span>{node}</span>
+              </button>
+            </li>
+          ))}
+          {filtered.length === 0 && (
+            <li className="px-4 py-3 text-sm text-slate-500 dark:text-slate-400 text-center">No matching products</li>
+          )}
+        </ul>
+      )}
+    </div>
+  );
+};
 
 const Prediction = () => {
   const [formData, setFormData] = useState({
@@ -35,6 +98,31 @@ const Prediction = () => {
   const [loading, setLoading] = useState(false);
   const [prediction, setPrediction] = useState(null);
   const { toast } = useToast();
+  const [nodeList, setNodeList] = useState([]);
+  const [loadingNodes, setLoadingNodes] = useState(false);
+
+  // Fetch available products/stores when component mounts
+  useEffect(() => {
+    const fetchNodes = async () => {
+      try {
+        setLoadingNodes(true);
+        let companyId = localStorage.getItem('companyId');
+        if (!companyId) {
+          const user = localStorage.getItem('user');
+          if (user) companyId = JSON.parse(user).companyId;
+        }
+        if (!companyId) return;
+        const modelInfo = await getModelInfo(companyId);
+        const nodes = modelInfo?.feature_columns || modelInfo?.node_list || [];
+        setNodeList(nodes);
+      } catch (err) {
+        console.log('[Prediction] Could not load node list:', err.message);
+      } finally {
+        setLoadingNodes(false);
+      }
+    };
+    fetchNodes();
+  }, []);
 
   const handleChange = (e) => {
     setFormData({
@@ -46,10 +134,10 @@ const Prediction = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    if (!formData.storeName.trim() || !formData.productName.trim()) {
+    if (!formData.productName.trim()) {
       toast({
         title: "Error",
-        description: "Please enter both store name and product name",
+        description: "Please select a product",
         variant: "destructive"
       });
       return;
@@ -64,31 +152,15 @@ const Prediction = () => {
       }
       if (!companyId) throw new Error('Missing companyId');
 
-      console.log('[Prediction] Starting prediction process', {
-        companyId,
-        storeName: formData.storeName,
-        productName: formData.productName,
-        timestamp: new Date().toISOString()
-      });
-
-      // Check if model exists
-      let modelExists = false;
+      // Check if model exists (reused for confidence later)
+      let cachedModelInfo = null;
       try {
-        console.log('[Prediction] Checking for existing model');
-        const modelInfo = await getModelInfo(companyId);
-        modelExists = modelInfo && modelInfo.model_type;
-        console.log('[Prediction] Model info retrieved', {
-          modelExists,
-          modelType: modelInfo?.model_type,
-          createdAt: modelInfo?.created_at,
-          featureColumns: modelInfo?.feature_columns?.length
-        });
+        cachedModelInfo = await getModelInfo(companyId);
       } catch (error) {
-        console.log('[Prediction] Model not found or not trained yet', error.message);
-        modelExists = false;
+        cachedModelInfo = null;
       }
 
-      if (!modelExists) {
+      if (!cachedModelInfo || !cachedModelInfo.model_type) {
         toast({
           title: "Model Not Ready",
           description: "Please upload and process your data first, then train the model before making predictions.",
@@ -103,24 +175,7 @@ const Prediction = () => {
         product: formData.productName
       };
 
-      console.log('[Prediction] Preparing prediction input', { inputRow });
-
-      // Log model usage information
-      console.log('[Prediction] Using trained model for inference', {
-        modelType: 'GNN Supply Chain Forecaster',
-        inputDimensions: Object.keys(inputRow).length,
-        companyId: companyId,
-        productName: formData.productName
-      });
-
-      console.log('[Prediction] Sending prediction request to backend (30-day forecast)');
       const resp = await predict(companyId, [inputRow], 30); // Request 30-day forecast
-      console.log('[Prediction] Prediction response received', {
-        success: resp?.success,
-        hasPrediction: !!resp?.prediction,
-        responseKeys: Object.keys(resp || {}),
-        is30DayForecast: Array.isArray(resp?.prediction?.prediction) && resp?.prediction?.prediction.length === 30
-      });
 
       const predObj = resp?.prediction ?? resp; // handle both {prediction:{...}} and flat {...}
 
@@ -152,29 +207,11 @@ const Prediction = () => {
         yhat = Number.isFinite(yhatParsed) ? yhatParsed : 0;
       }
 
-      console.log('[Prediction] Parsed prediction value', {
-        final: yhat,
-        total30Days: total30Days,
-        is30DayForecast: !!forecastArray,
-        isValid: Number.isFinite(yhat)
-      });
-
-      // Log prediction quality metrics
-      if (Number.isFinite(yhat)) {
-        console.log('[Prediction] Prediction quality assessment', {
-          predictedValue: yhat,
-          magnitude: yhat > 1000 ? 'High' : yhat > 100 ? 'Medium' : 'Low',
-          confidenceLevel: yhat > 500 ? 'High' : yhat > 100 ? 'Medium' : 'Low'
-        });
-      }
-
       // Get historical data for charts
       let historicalData = [];
       try {
-        console.log('[Prediction] Fetching historical data for visualization');
         const historicalResp = await getHistoricalData(companyId, formData.productName, 30);
         historicalData = Array.isArray(historicalResp.historical_data) ? historicalResp.historical_data : [];
-        console.log('[Prediction] Historical data loaded', { recordCount: historicalData.length });
 
         // Validate historical data format
         historicalData = historicalData.filter(item =>
@@ -185,7 +222,6 @@ const Prediction = () => {
           item.demand > 0
         );
       } catch (error) {
-        console.log('[Prediction] Could not load historical data, using fallback', error.message);
         // Fallback to generated data if historical data is not available
         historicalData = Array.from({ length: 20 }).map((_, i) => ({
           date: new Date(Date.now() - (19 - i) * 86400000).toISOString(),
@@ -194,8 +230,13 @@ const Prediction = () => {
         }));
       }
 
-      // Calculate confidence based on prediction variance (simplified)
-      const confidence = Math.min(95, Math.max(60, 85 + Math.random() * 10));
+      // Calculate confidence from actual model metrics (reuse cachedModelInfo)
+      let confidence = 75;
+      const valMape = cachedModelInfo?.metrics?.val_mape;
+      if (typeof valMape === 'number' && valMape >= 0 && valMape <= 1) {
+        confidence = Math.round((1 - valMape) * 100);
+        confidence = Math.min(99, Math.max(30, confidence));
+      }
 
       // Determine trend based on prediction value
       let trend = 'flat';
@@ -234,21 +275,8 @@ const Prediction = () => {
         }
       };
 
-      console.log('[Prediction] Final prediction payload prepared', {
-        ...predictionPayload,
-        historicalDataCount: predictionPayload.historicalData.length
-      });
-
       setPrediction(predictionPayload);
 
-      // Log successful prediction completion
-      console.log('[Prediction] Prediction process completed successfully', {
-        storeName: formData.storeName,
-        productName: formData.productName,
-        predictedDemand: predictionPayload.predictedDemand,
-        confidence: predictionPayload.confidence,
-        timestamp: new Date().toISOString()
-      });
 
       toast({ title: 'Success!', description: 'Demand prediction generated successfully' });
     } catch (error) {
@@ -320,47 +348,18 @@ const Prediction = () => {
           </CardHeader>
           <CardContent className="p-6">
             <form onSubmit={handleSubmit} className="space-y-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {/* Store Name */}
+              <div className="grid grid-cols-1 gap-6">
+                {/* Product Name — Searchable Autocomplete */}
                 <div className="space-y-2">
-                  <Label htmlFor="storeName" className="text-slate-700 dark:text-slate-300 font-medium flex items-center space-x-2">
-                    <Store className="h-4 w-4 text-blue-500 dark:text-blue-400" />
-                    <span>Store Name</span>
-                  </Label>
-                  <div className="relative">
-                    <Store className="absolute left-3 top-3 h-4 w-4 text-slate-400 dark:text-slate-500" />
-                    <Input
-                      id="storeName"
-                      name="storeName"
-                      type="text"
-                      required
-                      value={formData.storeName}
-                      onChange={handleChange}
-                      className="pl-10 h-12 border-slate-300 dark:border-slate-600 focus:border-blue-500 focus:ring-blue-500 dark:focus:border-blue-400 dark:focus:ring-blue-400 transition-all duration-300 rounded-lg bg-white dark:bg-slate-800 text-slate-900 dark:text-white"
-                      placeholder="e.g., Downtown Store"
-                    />
-                  </div>
-                </div>
-
-                {/* Product Name */}
-                <div className="space-y-2">
-                  <Label htmlFor="productName" className="text-slate-700 dark:text-slate-300 font-medium flex items-center space-x-2">
+                  <Label htmlFor="productSearch" className="text-slate-700 dark:text-slate-300 font-medium flex items-center space-x-2">
                     <Package className="h-4 w-4 text-purple-500 dark:text-purple-400" />
-                    <span>Product Name</span>
+                    <span>Select Product</span>
                   </Label>
-                  <div className="relative">
-                    <Package className="absolute left-3 top-3 h-4 w-4 text-slate-400 dark:text-slate-500" />
-                    <Input
-                      id="productName"
-                      name="productName"
-                      type="text"
-                      required
-                      value={formData.productName}
-                      onChange={handleChange}
-                      className="pl-10 h-12 border-slate-300 dark:border-slate-600 focus:border-purple-500 focus:ring-purple-500 dark:focus:border-purple-400 dark:focus:ring-purple-400 transition-all duration-300 rounded-lg bg-white dark:bg-slate-800 text-slate-900 dark:text-white"
-                      placeholder="e.g., Wireless Headphones"
-                    />
-                  </div>
+                  <ProductSearch
+                    nodeList={nodeList}
+                    value={formData.productName}
+                    onChange={(val) => setFormData(prev => ({ ...prev, productName: val }))}
+                  />
                 </div>
               </div>
 
@@ -491,7 +490,10 @@ const Prediction = () => {
               </CardContent>
             </Card>
 
-            {/* Chart View Toggle */}
+            {/* Reorder Intelligence Widget */}
+            <ReorderIntelligence prediction={prediction} />
+
+            {/* Demand Visualization */}
             <Card className="shadow-2xl border-0 bg-white/90 dark:bg-slate-800/90 backdrop-blur-sm">
               <CardHeader className="bg-gradient-to-r from-indigo-50 to-purple-50 dark:from-slate-800 dark:to-slate-800 rounded-t-lg">
                 <CardTitle className="flex items-center justify-between">
@@ -556,6 +558,35 @@ const Prediction = () => {
               </CardContent>
             </Card>
 
+            {/* Export Forecast CSV */}
+            {prediction?.prediction && Array.isArray(prediction.prediction) && (
+              <div className="flex justify-end">
+                <button
+                  onClick={() => {
+                    const forecastArr = prediction.prediction;
+                    const today = new Date();
+                    const header = 'Day,Date,Predicted Demand\n';
+                    const rows = forecastArr.map((val, i) => {
+                      const date = new Date(today);
+                      date.setDate(date.getDate() + i + 1);
+                      return `${i + 1},${date.toISOString().split('T')[0]},${val}`;
+                    }).join('\n');
+                    const blob = new Blob([header + rows], { type: 'text/csv;charset=utf-8;' });
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = `forecast_${prediction.productName}_${new Date().toISOString().split('T')[0]}.csv`;
+                    a.click();
+                    URL.revokeObjectURL(url);
+                  }}
+                  className="inline-flex items-center space-x-2 px-4 py-2 border border-slate-300 dark:border-slate-600 rounded-lg text-sm font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
+                >
+                  <Download className="h-4 w-4" />
+                  <span>Export Forecast CSV</span>
+                </button>
+              </div>
+            )}
+
             {/* AI Recommendations */}
             <Card className="shadow-2xl border-0 bg-white/90 dark:bg-slate-800/90 backdrop-blur-sm">
               <CardHeader className="bg-gradient-to-r from-yellow-50 to-orange-50 dark:from-slate-800 dark:to-slate-800 rounded-t-lg">
@@ -598,7 +629,7 @@ const Prediction = () => {
                   Ready to Generate AI Predictions
                 </h3>
                 <p className="text-slate-600 dark:text-slate-400 max-w-md mx-auto leading-relaxed mb-6">
-                  Enter a store name and product name to get AI-powered demand forecasts with interactive charts and actionable insights.
+                  Select a product to get AI-powered demand forecasts with interactive charts and actionable insights.
                 </p>
                 <div className="flex justify-center space-x-4">
                   <div className="flex items-center space-x-2 text-sm text-slate-500 dark:text-slate-400">

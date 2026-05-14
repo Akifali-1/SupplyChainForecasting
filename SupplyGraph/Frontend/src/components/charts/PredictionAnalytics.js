@@ -366,7 +366,13 @@ const PredictionAnalytics = ({
         ticks: { font: { size: 11, weight: '500' }, color: '#64748b' } // Light mode text color
       },
       y: {
-        beginAtZero: true,
+        beginAtZero: false,
+        suggestedMin: demandValues.length > 0
+          ? Math.floor(Math.min(...demandValues) * 0.9)
+          : 0,
+        suggestedMax: demandValues.length > 0
+          ? Math.ceil(Math.max(...demandValues) * 1.1)
+          : 100,
         grid: { color: 'rgba(148, 163, 184, 0.1)', drawBorder: false },
         ticks: {
           font: { size: 11, weight: '500' },

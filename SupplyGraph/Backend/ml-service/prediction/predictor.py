@@ -20,7 +20,6 @@ class DemandPredictor:
                 raise ValueError("MONGO_URI environment variable not set")
             self.client = MongoClient(self.mongo_uri, 
                                     tls=True,
-                                    tlsAllowInvalidCertificates=True,
                                     serverSelectionTimeoutMS=30000)
             self.db = self.client.supplychain
             if self.debug:
@@ -448,6 +447,19 @@ class DemandPredictor:
                     
                     # Shift window: drop oldest timestep, append prediction (in scaled space)
                     new_step = pred.unsqueeze(-1)  # (num_nodes, 1, 1)
+                    
+                    # Inject noise + momentum to prevent autoregressive mean collapse
+                    # Without this, predictions converge to the model's mean after ~5 steps
+                    if day > 1:
+                        noise_scale = 0.03 * (1 + day * 0.01)
+                        noise = torch.randn_like(new_step) * noise_scale
+                        # Blend with running average to prevent pure drift
+                        if day > 3:
+                            running_mean = current_x.mean(dim=1, keepdim=True)
+                            new_step = 0.85 * new_step + 0.15 * running_mean + noise
+                        else:
+                            new_step = new_step + noise
+                    
                     current_x = torch.cat([current_x[:, 1:, :], new_step], dim=1)
                     
                     # Always print first 5 days so we can verify sanity in the terminal

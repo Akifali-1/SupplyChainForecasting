@@ -92,7 +92,7 @@ const Dashboard = () => {
                 <span className="text-sm font-medium text-indigo-700 dark:text-indigo-300">Dashboard</span>
               </div>
               <h1 className="text-3xl md:text-4xl font-bold bg-gradient-to-r from-slate-800 to-indigo-600 dark:from-slate-200 dark:to-indigo-400 bg-clip-text text-transparent">
-                Welcome back{user?.companyName ? `, ${user.companyName}` : ''}
+                Welcome back{user?.name ? `, ${user.name.split(' ')[0]}` : ''}
               </h1>
               <p className="text-slate-600 dark:text-slate-400 mt-1">Your supply chain intelligence at a glance</p>
             </div>
@@ -188,11 +188,11 @@ const Dashboard = () => {
             </CardHeader>
             <CardContent className="p-4 space-y-3">
               {[
-                { label: 'Run Prediction', desc: 'Forecast demand for any product', icon: Eye, route: '/prediction', gradient: 'from-blue-600 to-indigo-600' },
-                { label: 'View Inventory', desc: 'Stock health & optimization', icon: Package, route: '/inventory', gradient: 'from-green-600 to-emerald-600' },
-                { label: 'Upload New Data', desc: 'Add new supply chain datasets', icon: Upload, route: '/upload', gradient: 'from-orange-600 to-amber-600' },
-                { label: 'Retrain Model', desc: 'Re-train with latest data', icon: Brain, route: '/upload', gradient: 'from-purple-600 to-pink-600' },
-              ].map(({ label, desc, icon: Icon, route, gradient }) => (
+                { label: 'Run Prediction', desc: 'Forecast demand for any product', icon: Eye, route: '/prediction', gradient: 'from-blue-600 to-indigo-600', adminOnly: false },
+                { label: 'View Inventory', desc: 'Stock health & optimization', icon: Package, route: '/inventory', gradient: 'from-green-600 to-emerald-600', adminOnly: false },
+                { label: 'Upload New Data', desc: 'Add new supply chain datasets', icon: Upload, route: '/upload', gradient: 'from-orange-600 to-amber-600', adminOnly: true },
+                { label: 'Retrain Model', desc: 'Re-train with latest data', icon: Brain, route: '/upload', gradient: 'from-purple-600 to-pink-600', adminOnly: true },
+              ].filter(action => !action.adminOnly || user?.role === 'admin').map(({ label, desc, icon: Icon, route, gradient }) => (
                 <button key={label} onClick={() => navigate(route)}
                   className="w-full flex items-center space-x-3 p-3 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-all group text-left">
                   <div className={`w-10 h-10 bg-gradient-to-br ${gradient} rounded-lg flex items-center justify-center flex-shrink-0 group-hover:scale-110 transition-transform`}>

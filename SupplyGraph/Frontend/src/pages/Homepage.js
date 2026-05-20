@@ -1,10 +1,12 @@
 // Homepage component
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState, lazy, Suspense } from 'react';
 import { Link } from 'react-router-dom';
 import { Button } from '../components/ui/button';
 import { Brain, TrendingUp, FileText, Settings, ArrowRight, CheckCircle, Sparkles, Zap, BarChart3, Network, Clock, MapPin, Database, Cpu, Activity, ChevronDown } from 'lucide-react';
-import Spline from '@splinetool/react-spline';
 import { useTheme } from '../contexts/ThemeContext';
+
+// Lazy-load Spline — defers the heavy SDK bundle after initial paint
+const Spline = lazy(() => import('@splinetool/react-spline'));
 
 const Homepage = () => {
   const [splineLoaded, setSplineLoaded] = useState(false);
@@ -130,12 +132,14 @@ const Homepage = () => {
             className="w-full h-full transition-transform duration-200 ease-out"
             style={{ transformStyle: 'preserve-3d' }}
           >
-            {/* Spline 3D Model - Local File */}
-            <Spline
-              key={splineScene}
-              scene={splineScene}
-              onLoad={onSplineLoad}
-            />
+            {/* Spline 3D Model - Local File (lazy-loaded for fast initial paint) */}
+            <Suspense fallback={null}>
+              <Spline
+                key={splineScene}
+                scene={splineScene}
+                onLoad={onSplineLoad}
+              />
+            </Suspense>
           </div>
         </div>
 
@@ -200,7 +204,7 @@ const Homepage = () => {
                       <h3 className="text-lg font-bold text-slate-900 dark:text-white">Spatial Learning</h3>
                     </div>
                     <p className="text-slate-600 dark:text-slate-300 text-sm leading-relaxed">
-                      Captures relationships between supply chain nodes—how demand at one location influences network.
+                      Captures relationships between supply chain nodesΓÇöhow demand at one location influences network.
                     </p>
                   </div>
 

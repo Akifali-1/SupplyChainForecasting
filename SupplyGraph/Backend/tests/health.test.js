@@ -1,3 +1,43 @@
+jest.mock("mongoose", () => {
+  const actualMongoose = jest.requireActual("mongoose");
+  return {
+    ...actualMongoose,
+    connect: jest.fn().mockResolvedValue({}),
+    disconnect: jest.fn().mockResolvedValue({}),
+    connection: {
+      ...actualMongoose.connection,
+      readyState: 0,
+    },
+  };
+});
+
+jest.mock("mongodb", () => {
+  const mockDb = {
+    collection: jest.fn().mockReturnValue({
+      findOneAndUpdate: jest.fn().mockResolvedValue({ value: null }),
+      findOne: jest.fn().mockResolvedValue({}),
+    }),
+  };
+  const mockClient = {
+    connect: jest.fn().mockResolvedValue({}),
+    db: jest.fn().mockReturnValue(mockDb),
+    close: jest.fn().mockResolvedValue({}),
+  };
+  return {
+    MongoClient: jest.fn().mockImplementation(() => mockClient),
+  };
+});
+
+jest.mock("connect-mongo", () => {
+  const EventEmitter = require("events");
+  class MockStore extends EventEmitter {}
+  return {
+    MongoStore: {
+      create: jest.fn().mockImplementation(() => new MockStore()),
+    },
+  };
+});
+
 const request = require("supertest");
 const { app, getMongoClient } = require("../server");
 const mongoose = require("mongoose");

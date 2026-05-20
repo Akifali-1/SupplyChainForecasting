@@ -805,5 +805,35 @@ def get_recommendation(growth_rate, risk_level):
 
 
 
+@app.route('/prediction-cache/<company_id>', methods=['GET'])
+def get_prediction_cache(company_id):
+    """Return cached batch predictions from MongoDB for the Reorder Intelligence engine."""
+    try:
+        if predictor.db is None:
+            return jsonify({"error": "MongoDB not available"}), 503
+        
+        cache_doc = predictor.db.prediction_caches.find_one({'company_id': company_id})
+        if not cache_doc:
+            try:
+                print(f"Prediction cache not found for company {company_id}. Generating automatically...")
+                predictor.predict_all(company_id, forecast_days=30)
+                cache_doc = predictor.db.prediction_caches.find_one({'company_id': company_id})
+            except Exception as auto_err:
+                print(f"⚠️ Failed to auto-generate predictions: {auto_err}")
+                return jsonify({"error": f"No prediction cache found and auto-generation failed: {str(auto_err)}"}), 404
+        
+        if not cache_doc:
+            return jsonify({"error": "No prediction cache found. Run a prediction first."}), 404
+        
+        return jsonify({
+            "company_id": company_id,
+            "updated_at": cache_doc.get("updated_at"),
+            "predictions": cache_doc.get("predictions", {})
+        })
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=5001)
+    app.run(host='127.0.0.1', port=5001, debug=True, use_reloader=False)
+

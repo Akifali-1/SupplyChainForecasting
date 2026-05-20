@@ -22,6 +22,18 @@ const logger = {
   }
 };
 
+// Smart fetch: automatically redirects to /login when session expires (401)
+async function apiFetch(url, options = {}) {
+  const res = await fetch(url, { credentials: 'include', ...options });
+  if (res.status === 401) {
+    // Session expired or cookie is stale — force re-login
+    console.warn('[API] Session expired (401). Redirecting to login.');
+    window.location.href = '/login?error=session_expired';
+    throw new Error('Session expired. Please log in again.');
+  }
+  return res;
+}
+
 export async function registerCompany(name) {
   logger.info('API', 'Registering company', { name });
   const res = await fetch(`${API_BASE}/api/company/register`, {
@@ -37,7 +49,7 @@ export async function convertRaw(companyId, file) {
   logger.info('API', 'Converting raw file', { companyId, fileName: file.name, fileSize: file.size });
   const formData = new FormData();
   formData.append("file", file);
-  const res = await fetch(`${API_BASE}/api/data/convert/${companyId}`, {
+  const res = await apiFetch(`${API_BASE}/api/data/convert/${companyId}`, {
     method: "POST",
     body: formData
   });
@@ -62,7 +74,7 @@ export async function fineTune(companyId, nodes, edges, demand, forceRetrain = t
   // the 200 OK response from a previous run (which prevents retraining with identical files).
   const idempotencyKey = `train-${companyId}-${Date.now()}`;
   
-  const res = await fetch(`${API_BASE}/api/ml/fine-tune/${companyId}`, {
+  const res = await apiFetch(`${API_BASE}/api/ml/fine-tune/${companyId}`, {
     method: "POST",
     headers: { 
       "Content-Type": "application/json",
@@ -88,9 +100,7 @@ export async function fineTune(companyId, nodes, edges, demand, forceRetrain = t
 export async function getTrainingStatus(companyId) {
   // Commented out to prevent console spam during 500ms interval polling
   // logger.info('API', 'Fetching training status', { companyId });
-  const res = await fetch(`${API_BASE}/api/ml/training-status/${companyId}`, {
-    credentials: "include"
-  });
+  const res = await apiFetch(`${API_BASE}/api/ml/training-status/${companyId}`);
 
   if (!res.ok) {
     const errorData = await res.json().catch(() => ({}));
@@ -107,12 +117,11 @@ export async function getTrainingStatus(companyId) {
 
 export async function cancelTraining(companyId) {
   logger.info('API', 'Cancelling training', { companyId });
-  const res = await fetch(`${API_BASE}/api/ml/cancel-training/${companyId}`, {
+  const res = await apiFetch(`${API_BASE}/api/ml/cancel-training/${companyId}`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-    },
-    credentials: "include"
+    }
   });
 
   if (!res.ok) {
@@ -129,7 +138,7 @@ export async function cancelTraining(companyId) {
 
 export async function predict(companyId, input_data, forecastDays = 30) {
   logger.info('API', 'Making prediction', { companyId, input_data_length: input_data?.length, forecastDays });
-  const res = await fetch(`${API_BASE}/api/ml/predict/${companyId}`, {
+  const res = await apiFetch(`${API_BASE}/api/ml/predict/${companyId}`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ input_data, forecast_days: forecastDays })
@@ -153,7 +162,7 @@ export async function predict(companyId, input_data, forecastDays = 30) {
 
 export async function getModelInfo(companyId) {
   logger.info('API', 'Fetching model info', { companyId });
-  const res = await fetch(`${API_BASE}/api/ml/model-info/${companyId}`);
+  const res = await apiFetch(`${API_BASE}/api/ml/model-info/${companyId}`);
   if (!res.ok) {
     logger.error('API', 'Failed to fetch model info', { status: res.status });
     throw new Error("Failed to get model info");
@@ -177,7 +186,7 @@ export async function getHealth() {
 
 export async function createSample(companyId, size = "small") {
   logger.info('API', 'Creating sample dataset', { companyId, size });
-  const res = await fetch(`${API_BASE}/api/ml/create-sample/${companyId}`, {
+  const res = await apiFetch(`${API_BASE}/api/ml/create-sample/${companyId}`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ size })
@@ -232,9 +241,8 @@ export async function getHistoricalData(companyId, product, intervalDays) {
   const qp = new URLSearchParams();
   if (product) qp.set('product', product);
   if (intervalDays) qp.set('intervalDays', String(intervalDays));
-  const res = await fetch(`${API_BASE}/api/ml/historical-data/${companyId}?${qp.toString()}`, {
-    method: "GET",
-    credentials: "include"
+  const res = await apiFetch(`${API_BASE}/api/ml/historical-data/${companyId}?${qp.toString()}`, {
+    method: "GET"
   });
   if (!res.ok) {
     const errorData = await res.json().catch(() => ({}));
@@ -250,9 +258,8 @@ export async function getHistoricalData(companyId, product, intervalDays) {
 // Inventory Management APIs
 export async function getTrendingInventory(companyId, timeRange = '30d') {
   logger.info('API', 'Fetching trending inventory', { companyId, timeRange });
-  const res = await fetch(`${API_BASE}/api/ml/inventory/trending/${companyId}?timeRange=${timeRange}`, {
-    method: "GET",
-    credentials: "include"
+  const res = await apiFetch(`${API_BASE}/api/ml/inventory/trending/${companyId}?timeRange=${timeRange}`, {
+    method: "GET"
   });
 
   if (!res.ok) {
@@ -269,9 +276,8 @@ export async function getTrendingInventory(companyId, timeRange = '30d') {
 
 export async function getInventoryAnalytics(companyId) {
   logger.info('API', 'Fetching inventory analytics', { companyId });
-  const res = await fetch(`${API_BASE}/api/ml/inventory/analytics/${companyId}`, {
-    method: "GET",
-    credentials: "include"
+  const res = await apiFetch(`${API_BASE}/api/ml/inventory/analytics/${companyId}`, {
+    method: "GET"
   });
 
   if (!res.ok) {
@@ -285,3 +291,134 @@ export async function getInventoryAnalytics(companyId) {
   logger.info('API', 'Inventory analytics fetched', result);
   return result;
 }
+
+// Invite & Member Management APIs
+export async function setupCompany(companyName) {
+  logger.info('API', 'Setting up company name', { companyName });
+  const res = await apiFetch(`${API_BASE}/api/company/setup`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ companyName })
+  });
+  if (!res.ok) {
+    const errorData = await res.json().catch(() => ({}));
+    throw new Error(errorData.error || `HTTP ${res.status}`);
+  }
+  return res.json();
+}
+
+export async function generateInvite() {
+  logger.info('API', 'Generating invite token');
+  const res = await apiFetch(`${API_BASE}/api/invite/generate`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" }
+  });
+
+  if (!res.ok) {
+    const errorData = await res.json().catch(() => ({}));
+    const errorMessage = errorData.details || errorData.error || `HTTP ${res.status}: ${res.statusText}`;
+    logger.error('API', 'Failed to generate invite', { error: errorMessage });
+    throw new Error(errorMessage);
+  }
+
+  return res.json();
+}
+
+export async function verifyInvite(token) {
+  logger.info('API', 'Verifying invite token', { token });
+  const res = await apiFetch(`${API_BASE}/api/invite/verify/${token}`, {
+    method: "GET"
+  });
+
+  if (!res.ok) {
+    const errorData = await res.json().catch(() => ({}));
+    const errorMessage = errorData.details || errorData.error || `HTTP ${res.status}: ${res.statusText}`;
+    logger.error('API', 'Invite token verification failed', { error: errorMessage });
+    throw new Error(errorMessage);
+  }
+
+  return res.json();
+}
+
+export async function getCompanyMembers() {
+  logger.info('API', 'Fetching company members');
+  const res = await apiFetch(`${API_BASE}/api/company/members`, {
+    method: "GET"
+  });
+
+  if (!res.ok) {
+    const errorData = await res.json().catch(() => ({}));
+    const errorMessage = errorData.details || errorData.error || `HTTP ${res.status}: ${res.statusText}`;
+    logger.error('API', 'Failed to fetch company members', { error: errorMessage });
+    throw new Error(errorMessage);
+  }
+
+  return res.json();
+}
+
+export async function revokeMember(userId) {
+  logger.info('API', 'Revoking company member access', { userId });
+  const res = await apiFetch(`${API_BASE}/api/company/members/${userId}`, {
+    method: "DELETE"
+  });
+
+  if (!res.ok) {
+    const errorData = await res.json().catch(() => ({}));
+    const errorMessage = errorData.details || errorData.error || `HTTP ${res.status}: ${res.statusText}`;
+    logger.error('API', 'Failed to revoke member access', { error: errorMessage });
+    throw new Error(errorMessage);
+  }
+
+  return res.json();
+}
+
+// ─── Reorder Intelligence ─────────────────────────────────────────────────────
+
+/** Upload an inventory snapshot CSV for the given company */
+export async function uploadInventorySnapshot(companyId, file) {
+  const formData = new FormData();
+  formData.append('file', file);
+  const res = await apiFetch(`${API_BASE}/api/reorder/snapshot/${companyId}`, {
+    method: 'POST',
+    body: formData,
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || `Upload failed (${res.status})`);
+  }
+  return res.json();
+}
+
+/** Fetch the current inventory snapshot metadata + items */
+export async function getInventorySnapshot(companyId) {
+  const res = await apiFetch(`${API_BASE}/api/reorder/snapshot/${companyId}`);
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || `Fetch failed (${res.status})`);
+  }
+  return res.json();
+}
+
+/** Run the Reorder Intelligence engine and get ROP / coverage / anomaly data */
+export async function getReorderIntelligence(companyId) {
+  const res = await apiFetch(`${API_BASE}/api/reorder/intelligence/${companyId}`);
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || `Intelligence fetch failed (${res.status})`);
+  }
+  return res.json();
+}
+
+/** Trigger an order for a product (stamps timestamp in MongoDB) */
+export async function triggerReorder(companyId, productId) {
+  const res = await apiFetch(
+    `${API_BASE}/api/reorder/trigger/${companyId}/${productId}`,
+    { method: 'POST' }
+  );
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || `Trigger failed (${res.status})`);
+  }
+  return res.json();
+}
+

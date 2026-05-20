@@ -4,7 +4,6 @@ import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import { Badge } from '../components/ui/badge';
-import ReorderIntelligence from '../components/charts/ReorderIntelligence';
 import { useToast } from '../hooks/use-toast';
 import { predict, getModelInfo, getHistoricalData } from '../lib/api';
 import DemandChart from '../components/charts/DemandChart';
@@ -490,8 +489,7 @@ const Prediction = () => {
               </CardContent>
             </Card>
 
-            {/* Reorder Intelligence Widget */}
-            <ReorderIntelligence prediction={prediction} />
+
 
             {/* Demand Visualization */}
             <Card className="shadow-2xl border-0 bg-white/90 dark:bg-slate-800/90 backdrop-blur-sm">

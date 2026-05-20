@@ -28,6 +28,8 @@ const getCallbackURL = () => {
   return callbackURL;
 };
 const User = require("../models/User");
+const Company = require("../models/Company");
+const Invite = require("../models/Invite");
 
 // Validate OAuth credentials
 if (!process.env.GOOGLE_CLIENT_ID || !process.env.GOOGLE_CLIENT_SECRET) {
@@ -39,9 +41,10 @@ passport.use(
     {
       clientID: process.env.GOOGLE_CLIENT_ID,
       clientSecret: process.env.GOOGLE_CLIENT_SECRET,
-      callbackURL: getCallbackURL()
+      callbackURL: getCallbackURL(),
+      passReqToCallback: true
     },
-    async (accessToken, refreshToken, profile, done) => {
+    async (req, accessToken, refreshToken, profile, done) => {
       try {
         if (!profile || !profile.emails || !profile.emails[0]) {
           console.error('❌ OAuth Error: No email in profile', profile);
@@ -49,16 +52,60 @@ passport.use(
         }
 
         const email = profile.emails[0].value;
-        let user = await User.findOne({ googleId: profile.id });
+        // Search by googleId first, fallback to email to support any pre-existing manual creations
+        let user = await User.findOne({ $or: [{ googleId: profile.id }, { email }] });
 
         if (!user) {
+          let companyId = null;
+          let role = "user";
+
+          const inviteToken = req.session && req.session.inviteToken;
+          if (inviteToken) {
+            console.log('🔗 Found invite token in session:', inviteToken);
+            const invite = await Invite.findOne({ 
+              token: inviteToken, 
+              used: false, 
+              expiresAt: { $gt: new Date() } 
+            });
+
+            if (invite) {
+              companyId = invite.companyId;
+              role = "user";
+              
+              // Mark the invite as used
+              invite.used = true;
+              await invite.save();
+              console.log(`✅ Joined existing company ${companyId} via invite link`);
+            } else {
+              console.warn('⚠️ Invite token found but is invalid or expired. Falling back to new company creation.');
+            }
+            
+            // Clean up session token
+            delete req.session.inviteToken;
+          }
+
+          // If not joining via invite, create a blank company shell and mark as admin
+          if (!companyId) {
+            const company = await Company.create({ setupComplete: false });
+            companyId = company._id;
+            role = "admin";
+            console.log(`🏢 Created blank company shell (ID: ${companyId}) — admin must complete setup`);
+          }
+
           user = await User.create({
             googleId: profile.id,
             email,
-            name: profile.displayName
+            name: profile.displayName,
+            role,
+            companyId
           });
-          console.log('✅ New user created via OAuth:', email);
+          console.log('✅ New user created via OAuth:', email, 'Role:', role);
         } else {
+          // User exists, if they don't have googleId yet, update it
+          if (!user.googleId) {
+            user.googleId = profile.id;
+            await user.save();
+          }
           console.log('✅ Existing user logged in via OAuth:', email);
         }
 

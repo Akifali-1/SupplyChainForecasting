@@ -81,6 +81,17 @@
   }
 }
 
+@keyframes float-box {
+  from {
+    transform: translateY(0px) rotate(var(--rot, 0deg));
+    opacity: 0.5;
+  }
+  to {
+    transform: translateY(-14px) rotate(var(--rot, 0deg));
+    opacity: 0.9;
+  }
+}
+
 @keyframes float-delayed {
 
   0%,
@@ -176,12 +187,8 @@
   animation: gradient-reverse 4s ease infinite;
 }
 
-/* Custom transitions */
-.transition-all {
-  transition-property: all;
-  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
-  transition-duration: 300ms;
-}
+/* transition-all override removed — components use specific property transitions.
+   Using transition-all forces the browser to watch every CSS property. */
 
 /* Custom backdrop blur */
 .backdrop-blur-sm {
@@ -241,10 +248,8 @@ select:focus {
   box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.3);
 }
 
-/* Button hover effects */
-button:not(:disabled):hover {
-  transform: translateY(-1px);
-}
+/* button:hover transform removed — it was triggering layout recalc on every button hover
+   sitewide. Components manage their own hover transforms via Tailwind or inline styles. */
 
 /* Card hover effects */
 .card-hover:hover {

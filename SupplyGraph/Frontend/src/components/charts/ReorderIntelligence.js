@@ -25,8 +25,8 @@ const ReorderIntelligence = ({ prediction }) => {
   }, [currentStock, leadTime, avgDailyDemand]);
 
   return (
-    <Card className="shadow-2xl border-0 bg-white/90 dark:bg-slate-800/90 backdrop-blur-sm overflow-hidden">
-      <CardHeader className="bg-gradient-to-r from-orange-50 to-red-50 dark:from-slate-800 dark:to-slate-800 rounded-t-lg">
+    <Card className="shadow-2xl border-0 bg-white/90 dark:bg-neutral-900/90 backdrop-blur-sm overflow-hidden">
+      <CardHeader className="bg-gradient-to-r from-orange-50 to-red-50 dark:from-neutral-900 dark:to-neutral-900 rounded-t-lg">
         <CardTitle className="flex items-center justify-between text-slate-900 dark:text-white">
           <div className="flex items-center space-x-2">
             <ShoppingCart className="h-6 w-6 text-orange-600 dark:text-orange-400" />
@@ -47,13 +47,13 @@ const ReorderIntelligence = ({ prediction }) => {
             <Label className="text-slate-700 dark:text-slate-300 font-medium flex items-center space-x-2">
               <Package className="h-4 w-4 text-orange-500" /><span>Current Stock (units)</span>
             </Label>
-            <Input type="number" min="0" value={currentStock} onChange={e => setCurrentStock(e.target.value)} placeholder="e.g., 500" className="h-12 bg-white dark:bg-slate-800" />
+            <Input type="number" min="0" value={currentStock} onChange={e => setCurrentStock(e.target.value)} placeholder="e.g., 500" className="h-12 bg-white dark:bg-neutral-900" />
           </div>
           <div className="space-y-2">
             <Label className="text-slate-700 dark:text-slate-300 font-medium flex items-center space-x-2">
               <Clock className="h-4 w-4 text-blue-500" /><span>Lead Time (days)</span>
             </Label>
-            <Input type="number" min="1" value={leadTime} onChange={e => setLeadTime(e.target.value)} placeholder="e.g., 7" className="h-12 bg-white dark:bg-slate-800" />
+            <Input type="number" min="1" value={leadTime} onChange={e => setLeadTime(e.target.value)} placeholder="e.g., 7" className="h-12 bg-white dark:bg-neutral-900" />
           </div>
         </div>
         {calc ? (

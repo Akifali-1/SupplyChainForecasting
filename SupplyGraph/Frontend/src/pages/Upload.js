@@ -445,7 +445,7 @@ const Upload = () => {
   };
 
   const FileUploadCard = ({ title, description, fileType, accept = ".csv", gradient }) => (
-    <Card className={`border-dashed border-2 border-slate-300 dark:border-slate-600 hover:border-blue-400 dark:hover:border-blue-400 transition-all duration-300 group hover:shadow-lg bg-gradient-to-br ${gradient} dark:from-slate-800 dark:to-slate-800`}>
+    <Card className={`border-dashed border-2 border-slate-300 dark:border-neutral-800 hover:border-blue-400 dark:hover:border-blue-400 transition-all duration-300 group hover:shadow-lg bg-gradient-to-br ${gradient} dark:from-neutral-900/90 dark:to-neutral-900/90`}>
       <CardContent className="p-6">
         <div className="text-center">
           {convertedPaths && uploadType === 'single' ? (
@@ -513,9 +513,9 @@ const Upload = () => {
                 file:mr-4 file:py-2 file:px-4
                 file:rounded-lg file:border-0
                 file:text-sm file:font-semibold
-                file:bg-gradient-to-r file:from-blue-50 file:to-purple-50 dark:file:from-slate-700 dark:file:to-slate-700
+                file:bg-gradient-to-r file:from-blue-50 file:to-purple-50 dark:file:from-neutral-800 dark:file:to-neutral-800
                 file:text-blue-700 dark:file:text-blue-300
-                hover:file:from-blue-100 hover:file:to-purple-100 dark:hover:file:from-slate-600 dark:hover:file:to-slate-600
+                hover:file:from-blue-100 hover:file:to-purple-100 dark:hover:file:from-neutral-700 dark:hover:file:to-neutral-700
                 file:cursor-pointer file:transition-all file:duration-300
                 cursor-pointer transition-colors"
             />
@@ -527,7 +527,7 @@ const Upload = () => {
 
   if (checkingState) {
     return (
-      <div className="min-h-screen py-12 px-4 flex justify-center items-center bg-gradient-to-br from-slate-50 to-blue-50 dark:from-slate-900 dark:to-slate-900">
+      <div className="min-h-screen py-12 px-4 flex justify-center items-center bg-gradient-to-br from-slate-50 to-blue-50 dark:from-black dark:to-black">
         <div className="text-center animate-pulse">
           <Brain className="h-12 w-12 text-blue-500 mx-auto mb-4" />
           <p className="text-slate-600 dark:text-slate-400">Loading workspace...</p>
@@ -537,11 +537,11 @@ const Upload = () => {
   }
 
   return (
-    <div className="min-h-screen py-12 px-4 sm:px-6 lg:px-8 bg-gradient-to-br from-slate-50 to-blue-50 dark:from-slate-900 dark:to-slate-900">
+    <div className="min-h-screen py-12 px-4 sm:px-6 lg:px-8 bg-gradient-to-br from-slate-50 to-blue-50 dark:from-black dark:to-black">
       <div className="max-w-4xl mx-auto">
         {/* Header */}
         <div className="text-center mb-8 animate-fade-in-up">
-          <div className="inline-flex items-center space-x-2 bg-white/80 dark:bg-slate-800/80 backdrop-blur-sm px-4 py-2 rounded-full border border-blue-200 dark:border-slate-700 shadow-lg mb-4">
+          <div className="inline-flex items-center space-x-2 bg-white/80 dark:bg-neutral-900/80 backdrop-blur-sm px-4 py-2 rounded-full border border-blue-200 dark:border-neutral-800 shadow-lg mb-4">
             <Database className="h-4 w-4 text-blue-500 dark:text-blue-400" />
             <span className="text-sm font-medium text-blue-700 dark:text-blue-300">Data Upload Center</span>
             <Sparkles className="h-4 w-4 text-purple-500 dark:text-purple-400" />
@@ -557,8 +557,8 @@ const Upload = () => {
         {/* Main Upload Card - Hide during training or when completed */}
         {!(fineTuning || fineTuningComplete) && (
           <>
-            <Card className="shadow-2xl border-0 bg-white/90 dark:bg-slate-800/90 backdrop-blur-sm animate-fade-in-up mb-8" style={{ animationDelay: '0.1s' }}>
-          <CardHeader className="bg-gradient-to-r from-blue-50 to-purple-50 dark:from-slate-800 dark:to-slate-800 rounded-t-lg">
+            <Card className="shadow-2xl border-0 bg-white/90 dark:bg-neutral-900/95 backdrop-blur-sm animate-fade-in-up mb-8" style={{ animationDelay: '0.1s' }}>
+          <CardHeader className="bg-gradient-to-r from-blue-50 to-purple-50 dark:from-neutral-900 dark:to-neutral-900 rounded-t-lg">
             <CardTitle className="flex items-center space-x-2 text-slate-900 dark:text-white">
               <Database className="h-6 w-6 text-blue-600 dark:text-blue-400" />
               <span>Data Upload</span>
@@ -566,19 +566,19 @@ const Upload = () => {
           </CardHeader>
           <CardContent className="p-6">
             <Tabs value={uploadType} onValueChange={setUploadType} className="w-full">
-              <TabsList className="grid w-full grid-cols-2 mb-6 bg-gradient-to-r from-blue-50 to-purple-50 dark:from-slate-800 dark:to-slate-800">
-                <TabsTrigger value="single" className="flex items-center space-x-2 data-[state=active]:bg-white dark:data-[state=active]:bg-slate-700 data-[state=active]:shadow-md">
+              <TabsList className="grid w-full grid-cols-2 mb-6 bg-gradient-to-r from-blue-50 to-purple-50 dark:from-neutral-900 dark:to-neutral-900">
+                <TabsTrigger value="single" className="flex items-center space-x-2 data-[state=active]:bg-white dark:data-[state=active]:bg-neutral-800 data-[state=active]:shadow-md">
                   <FileText className="h-4 w-4" />
                   <span>Single Dataset</span>
                 </TabsTrigger>
-                <TabsTrigger value="multiple" className="flex items-center space-x-2 data-[state=active]:bg-white dark:data-[state=active]:bg-slate-700 data-[state=active]:shadow-md">
+                <TabsTrigger value="multiple" className="flex items-center space-x-2 data-[state=active]:bg-white dark:data-[state=active]:bg-neutral-800 data-[state=active]:shadow-md">
                   <Database className="h-4 w-4" />
                   <span>Separate Files</span>
                 </TabsTrigger>
               </TabsList>
 
               <TabsContent value="single" className="space-y-4">
-                <div className="mb-6 p-4 bg-gradient-to-r from-blue-50 to-cyan-50 dark:from-slate-800 dark:to-slate-800 rounded-lg border border-blue-200 dark:border-slate-700">
+                <div className="mb-6 p-4 bg-gradient-to-r from-blue-50 to-cyan-50 dark:from-neutral-900/60 dark:to-neutral-900/60 rounded-lg border border-blue-200 dark:border-neutral-800">
                   <p className="text-slate-700 dark:text-slate-300 mb-2 font-medium">📊 Single Dataset Upload</p>
                   <p className="text-slate-600 dark:text-slate-400 text-sm">
                     Upload a single CSV file containing your complete supply chain dataset with all necessary columns
@@ -615,7 +615,7 @@ const Upload = () => {
               </TabsContent>
 
               <TabsContent value="multiple" className="space-y-4">
-                <div className="mb-6 p-4 bg-gradient-to-r from-purple-50 to-pink-50 dark:from-slate-800 dark:to-slate-800 rounded-lg border border-purple-200 dark:border-slate-700">
+                <div className="mb-6 p-4 bg-gradient-to-r from-purple-50 to-pink-50 dark:from-neutral-900/60 dark:to-neutral-900/60 rounded-lg border border-purple-200 dark:border-neutral-800">
                   <p className="text-slate-700 dark:text-slate-300 mb-2 font-medium">📁 Multi-File Upload</p>
                   <p className="text-slate-600 dark:text-slate-400 text-sm">
                     Upload three separate CSV files or use sample data for comprehensive supply chain network analysis
@@ -623,7 +623,7 @@ const Upload = () => {
                 </div>
 
                 {/* Sample Creation */}
-                <div className="mb-6 p-4 bg-gradient-to-r from-blue-50 to-cyan-50 dark:from-slate-800 dark:to-slate-800 rounded-lg border border-blue-200 dark:border-slate-700">
+                <div className="mb-6 p-4 bg-gradient-to-r from-blue-50 to-cyan-50 dark:from-neutral-900/60 dark:to-neutral-900/60 rounded-lg border border-blue-200 dark:border-neutral-800">
                   <div className="flex items-center justify-between">
                     <div>
                       <p className="text-slate-700 dark:text-slate-300 mb-1 font-medium">🎯 Quick Start with Sample Data</p>
@@ -639,7 +639,7 @@ const Upload = () => {
                 </div>
 
                 {/* Manual Path Entry */}
-                <div className="mb-6 p-4 bg-gradient-to-r from-slate-50 to-slate-100 dark:from-slate-800 dark:to-slate-800 rounded-lg border border-slate-200 dark:border-slate-700">
+                <div className="mb-6 p-4 bg-gradient-to-r from-slate-50 to-slate-100 dark:from-neutral-900/60 dark:to-neutral-900/60 rounded-lg border border-slate-200 dark:border-neutral-800">
                   <h4 className="font-semibold text-slate-800 dark:text-white mb-3">Manual File Paths</h4>
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <div>
@@ -648,7 +648,7 @@ const Upload = () => {
                         value={manualPaths.nodes}
                         onChange={(e) => setManualPaths(prev => ({ ...prev, nodes: e.target.value }))}
                         placeholder="uploads/companyId/nodes.csv"
-                        className="mt-1 bg-white dark:bg-slate-800 text-slate-900 dark:text-white"
+                        className="mt-1 bg-white dark:bg-neutral-900 text-slate-900 dark:text-white border-slate-200 dark:border-neutral-800"
                       />
                     </div>
                     <div>
@@ -657,7 +657,7 @@ const Upload = () => {
                         value={manualPaths.edges}
                         onChange={(e) => setManualPaths(prev => ({ ...prev, edges: e.target.value }))}
                         placeholder="uploads/companyId/edges.csv"
-                        className="mt-1 bg-white dark:bg-slate-800 text-slate-900 dark:text-white"
+                        className="mt-1 bg-white dark:bg-neutral-900 text-slate-900 dark:text-white border-slate-200 dark:border-neutral-800"
                       />
                     </div>
                     <div>
@@ -666,7 +666,7 @@ const Upload = () => {
                         value={manualPaths.demand}
                         onChange={(e) => setManualPaths(prev => ({ ...prev, demand: e.target.value }))}
                         placeholder="uploads/companyId/demand.csv"
-                        className="mt-1 bg-white dark:bg-slate-800 text-slate-900 dark:text-white"
+                        className="mt-1 bg-white dark:bg-neutral-900 text-slate-900 dark:text-white border-slate-200 dark:border-neutral-800"
                       />
                     </div>
                   </div>
@@ -739,7 +739,7 @@ const Upload = () => {
         </Card>
 
         {/* File Requirements Section */}
-        <Card className="shadow-lg border-0 bg-white/80 dark:bg-slate-800/80 backdrop-blur-sm animate-fade-in-up mb-8" style={{ animationDelay: '0.2s' }}>
+        <Card className="shadow-lg border-0 bg-white/80 dark:bg-neutral-900/90 backdrop-blur-sm animate-fade-in-up mb-8" style={{ animationDelay: '0.2s' }}>
           <CardHeader>
             <CardTitle className="flex items-center space-x-2 text-slate-900 dark:text-white">
               <Info className="h-5 w-5 text-blue-600 dark:text-blue-400" />
@@ -750,7 +750,7 @@ const Upload = () => {
             {uploadType === 'single' ? (
               <div className="space-y-4">
                 <h4 className="font-semibold text-slate-800 dark:text-white">Single Dataset Requirements:</h4>
-                <div className="bg-blue-50 dark:bg-slate-800 p-4 rounded-lg border border-blue-200 dark:border-slate-700 space-y-4">
+                <div className="bg-blue-50 dark:bg-neutral-900/60 p-4 rounded-lg border border-blue-200 dark:border-neutral-800 space-y-4">
                   <p className="text-sm text-slate-700 dark:text-slate-300">Provide one CSV that our processor can convert into nodes/edges/Sales Order files.</p>
                   <div className="space-y-3 text-sm">
                     <div className="flex items-center space-x-2">
@@ -774,7 +774,7 @@ const Upload = () => {
                 <h4 className="font-semibold text-slate-800 dark:text-white">Multi-File Requirements:</h4>
 
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <div className="bg-green-50 dark:bg-slate-800 p-4 rounded-lg border border-green-200 dark:border-slate-700">
+                  <div className="bg-green-50 dark:bg-neutral-900/60 p-4 rounded-lg border border-green-200 dark:border-neutral-800">
                     <h5 className="font-semibold text-green-800 dark:text-green-400 mb-2">nodes.csv</h5>
                     <ul className="text-sm text-green-700 dark:text-green-300 space-y-1">
                       <li>• <strong>Node</strong> - Product/SKU name (must match Sales Order columns)</li>
@@ -782,7 +782,7 @@ const Upload = () => {
                     </ul>
                   </div>
 
-                  <div className="bg-orange-50 dark:bg-slate-800 p-4 rounded-lg border border-orange-200 dark:border-slate-700">
+                  <div className="bg-orange-50 dark:bg-neutral-900/60 p-4 rounded-lg border border-orange-200 dark:border-neutral-800">
                     <h5 className="font-semibold text-orange-800 dark:text-orange-400 mb-2">Edges (Plant).csv</h5>
                     <ul className="text-sm text-orange-700 dark:text-orange-300 space-y-1">
                       <li>• <strong>Plant</strong> - Facility or hub</li>
@@ -792,7 +792,7 @@ const Upload = () => {
                     </ul>
                   </div>
 
-                  <div className="bg-pink-50 dark:bg-slate-800 p-4 rounded-lg border border-pink-200 dark:border-slate-700">
+                  <div className="bg-pink-50 dark:bg-neutral-900/60 p-4 rounded-lg border border-pink-200 dark:border-neutral-800">
                     <h5 className="font-semibold text-pink-800 dark:text-pink-400 mb-2">Sales Order.csv</h5>
                     <ul className="text-sm text-pink-700 dark:text-pink-300 space-y-1">
                       <li>• <strong>Date</strong> column</li>
@@ -811,8 +811,8 @@ const Upload = () => {
 
         {/* Fine-tuning Section */}
         {(uploadComplete || fineTuning) && (
-          <Card className="shadow-2xl border-0 bg-white/90 dark:bg-slate-800/90 backdrop-blur-sm animate-fade-in-up">
-            <CardHeader className="bg-gradient-to-r from-purple-50 to-pink-50 dark:from-slate-800 dark:to-slate-800 rounded-t-lg">
+          <Card className="shadow-2xl border-0 bg-white/90 dark:bg-neutral-900/95 backdrop-blur-sm animate-fade-in-up">
+            <CardHeader className="bg-gradient-to-r from-purple-50 to-pink-50 dark:from-neutral-900 dark:to-neutral-900 rounded-t-lg">
               <CardTitle className="flex items-center space-x-2 text-slate-900 dark:text-white">
                 <Brain className="h-6 w-6 text-purple-600 dark:text-purple-400" />
                 <span>AI Model Fine-tuning</span>
@@ -866,7 +866,7 @@ const Upload = () => {
                         setFineTuning(false);
                       }}
                       size="lg"
-                      className="px-8 py-3 border-2 border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 font-semibold rounded-xl"
+                      className="px-8 py-3 border-2 border-slate-200 dark:border-neutral-800 hover:bg-slate-50 dark:hover:bg-neutral-950 text-slate-700 dark:text-slate-300 font-semibold rounded-xl"
                     >
                       <Database className="mr-2 h-5 w-5" />
                       Upload New Data

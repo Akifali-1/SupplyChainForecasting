@@ -11,7 +11,7 @@ const ThemeToggle = () => {
             variant="ghost"
             size="icon"
             onClick={toggleTheme}
-            className="relative rounded-full hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors"
+            className="relative rounded-full hover:bg-slate-200 dark:hover:bg-neutral-800 transition-colors"
             aria-label={theme === 'light' ? 'Switch to dark mode' : 'Switch to light mode'}
         >
             <Sun className="h-5 w-5 rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0" />

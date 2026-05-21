@@ -1,6 +1,6 @@
 import React, { useEffect } from "react";
 import "./App.css";
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-router-dom";
 import { AuthProvider, useAuth } from "./contexts/AuthContext";
 import { ThemeProvider } from "./contexts/ThemeContext";
 import Navbar from "./components/Navbar";
@@ -37,7 +37,7 @@ const OAuthCallback = () => {
   }, [user, isAuthenticated, loading]);
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-slate-950">
+    <div className="min-h-screen flex items-center justify-center bg-black">
       <div className="text-center">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto mb-4" />
         <p className="text-slate-400">Completing sign in...</p>
@@ -60,13 +60,25 @@ const AdminRoute = ({ children }) => {
   return isAuthenticated && user?.role === 'admin' ? children : <Navigate to="/dashboard" />;
 };
 
+// Adds top padding on all pages except homepage (which has its own inline floating navbar)
+const PageWrapper = ({ children }) => {
+  const location = useLocation();
+  const isHome = location.pathname === '/';
+  return (
+    <div className={isHome ? '' : 'pt-24'}>
+      {children}
+    </div>
+  );
+};
+
 function App() {
   return (
-    <div className="App min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-800">
+    <div className="App min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 dark:from-black dark:to-black">
       <AuthProvider>
         <ThemeProvider>
           <BrowserRouter>
             <Navbar />
+            <PageWrapper>
             <Routes>
               <Route path="/" element={<Homepage />} />
               <Route path="/register" element={<Registration />} />
@@ -112,6 +124,7 @@ function App() {
               } />
               <Route path="/inventory-optimization" element={<Navigate to="/inventory" />} />
             </Routes>
+            </PageWrapper>
             <Toaster />
           </BrowserRouter>
         </ThemeProvider>

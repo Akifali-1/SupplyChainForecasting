@@ -30,13 +30,13 @@ function statusConfig(status) {
     case 'ok':
       return { label: 'OK', color: 'text-emerald-600 dark:text-emerald-400', bg: 'bg-emerald-50 dark:bg-emerald-900/20', border: 'border-emerald-200 dark:border-emerald-800', dot: 'bg-emerald-500' };
     default:
-      return { label: 'No Forecast', color: 'text-slate-500 dark:text-slate-400', bg: 'bg-slate-50 dark:bg-slate-800', border: 'border-slate-200 dark:border-slate-700', dot: 'bg-slate-400' };
+      return { label: 'No Forecast', color: 'text-slate-500 dark:text-slate-400', bg: 'bg-slate-50 dark:bg-neutral-900', border: 'border-slate-200 dark:border-neutral-800', dot: 'bg-slate-400' };
   }
 }
 
 function SummaryCard({ label, count, icon: Icon, colorClass }) {
   return (
-    <div className={`flex items-center gap-3 px-5 py-4 rounded-2xl border bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 shadow-sm hover:shadow-md transition-shadow`}>
+    <div className={`flex items-center gap-3 px-5 py-4 rounded-2xl border bg-white dark:bg-neutral-900/90 border-slate-200 dark:border-neutral-800 shadow-sm hover:shadow-md transition-shadow`}>
       <div className={`p-2.5 rounded-xl ${colorClass}`}>
         <Icon className="h-5 w-5" />
       </div>
@@ -75,7 +75,7 @@ function ProductRow({ item, onOrder, ordering }) {
 
         {/* Status dot + name */}
         <div className="flex items-center gap-3 flex-1 min-w-0">
-          <span className={`shrink-0 h-2.5 w-2.5 rounded-full ${sc.dot} shadow-sm ring-2 ring-white dark:ring-slate-800`} />
+          <span className={`shrink-0 h-2.5 w-2.5 rounded-full ${sc.dot} shadow-sm ring-2 ring-white dark:ring-neutral-900`} />
           <div className="min-w-0">
             <p className="font-semibold text-slate-900 dark:text-white truncate text-sm">
               {item.product_id.replace(/_/g, ' ')}
@@ -133,7 +133,7 @@ function ProductRow({ item, onOrder, ordering }) {
           )}
           <button
             onClick={() => setExpanded(x => !x)}
-            className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-white/60 dark:hover:bg-slate-700 transition-colors"
+            className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-white/60 dark:hover:bg-neutral-800 transition-colors"
           >
             {expanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
           </button>
@@ -302,7 +302,7 @@ export default function ReorderIntelligence() {
 
   // ─── Render ────────────────────────────────────────────────────────────────
   return (
-    <div className="min-h-screen py-10 px-4 sm:px-6 lg:px-8 bg-gradient-to-br from-slate-50 via-violet-50/30 to-slate-100 dark:from-slate-900 dark:via-slate-900 dark:to-slate-900">
+    <div className="min-h-screen py-10 px-4 sm:px-6 lg:px-8 bg-gradient-to-br from-slate-50 via-violet-50/30 to-slate-100 dark:from-black dark:via-black dark:to-black">
       <div className="max-w-6xl mx-auto space-y-8">
 
         {/* ── Header ── */}
@@ -327,8 +327,8 @@ export default function ReorderIntelligence() {
             {/* Upload snapshot */}
             <label className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold cursor-pointer transition-all duration-200 shadow-sm border
               ${uploading
-                ? 'bg-slate-100 dark:bg-slate-700 text-slate-400 cursor-not-allowed border-slate-200 dark:border-slate-600'
-                : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:border-violet-400 dark:hover:border-violet-600 hover:text-violet-600 dark:hover:text-violet-400 hover:shadow-md'
+                ? 'bg-slate-100 dark:bg-neutral-800 text-slate-400 cursor-not-allowed border-slate-200 dark:border-neutral-800'
+                : 'bg-white dark:bg-neutral-900 border-slate-200 dark:border-neutral-800 text-slate-700 dark:text-slate-300 hover:border-violet-400 dark:hover:border-violet-650 hover:text-violet-600 dark:hover:text-violet-400 hover:shadow-md'
               }`}>
               {uploading
                 ? <Loader2 className="h-4 w-4 animate-spin" />
@@ -346,7 +346,7 @@ export default function ReorderIntelligence() {
             <button
               onClick={() => fetchIntelligence(true)}
               disabled={refreshing || loading}
-              className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:border-violet-400 hover:text-violet-600 dark:hover:text-violet-400 transition-all duration-200 shadow-sm disabled:opacity-50"
+              className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold bg-white dark:bg-neutral-900 border border-slate-200 dark:border-neutral-800 text-slate-700 dark:text-slate-300 hover:border-violet-400 hover:text-violet-600 dark:hover:text-violet-400 transition-all duration-200 shadow-sm disabled:opacity-50"
             >
               <RefreshCw className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
               Refresh
@@ -355,7 +355,7 @@ export default function ReorderIntelligence() {
             {allItems.length > 0 && (
               <button
                 onClick={exportCSV}
-                className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:border-slate-400 transition-all duration-200 shadow-sm"
+                className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold bg-white dark:bg-neutral-900 border border-slate-200 dark:border-neutral-800 text-slate-700 dark:text-slate-300 hover:border-slate-400 transition-all duration-200 shadow-sm"
               >
                 <Download className="h-4 w-4" />
                 Export
@@ -371,7 +371,7 @@ export default function ReorderIntelligence() {
             <SummaryCard label="Reorder Needed" count={data.summary.reorder_needed} icon={AlertTriangle} colorClass="bg-amber-100 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400" />
             <SummaryCard label="Healthy"        count={data.summary.ok}             icon={CheckCircle2}  colorClass="bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400" />
             <SummaryCard label="Overstock"      count={data.summary.overstock}      icon={Package}      colorClass="bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400" />
-            <SummaryCard label="No Forecast"    count={data.summary.no_forecast}    icon={BarChart3}    colorClass="bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400" />
+            <SummaryCard label="No Forecast"    count={data.summary.no_forecast}    icon={BarChart3}    colorClass="bg-slate-100 dark:bg-neutral-800 text-slate-500 dark:text-slate-400" />
           </div>
         )}
 
@@ -392,8 +392,8 @@ export default function ReorderIntelligence() {
         {!loading && error && (
           error.toLowerCase().includes('snapshot') ? (
             <div className="flex flex-col items-center py-6 px-4 animate-fade-in-up">
-              <Card className="w-full max-w-xl shadow-2xl border-0 bg-white/95 dark:bg-slate-800/95 backdrop-blur-sm">
-                <CardHeader className="bg-gradient-to-r from-blue-50 to-purple-50 dark:from-slate-800 dark:to-slate-800 rounded-t-2xl border-b border-slate-100 dark:border-slate-700/50">
+              <Card className="w-full max-w-xl shadow-2xl border-0 bg-white/95 dark:bg-neutral-900/95 backdrop-blur-sm">
+                <CardHeader className="bg-gradient-to-r from-blue-50 to-purple-50 dark:from-neutral-900 dark:to-neutral-900 rounded-t-2xl border-b border-slate-100 dark:border-neutral-800/50">
                   <CardTitle className="flex items-center space-x-2 text-slate-900 dark:text-white">
                     <Database className="h-6 w-6 text-blue-600 dark:text-blue-400" />
                     <span>Initialize Reorder Intelligence</span>
@@ -406,7 +406,7 @@ export default function ReorderIntelligence() {
 
                   {/* Sleek, matching file upload zone from Upload.js */}
                   <label className="block">
-                    <div className="border-dashed border-2 border-slate-300 dark:border-slate-600 hover:border-blue-400 dark:hover:border-blue-400 transition-all duration-300 group hover:shadow-lg bg-gradient-to-br from-blue-50/20 to-cyan-50/20 dark:from-slate-800 dark:to-slate-800 rounded-2xl p-8 cursor-pointer relative">
+                    <div className="border-dashed border-2 border-slate-300 dark:border-neutral-800 hover:border-blue-400 dark:hover:border-blue-400 transition-all duration-300 group hover:shadow-lg bg-gradient-to-br from-blue-50/20 to-cyan-50/20 dark:from-neutral-900/90 dark:to-neutral-900/90 rounded-2xl p-8 cursor-pointer relative">
                       <div className="text-center space-y-3">
                         {uploading ? (
                           <div className="space-y-3">
@@ -440,9 +440,9 @@ export default function ReorderIntelligence() {
 
                   <div className="text-[11px] text-slate-400 dark:text-slate-500 flex items-center justify-center gap-1.5 text-center">
                     Required columns: 
-                    <code className="bg-slate-100 dark:bg-slate-700 px-1.5 py-0.5 rounded text-violet-600 dark:text-violet-400 font-semibold">product_id</code> 
+                    <code className="bg-slate-100 dark:bg-neutral-800 px-1.5 py-0.5 rounded text-violet-600 dark:text-violet-400 font-semibold">product_id</code> 
                     and 
-                    <code className="bg-slate-100 dark:bg-slate-700 px-1.5 py-0.5 rounded text-violet-600 dark:text-violet-400 font-semibold">current_stock</code>
+                    <code className="bg-slate-100 dark:bg-neutral-800 px-1.5 py-0.5 rounded text-violet-600 dark:text-violet-400 font-semibold">current_stock</code>
                   </div>
                 </CardContent>
               </Card>
@@ -470,12 +470,12 @@ export default function ReorderIntelligence() {
                   className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all duration-200 ${
                     filterStatus === f.key
                       ? 'bg-violet-600 text-white shadow-sm'
-                      : 'bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:border-violet-400'
+                      : 'bg-white dark:bg-neutral-900 border border-slate-200 dark:border-neutral-800 text-slate-600 dark:text-slate-300 hover:border-violet-400'
                   }`}
                 >
                   {f.label}
                   <span className={`ml-1.5 px-1.5 py-0.5 rounded-full text-xs ${
-                    filterStatus === f.key ? 'bg-white/20 text-white' : 'bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400'
+                    filterStatus === f.key ? 'bg-white/20 text-white' : 'bg-slate-100 dark:bg-neutral-800 text-slate-500 dark:text-slate-400'
                   }`}>
                     {f.key === 'all' ? allItems.length : (data.summary[f.key] ?? 0)}
                   </span>

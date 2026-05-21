@@ -60,7 +60,7 @@ const ProductSearch = ({ nodeList, value, onChange }) => {
         placeholder="Search products..."
         onFocus={() => setOpen(true)}
         onChange={(e) => { setQuery(e.target.value); setOpen(true); onChange(''); }}
-        className="pl-10 h-12 w-full border border-slate-300 dark:border-slate-600 focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 dark:focus:border-purple-400 transition-all duration-300 rounded-lg bg-white dark:bg-slate-800 text-slate-900 dark:text-white"
+        className="pl-10 h-12 w-full border border-slate-300 dark:border-neutral-800 focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 dark:focus:border-purple-400 transition-all duration-300 rounded-lg bg-white dark:bg-neutral-950 text-slate-900 dark:text-white"
       />
       {value && (
         <button type="button" onClick={() => { setQuery(''); onChange(''); }}
@@ -69,12 +69,12 @@ const ProductSearch = ({ nodeList, value, onChange }) => {
         </button>
       )}
       {open && filtered.length > 0 && (
-        <ul className="absolute z-50 mt-1 w-full max-h-[220px] overflow-y-auto bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg shadow-xl">
+        <ul className="absolute z-50 mt-1 w-full max-h-[220px] overflow-y-auto bg-white dark:bg-neutral-900 border border-slate-200 dark:border-neutral-800 rounded-lg shadow-xl">
           {filtered.slice(0, 50).map((node, i) => (
             <li key={node}>
               <button type="button"
                 onClick={() => { onChange(node); setQuery(node); setOpen(false); }}
-                className={`w-full text-left px-4 py-2.5 text-sm hover:bg-purple-50 dark:hover:bg-slate-700 transition-colors flex items-center space-x-2 ${value === node ? 'bg-purple-50 dark:bg-slate-700 text-purple-700 dark:text-purple-300 font-medium' : 'text-slate-700 dark:text-slate-300'} ${i === 0 ? 'rounded-t-lg' : ''}`}>
+                className={`w-full text-left px-4 py-2.5 text-sm hover:bg-purple-50 dark:hover:bg-neutral-850 transition-colors flex items-center space-x-2 ${value === node ? 'bg-purple-50 dark:bg-neutral-850 text-purple-700 dark:text-purple-300 font-medium' : 'text-slate-700 dark:text-slate-300'} ${i === 0 ? 'rounded-t-lg' : ''}`}>
                 <Package className="h-3.5 w-3.5 text-slate-400 flex-shrink-0" />
                 <span>{node}</span>
               </button>
@@ -312,7 +312,7 @@ const Prediction = () => {
       case 'decreasing':
         return 'bg-red-100 text-red-800 border-red-200 dark:bg-red-900/30 dark:text-red-300 dark:border-red-800';
       default:
-        return 'bg-slate-100 text-slate-800 border-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700';
+        return 'bg-slate-100 text-slate-800 border-slate-200 dark:bg-neutral-800 dark:text-neutral-300 dark:border-neutral-700';
     }
   };
 
@@ -320,11 +320,11 @@ const Prediction = () => {
   const [chartView, setChartView] = useState('analytics'); // 'simple' or 'analytics'
 
   return (
-    <div className="min-h-screen py-12 px-4 sm:px-6 lg:px-8 bg-gradient-to-br from-slate-50 to-indigo-50 dark:from-slate-900 dark:to-slate-900">
+    <div className="min-h-screen py-12 px-4 sm:px-6 lg:px-8 bg-gradient-to-br from-slate-50 to-indigo-50 dark:from-black dark:to-black">
       <div className="max-w-4xl mx-auto">
         {/* Header */}
         <div className="text-center mb-8 animate-fade-in-up">
-          <div className="inline-flex items-center space-x-2 bg-white/80 dark:bg-slate-800/80 backdrop-blur-sm px-4 py-2 rounded-full border border-blue-200 dark:border-slate-700 shadow-lg mb-4">
+          <div className="inline-flex items-center space-x-2 bg-white/80 dark:bg-neutral-900/80 backdrop-blur-sm px-4 py-2 rounded-full border border-blue-200 dark:border-neutral-800 shadow-lg mb-4">
             <Brain className="h-4 w-4 text-blue-500 dark:text-blue-400" />
             <span className="text-sm font-medium text-blue-700 dark:text-blue-300">AI Prediction Engine</span>
             <Sparkles className="h-4 w-4 text-purple-500 dark:text-purple-400" />
@@ -338,8 +338,8 @@ const Prediction = () => {
         </div>
 
         {/* Prediction Input Form */}
-        <Card className="shadow-2xl border-0 bg-white/90 dark:bg-slate-800/90 backdrop-blur-sm animate-fade-in-up mb-8">
-          <CardHeader className="bg-gradient-to-r from-blue-50 to-purple-50 dark:from-slate-800 dark:to-slate-800 rounded-t-lg">
+        <Card className="shadow-2xl border-0 bg-white/90 dark:bg-neutral-900/90 backdrop-blur-sm animate-fade-in-up mb-8">
+          <CardHeader className="bg-gradient-to-r from-blue-50 to-purple-50 dark:from-neutral-900 dark:to-neutral-900 rounded-t-lg">
             <CardTitle className="flex items-center space-x-2 text-slate-900 dark:text-white">
               <Target className="h-6 w-6 text-blue-600 dark:text-blue-400" />
               <span>Prediction Input</span>
@@ -385,7 +385,7 @@ const Prediction = () => {
             </form>
 
             {/* Quick Tips */}
-            <div className="mt-6 p-4 bg-gradient-to-r from-blue-50 to-purple-50 dark:from-slate-800 dark:to-slate-800 rounded-lg border border-blue-200 dark:border-slate-700">
+            <div className="mt-6 p-4 bg-gradient-to-r from-blue-50 to-purple-50 dark:from-neutral-900/50 dark:to-neutral-900/50 rounded-lg border border-blue-200 dark:border-neutral-800">
               <h4 className="font-medium text-slate-800 dark:text-slate-300 mb-2 flex items-center space-x-2">
                 <Lightbulb className="h-4 w-4 text-yellow-500 dark:text-yellow-400" />
                 <span>Quick Tips</span>
@@ -403,14 +403,14 @@ const Prediction = () => {
         {prediction ? (
           <div className="space-y-6 animate-fade-in-up" style={{ animationDelay: '0.1s' }}>
             {/* Main Prediction Card */}
-            <Card className="shadow-2xl border-0 bg-white/90 dark:bg-slate-800/90 backdrop-blur-sm overflow-hidden">
-              <CardHeader className="bg-gradient-to-r from-green-50 to-emerald-50 dark:from-slate-800 dark:to-slate-800 rounded-t-lg">
+            <Card className="shadow-2xl border-0 bg-white/90 dark:bg-neutral-900/90 backdrop-blur-sm overflow-hidden">
+              <CardHeader className="bg-gradient-to-r from-green-50 to-emerald-50 dark:from-neutral-900 dark:to-neutral-900 rounded-t-lg">
                 <CardTitle className="flex items-center justify-between">
                   <div className="flex items-center space-x-2">
                     <BarChart3 className="h-6 w-6 text-green-600 dark:text-green-400" />
                     <span className="text-slate-900 dark:text-white">Demand Forecast Results</span>
                   </div>
-                  <Badge className="bg-white/80 text-green-700 border-green-200 shadow-sm dark:bg-slate-700 dark:text-green-300 dark:border-green-800">
+                  <Badge className="bg-white/80 text-green-700 border-green-200 shadow-sm dark:bg-neutral-850 dark:text-green-300 dark:border-green-800">
                     Confidence: {prediction.confidence}
                   </Badge>
                 </CardTitle>
@@ -418,7 +418,7 @@ const Prediction = () => {
               <CardContent className="p-6">
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
                   <div className="text-center group">
-                    <div className="bg-gradient-to-br from-blue-50 to-blue-100 dark:from-slate-800 dark:to-slate-800 rounded-2xl p-6 hover:from-blue-100 hover:to-blue-200 dark:hover:from-slate-700 dark:hover:to-slate-700 transition-all duration-300 hover:scale-105">
+                    <div className="bg-gradient-to-br from-blue-50 to-blue-100 dark:from-neutral-950 dark:to-neutral-900 rounded-2xl p-6 hover:from-blue-100 hover:to-blue-200 dark:hover:from-neutral-900 dark:hover:to-neutral-900 transition-all duration-300 hover:scale-105">
                       <div className="text-4xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 dark:from-blue-400 dark:to-purple-400 bg-clip-text text-transparent mb-2">
                         {(() => {
                           const nextDay = Number.isFinite(prediction?.next_day_prediction)
@@ -441,7 +441,7 @@ const Prediction = () => {
                   </div>
 
                   <div className="text-center group">
-                    <div className="bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-800 dark:to-slate-800 rounded-2xl p-6 hover:from-slate-100 hover:to-slate-200 dark:hover:from-slate-700 dark:hover:to-slate-700 transition-all duration-300 hover:scale-105">
+                    <div className="bg-gradient-to-br from-slate-50 to-slate-100 dark:from-neutral-950 dark:to-neutral-900 rounded-2xl p-6 hover:from-slate-100 hover:to-slate-200 dark:hover:from-neutral-900 dark:hover:to-neutral-900 transition-all duration-300 hover:scale-105">
                       <div className="flex items-center justify-center space-x-2 mb-2">
                         {getTrendIcon(prediction.trend)}
                         <Badge className={`${getTrendColor(prediction.trend)} font-medium`}>
@@ -449,12 +449,12 @@ const Prediction = () => {
                         </Badge>
                       </div>
                       <p className="text-slate-600 dark:text-slate-400 font-medium">Market Trend</p>
-                      <div className="mt-2 h-1 bg-gradient-to-r from-slate-300 to-slate-400 dark:from-slate-600 dark:to-slate-500 rounded-full"></div>
+                      <div className="mt-2 h-1 bg-gradient-to-r from-slate-300 to-slate-400 dark:from-neutral-800 dark:to-neutral-700 rounded-full"></div>
                     </div>
                   </div>
 
                   <div className="text-center group">
-                    <div className="bg-gradient-to-br from-green-50 to-green-100 dark:from-slate-800 dark:to-slate-800 rounded-2xl p-6 hover:from-green-100 hover:to-green-200 dark:hover:from-slate-700 dark:hover:to-slate-700 transition-all duration-300 hover:scale-105">
+                    <div className="bg-gradient-to-br from-green-50 to-green-100 dark:from-neutral-950 dark:to-neutral-900 rounded-2xl p-6 hover:from-green-100 hover:to-green-200 dark:hover:from-neutral-900 dark:hover:to-neutral-900 transition-all duration-300 hover:scale-105">
                       <div className="text-4xl font-bold text-green-600 dark:text-green-400 mb-2">
                         {prediction.confidence}
                       </div>
@@ -464,7 +464,7 @@ const Prediction = () => {
                   </div>
                 </div>
 
-                <div className="bg-gradient-to-r from-slate-50 to-blue-50 dark:from-slate-800 dark:to-slate-800 rounded-xl p-6 border border-slate-200 dark:border-slate-700">
+                <div className="bg-gradient-to-r from-slate-50 to-blue-50 dark:from-neutral-950 dark:to-neutral-900 rounded-xl p-6 border border-slate-200 dark:border-neutral-800">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="flex items-center space-x-3">
                       <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-blue-600 rounded-lg flex items-center justify-center">
@@ -492,8 +492,8 @@ const Prediction = () => {
 
 
             {/* Demand Visualization */}
-            <Card className="shadow-2xl border-0 bg-white/90 dark:bg-slate-800/90 backdrop-blur-sm">
-              <CardHeader className="bg-gradient-to-r from-indigo-50 to-purple-50 dark:from-slate-800 dark:to-slate-800 rounded-t-lg">
+            <Card className="shadow-2xl border-0 bg-white/90 dark:bg-neutral-900/90 backdrop-blur-sm">
+              <CardHeader className="bg-gradient-to-r from-indigo-50 to-purple-50 dark:from-neutral-900 dark:to-neutral-900 rounded-t-lg">
                 <CardTitle className="flex items-center justify-between">
                   <div className="flex items-center space-x-2 text-slate-900 dark:text-white">
                     <BarChart3 className="h-6 w-6 text-indigo-600 dark:text-indigo-400" />
@@ -577,7 +577,7 @@ const Prediction = () => {
                     a.click();
                     URL.revokeObjectURL(url);
                   }}
-                  className="inline-flex items-center space-x-2 px-4 py-2 border border-slate-300 dark:border-slate-600 rounded-lg text-sm font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
+                  className="inline-flex items-center space-x-2 px-4 py-2 border border-slate-300 dark:border-neutral-800 rounded-lg text-sm font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-neutral-850 transition-colors"
                 >
                   <Download className="h-4 w-4" />
                   <span>Export Forecast CSV</span>
@@ -586,8 +586,8 @@ const Prediction = () => {
             )}
 
             {/* AI Recommendations */}
-            <Card className="shadow-2xl border-0 bg-white/90 dark:bg-slate-800/90 backdrop-blur-sm">
-              <CardHeader className="bg-gradient-to-r from-yellow-50 to-orange-50 dark:from-slate-800 dark:to-slate-800 rounded-t-lg">
+            <Card className="shadow-2xl border-0 bg-white/90 dark:bg-neutral-900/90 backdrop-blur-sm">
+              <CardHeader className="bg-gradient-to-r from-yellow-50 to-orange-50 dark:from-neutral-900 dark:to-neutral-900 rounded-t-lg">
                 <CardTitle className="flex items-center space-x-2 text-slate-900 dark:text-white">
                   <Lightbulb className="h-6 w-6 text-yellow-600 dark:text-yellow-400" />
                   <span>AI-Powered Recommendations</span>
@@ -598,7 +598,7 @@ const Prediction = () => {
                 <div className="space-y-4">
                   {(prediction?.recommendations ?? []).map((recommendation, index) => (
                     <div key={index} className="group">
-                      <div className="flex items-start space-x-4 p-4 bg-gradient-to-r from-slate-50 to-blue-50 dark:from-slate-800 dark:to-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 hover:from-blue-50 hover:to-purple-50 dark:hover:from-slate-700 dark:hover:to-slate-700 hover:border-blue-300 dark:hover:border-blue-700 transition-all duration-300 hover:shadow-md">
+                      <div className="flex items-start space-x-4 p-4 bg-gradient-to-r from-slate-50 to-blue-50 dark:from-neutral-950 dark:to-neutral-900 rounded-xl border border-slate-200 dark:border-neutral-800 hover:from-blue-50 hover:to-purple-50 dark:hover:from-neutral-900 dark:hover:to-neutral-900 hover:border-blue-300 dark:hover:border-blue-700 transition-all duration-300 hover:shadow-md">
                         <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-purple-600 text-white rounded-full flex items-center justify-center text-sm font-bold mt-0.5 group-hover:scale-110 transition-transform duration-300">
                           {index + 1}
                         </div>
@@ -616,7 +616,7 @@ const Prediction = () => {
             </Card>
           </div>
         ) : (
-          <Card className="shadow-2xl border-0 bg-white/90 dark:bg-slate-800/90 backdrop-blur-sm animate-fade-in-up">
+          <Card className="shadow-2xl border-0 bg-white/90 dark:bg-neutral-900/90 backdrop-blur-sm animate-fade-in-up">
             <CardContent className="py-16">
               <div className="text-center">
                 <div className="relative mb-6">

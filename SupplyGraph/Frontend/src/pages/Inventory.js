@@ -109,7 +109,7 @@ const Inventory = () => {
     const cfg = {
       'Stock Up': { cls: 'bg-green-100 text-green-800 border-green-200 dark:bg-green-900/30 dark:text-green-300', Icon: ArrowUpCircle },
       'Reduce': { cls: 'bg-red-100 text-red-800 border-red-200 dark:bg-red-900/30 dark:text-red-300', Icon: ArrowDownCircle },
-      'Maintain': { cls: 'bg-slate-100 text-slate-800 border-slate-200 dark:bg-slate-800 dark:text-slate-300', Icon: MinusCircle },
+      'Maintain': { cls: 'bg-slate-100 text-slate-800 border-slate-200 dark:bg-neutral-850 dark:text-slate-300 dark:border-neutral-800', Icon: MinusCircle },
     };
     const { cls, Icon } = cfg[action] || cfg['Maintain'];
     return <Badge className={cls}><Icon className="h-3.5 w-3.5 mr-1" />{action}</Badge>;
@@ -123,7 +123,7 @@ const Inventory = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen py-12 px-4 bg-gradient-to-br from-slate-50 to-blue-50 dark:from-slate-900 dark:to-slate-900">
+      <div className="min-h-screen py-12 px-4 bg-gradient-to-br from-slate-50 to-blue-50 dark:from-black dark:to-black">
         <div className="max-w-7xl mx-auto flex items-center justify-center min-h-[400px]">
           <div className="text-center">
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4" />
@@ -139,11 +139,11 @@ const Inventory = () => {
   const maintainCount = decisions.filter(d => d.action === 'Maintain').length;
 
   return (
-    <div className="min-h-screen py-12 px-4 sm:px-6 lg:px-8 bg-gradient-to-br from-slate-50 to-blue-50 dark:from-slate-900 dark:to-slate-900">
+    <div className="min-h-screen py-12 px-4 sm:px-6 lg:px-8 bg-gradient-to-br from-slate-50 to-blue-50 dark:from-black dark:to-black">
       <div className="max-w-7xl mx-auto">
         {/* Header */}
         <div className="text-center mb-8 animate-fade-in-up">
-          <div className="inline-flex items-center space-x-2 bg-white/80 dark:bg-slate-800/80 backdrop-blur-sm px-4 py-2 rounded-full border border-blue-200 dark:border-slate-700 shadow-lg mb-4">
+          <div className="inline-flex items-center space-x-2 bg-white/80 dark:bg-neutral-900/80 backdrop-blur-sm px-4 py-2 rounded-full border border-blue-200 dark:border-neutral-800 shadow-lg mb-4">
             <Package className="h-4 w-4 text-blue-500" />
             <span className="text-sm font-medium text-blue-700 dark:text-blue-300">Inventory Command Center</span>
             <Shield className="h-4 w-4 text-purple-500" />
@@ -162,7 +162,7 @@ const Inventory = () => {
             { label: 'Reduce', value: reduceCount, color: 'from-red-500 to-red-600', Icon: TrendingDown },
             { label: 'Maintain', value: maintainCount, color: 'from-slate-500 to-slate-600', Icon: MinusCircle },
           ].map(({ label, value, color, Icon }) => (
-            <Card key={label} className="shadow-lg border-0 bg-white/90 dark:bg-slate-800/90 backdrop-blur-sm">
+            <Card key={label} className="shadow-lg border-0 bg-white/90 dark:bg-neutral-900/90 backdrop-blur-sm">
               <CardContent className="p-5">
                 <div className="flex items-center justify-between">
                   <div>
@@ -180,17 +180,17 @@ const Inventory = () => {
 
         {/* Tabs */}
         <Tabs defaultValue="overview" className="animate-fade-in-up" style={{ animationDelay: '0.15s' }}>
-          <TabsList className="grid w-full grid-cols-4 mb-6 bg-white/80 dark:bg-slate-800/80 backdrop-blur-sm">
-            <TabsTrigger value="overview" className="data-[state=active]:bg-white dark:data-[state=active]:bg-slate-700 data-[state=active]:shadow-md">
+          <TabsList className="grid w-full grid-cols-4 mb-6 bg-white/80 dark:bg-neutral-900/80 backdrop-blur-sm">
+            <TabsTrigger value="overview" className="data-[state=active]:bg-white dark:data-[state=active]:bg-neutral-800 data-[state=active]:shadow-md">
               <BarChart3 className="h-4 w-4 mr-2" />Overview
             </TabsTrigger>
-            <TabsTrigger value="health" className="data-[state=active]:bg-white dark:data-[state=active]:bg-slate-700 data-[state=active]:shadow-md">
+            <TabsTrigger value="health" className="data-[state=active]:bg-white dark:data-[state=active]:bg-neutral-800 data-[state=active]:shadow-md">
               <Activity className="h-4 w-4 mr-2" />Stock Health
             </TabsTrigger>
-            <TabsTrigger value="optimization" className="data-[state=active]:bg-white dark:data-[state=active]:bg-slate-700 data-[state=active]:shadow-md">
+            <TabsTrigger value="optimization" className="data-[state=active]:bg-white dark:data-[state=active]:bg-neutral-800 data-[state=active]:shadow-md">
               <Shield className="h-4 w-4 mr-2" />Optimization
             </TabsTrigger>
-            <TabsTrigger value="actions" className="data-[state=active]:bg-white dark:data-[state=active]:bg-slate-700 data-[state=active]:shadow-md">
+            <TabsTrigger value="actions" className="data-[state=active]:bg-white dark:data-[state=active]:bg-neutral-800 data-[state=active]:shadow-md">
               <Package className="h-4 w-4 mr-2" />Actions
             </TabsTrigger>
           </TabsList>
@@ -199,7 +199,7 @@ const Inventory = () => {
           <TabsContent value="overview" className="space-y-6">
             {/* Trending Down Warning */}
             {decisions.filter(d => d.action === 'Reduce').length > 0 && (
-              <Card className="shadow-lg border-0 bg-white/90 dark:bg-slate-800/90 backdrop-blur-sm">
+              <Card className="shadow-lg border-0 bg-white/90 dark:bg-neutral-900/90 backdrop-blur-sm">
                 <CardHeader>
                   <CardTitle className="flex items-center space-x-2 text-red-700 dark:text-red-400">
                     <AlertTriangle className="h-5 w-5" />
@@ -210,7 +210,7 @@ const Inventory = () => {
                 <CardContent>
                   <div className="flex flex-wrap gap-2">
                     {decisions.filter(d => d.action === 'Reduce').map(g => (
-                      <Badge key={g.product} variant="outline" className="dark:border-slate-700">{g.product} • {g.delta.toFixed(1)}</Badge>
+                      <Badge key={g.product} variant="outline" className="dark:border-neutral-800">{g.product} • {g.delta.toFixed(1)}</Badge>
                     ))}
                   </div>
                 </CardContent>
@@ -223,7 +223,7 @@ const Inventory = () => {
                 const colors = { 'Stock Up': 'green', 'Reduce': 'red', 'Maintain': 'slate' };
                 const c = colors[action];
                 return (
-                  <Card key={action} className={`shadow-lg border-0 bg-${c}-50/80 dark:bg-slate-800/90 backdrop-blur-sm`}>
+                  <Card key={action} className={`shadow-lg border-0 bg-${c}-50/80 dark:bg-neutral-900/90 backdrop-blur-sm`}>
                     <CardHeader className="pb-2">
                       <CardTitle className={`text-sm font-semibold text-${c}-800 dark:text-${c}-300 flex items-center`}>
                         <ActionBadge action={action} />
@@ -256,7 +256,7 @@ const Inventory = () => {
               <div className="relative flex-1 max-w-sm">
                 <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
                 <input value={searchTerm} onChange={e => setSearchTerm(e.target.value)} placeholder="Search products..."
-                  className="pl-10 pr-4 py-2 w-full border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-800 text-sm text-slate-900 dark:text-white focus:ring-blue-500 focus:border-blue-500" />
+                  className="pl-10 pr-4 py-2 w-full border border-slate-300 dark:border-neutral-800 rounded-lg bg-white dark:bg-neutral-950 text-sm text-slate-900 dark:text-white focus:ring-blue-500 focus:border-blue-500" />
               </div>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
@@ -266,12 +266,12 @@ const Inventory = () => {
                 const isUp = d.action === 'Stock Up';
                 const isDown = d.action === 'Reduce';
                 return (
-                  <div key={d.product} className={`group relative rounded-xl overflow-hidden bg-white dark:bg-slate-800/95 shadow-lg hover:shadow-2xl transition-all duration-300 hover:-translate-y-1 border ${isDown ? 'border-red-200/80 dark:border-red-900/50' : isUp ? 'border-green-200/80 dark:border-green-900/50' : 'border-slate-200/80 dark:border-slate-700/50'}`}>
+                  <div key={d.product} className={`group relative rounded-xl overflow-hidden bg-white dark:bg-neutral-900/95 shadow-lg hover:shadow-2xl transition-all duration-300 hover:-translate-y-1 border ${isDown ? 'border-red-200/80 dark:border-red-900/50' : isUp ? 'border-green-200/80 dark:border-green-900/50' : 'border-slate-200/80 dark:border-neutral-800/55'}`}>
                     <div className={`h-1 ${isDown ? 'bg-gradient-to-r from-red-500 to-orange-500' : isUp ? 'bg-gradient-to-r from-green-500 to-emerald-500' : 'bg-gradient-to-r from-slate-400 to-slate-500'}`} />
                     <div className="p-5">
                       <div className="flex items-center justify-between mb-4">
                         <div className="flex items-center space-x-2 min-w-0">
-                          <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${isDown ? 'bg-red-100 dark:bg-red-900/30' : isUp ? 'bg-green-100 dark:bg-green-900/30' : 'bg-slate-100 dark:bg-slate-700'}`}>
+                          <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${isDown ? 'bg-red-100 dark:bg-red-900/30' : isUp ? 'bg-green-100 dark:bg-green-900/30' : 'bg-slate-100 dark:bg-neutral-800'}`}>
                             <Package className={`h-4 w-4 ${isDown ? 'text-red-600 dark:text-red-400' : isUp ? 'text-green-600 dark:text-green-400' : 'text-slate-600 dark:text-slate-400'}`} />
                           </div>
                           <h3 className="font-bold text-slate-900 dark:text-white truncate text-sm">{d.product}</h3>
@@ -279,7 +279,7 @@ const Inventory = () => {
                         <TrendIcon trend={d.trend} />
                       </div>
                       <div className="grid grid-cols-2 gap-3 mb-4">
-                        <div className="bg-slate-50 dark:bg-slate-900/50 rounded-lg p-3 text-center">
+                        <div className="bg-slate-50 dark:bg-neutral-950 rounded-lg p-3 text-center">
                           <p className="text-[10px] uppercase tracking-wider text-slate-500 dark:text-slate-400 font-semibold mb-1">Current</p>
                           <p className="text-lg font-bold text-slate-800 dark:text-white">{d.current.toLocaleString()}</p>
                         </div>
@@ -295,12 +295,12 @@ const Inventory = () => {
                             {pctChange >= 0 ? '+' : ''}{pctChange.toFixed(1)}%
                           </span>
                         </div>
-                        <div className="h-2 bg-slate-100 dark:bg-slate-700 rounded-full overflow-hidden">
+                        <div className="h-2 bg-slate-100 dark:bg-neutral-800 rounded-full overflow-hidden">
                           <div className={`h-full rounded-full transition-all duration-500 ${isDown ? 'bg-gradient-to-r from-red-500 to-orange-400' : isUp ? 'bg-gradient-to-r from-green-500 to-emerald-400' : 'bg-gradient-to-r from-slate-400 to-slate-500'}`}
-                            style={{ width: `${barWidth}%` }} />
+                             style={{ width: `${barWidth}%` }} />
                         </div>
                       </div>
-                      <div className="flex items-center justify-between pt-2 border-t border-slate-100 dark:border-slate-700/50">
+                      <div className="flex items-center justify-between pt-2 border-t border-slate-100 dark:border-neutral-850/50">
                         <ActionBadge action={d.action} />
                         {d.risk && (
                           <span className={`text-[10px] uppercase tracking-wider font-semibold px-2 py-0.5 rounded-full ${d.risk === 'high' ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400' : d.risk === 'medium' ? 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400' : 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'}`}>
@@ -317,7 +317,7 @@ const Inventory = () => {
 
           {/* ===== OPTIMIZATION TAB ===== */}
           <TabsContent value="optimization" className="space-y-4">
-            <Card className="shadow-lg border-0 bg-gradient-to-br from-blue-50 to-purple-50 dark:from-slate-800 dark:to-slate-800 backdrop-blur-sm">
+            <Card className="shadow-lg border-0 bg-gradient-to-br from-blue-50 to-purple-50 dark:from-neutral-900 dark:to-neutral-900 backdrop-blur-sm">
               <CardHeader><CardTitle className="flex items-center space-x-2 text-slate-900 dark:text-white"><Shield className="h-6 w-6 text-blue-600 dark:text-blue-400" /><span>Recommendations</span></CardTitle></CardHeader>
               <CardContent className="space-y-4">
                 {['Stock Up', 'Reduce', 'Maintain'].map(action => {
@@ -325,7 +325,7 @@ const Inventory = () => {
                   if (list.length === 0) return null;
                   const colors = { 'Stock Up': { bg: 'bg-green-50 dark:bg-green-900/20', border: 'border-green-200 dark:border-green-800', text: 'text-green-800 dark:text-green-300', sub: 'text-green-700 dark:text-green-400' },
                     'Reduce': { bg: 'bg-red-50 dark:bg-red-900/20', border: 'border-red-200 dark:border-red-800', text: 'text-red-800 dark:text-red-300', sub: 'text-red-700 dark:text-red-400' },
-                    'Maintain': { bg: 'bg-slate-50 dark:bg-slate-800/50', border: 'border-slate-200 dark:border-slate-700', text: 'text-slate-800 dark:text-slate-300', sub: 'text-slate-600 dark:text-slate-400' }
+                    'Maintain': { bg: 'bg-slate-50 dark:bg-neutral-950/50', border: 'border-slate-200 dark:border-neutral-850', text: 'text-slate-800 dark:text-slate-300', sub: 'text-slate-600 dark:text-slate-400' }
                   };
                   const c = colors[action];
                   return (
@@ -349,12 +349,12 @@ const Inventory = () => {
                 <div className="relative">
                   <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
                   <input value={searchTerm} onChange={e => setSearchTerm(e.target.value)} placeholder="Search..."
-                    className="pl-10 pr-4 py-2 w-48 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-800 text-sm text-slate-900 dark:text-white" />
+                    className="pl-10 pr-4 py-2 w-48 border border-slate-300 dark:border-neutral-800 rounded-lg bg-white dark:bg-neutral-950 text-sm text-slate-900 dark:text-white" />
                 </div>
                 <div className="flex space-x-1">
                   {['all', 'Stock Up', 'Reduce', 'Maintain'].map(f => (
                     <button key={f} onClick={() => setActionFilter(f)}
-                      className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-colors ${actionFilter === f ? 'bg-blue-600 text-white' : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-300 dark:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-700'}`}>
+                      className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-colors ${actionFilter === f ? 'bg-blue-600 text-white' : 'bg-white dark:bg-neutral-900 text-slate-600 dark:text-slate-300 border border-slate-300 dark:border-neutral-850 hover:bg-slate-50 dark:hover:bg-neutral-800'}`}>
                       {f === 'all' ? 'All' : f}
                     </button>
                   ))}
@@ -365,19 +365,19 @@ const Inventory = () => {
                   className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white">
                   <RefreshCw className={`mr-1.5 h-3.5 w-3.5 ${refreshing ? 'animate-spin' : ''}`} />{refreshing ? 'Refreshing...' : 'Refresh'}
                 </Button>
-                <Button variant="outline" size="sm" onClick={exportCsv} className="dark:border-slate-700 dark:text-white">
+                <Button variant="outline" size="sm" onClick={exportCsv} className="dark:border-neutral-800 dark:text-white">
                   <Download className="mr-1.5 h-3.5 w-3.5" />Export CSV
                 </Button>
               </div>
             </div>
 
             {/* Table */}
-            <Card className="shadow-2xl border-0 bg-white/90 dark:bg-slate-800/90 backdrop-blur-sm">
+            <Card className="shadow-2xl border-0 bg-white/90 dark:bg-neutral-900/90 backdrop-blur-sm">
               <CardContent className="p-0">
                 <div className="overflow-x-auto">
                   <table className="min-w-full text-sm">
                     <thead>
-                      <tr className="text-left text-slate-600 dark:text-slate-300 bg-gradient-to-r from-blue-50 to-purple-50 dark:from-slate-800 dark:to-slate-800">
+                      <tr className="text-left text-slate-600 dark:text-slate-300 bg-gradient-to-r from-blue-50 to-purple-50 dark:from-neutral-900 dark:to-neutral-900">
                         {[
                           { key: 'product', label: 'Product' }, { key: 'current', label: 'Current' },
                           { key: 'predicted', label: 'Predicted' }, { key: 'delta', label: 'Δ' },
@@ -392,7 +392,7 @@ const Inventory = () => {
                     </thead>
                     <tbody>
                       {filtered.map(d => (
-                        <tr key={d.product} className="border-t border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
+                        <tr key={d.product} className="border-t border-slate-200 dark:border-neutral-800 hover:bg-slate-50 dark:hover:bg-neutral-850/50 transition-colors">
                           <td className="py-3 px-4 font-medium text-slate-900 dark:text-white">{d.product}</td>
                           <td className="py-3 px-4 text-slate-700 dark:text-slate-300">{Math.round(d.current)}</td>
                           <td className="py-3 px-4 text-blue-700 dark:text-blue-300">{Math.round(d.predicted)}</td>

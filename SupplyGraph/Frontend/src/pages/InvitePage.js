@@ -41,7 +41,7 @@ const InvitePage = () => {
   };
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col justify-center items-center py-12 px-4 sm:px-6 lg:px-8 relative overflow-hidden">
+    <div className="min-h-screen bg-black text-slate-100 flex flex-col justify-center items-center py-12 px-4 sm:px-6 lg:px-8 relative overflow-hidden">
       {/* Glow Effects */}
       <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-purple-500/10 rounded-full blur-3xl pointer-events-none"></div>
       <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-blue-500/10 rounded-full blur-3xl pointer-events-none"></div>
@@ -59,7 +59,7 @@ const InvitePage = () => {
           </Link>
         </div>
 
-        <Card className="border border-slate-800 bg-slate-900/60 backdrop-blur-xl shadow-2xl overflow-hidden relative">
+        <Card className="border border-neutral-850 bg-neutral-900/60 backdrop-blur-xl shadow-2xl overflow-hidden relative">
           {/* Top accent glow line */}
           <div className={`h-1.5 w-full bg-gradient-to-r ${error ? 'from-rose-500 to-orange-500' : 'from-blue-500 to-purple-500'}`}></div>
           
@@ -91,7 +91,7 @@ const InvitePage = () => {
                 <div className="pt-4 flex flex-col space-y-3">
                   <Button 
                     asChild
-                    className="w-full bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700/50"
+                    className="w-full bg-neutral-800 hover:bg-neutral-700 text-slate-200 border border-neutral-700/50"
                   >
                     <Link to="/">Go to Homepage</Link>
                   </Button>

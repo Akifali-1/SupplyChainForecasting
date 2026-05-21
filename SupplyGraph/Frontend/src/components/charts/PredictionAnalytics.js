@@ -455,8 +455,8 @@ const PredictionAnalytics = ({
   return (
     <div className="space-y-6">
       {/* Chart Controls */}
-      <Card className="shadow-lg border-0 bg-white/95 dark:bg-slate-800/95 backdrop-blur-sm">
-        <CardHeader className="bg-gradient-to-r from-slate-50 to-blue-50 dark:from-slate-800 dark:to-slate-800 rounded-t-lg">
+      <Card className="shadow-lg border-0 bg-white/95 dark:bg-neutral-900/90 backdrop-blur-sm">
+        <CardHeader className="bg-gradient-to-r from-slate-50 to-blue-50 dark:from-neutral-900 dark:to-neutral-900 rounded-t-lg">
           <CardTitle className="flex items-center justify-between">
             <div className="flex items-center space-x-2">
               <Target className="h-6 w-6 text-blue-600 dark:text-blue-400" />
@@ -536,15 +536,15 @@ const PredictionAnalytics = ({
 
           {/* Key Statistics */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
-            <div className="text-center p-4 bg-gradient-to-br from-green-50 to-green-100 dark:from-slate-800 dark:to-slate-800 rounded-lg border border-green-200 dark:border-slate-700">
+            <div className="text-center p-4 bg-gradient-to-br from-green-50 to-green-100 dark:from-neutral-900 dark:to-neutral-900 rounded-lg border border-green-200 dark:border-neutral-800">
               <div className="text-2xl font-bold text-green-600 dark:text-green-400">{stats.averageDemand}</div>
               <div className="text-sm text-green-700 dark:text-green-300 font-medium">Avg Demand</div>
             </div>
-            <div className="text-center p-4 bg-gradient-to-br from-purple-50 to-purple-100 dark:from-slate-800 dark:to-slate-800 rounded-lg border border-purple-200 dark:border-slate-700">
+            <div className="text-center p-4 bg-gradient-to-br from-purple-50 to-purple-100 dark:from-neutral-900 dark:to-neutral-900 rounded-lg border border-purple-200 dark:border-neutral-800">
               <div className="text-2xl font-bold text-purple-600 dark:text-purple-400">{stats.peakDemand}</div>
               <div className="text-sm text-purple-700 dark:text-purple-300 font-medium">Peak Demand</div>
             </div>
-            <div className="text-center p-4 bg-gradient-to-br from-orange-50 to-orange-100 dark:from-slate-800 dark:to-slate-800 rounded-lg border border-orange-200 dark:border-slate-700">
+            <div className="text-center p-4 bg-gradient-to-br from-orange-50 to-orange-100 dark:from-neutral-900 dark:to-neutral-900 rounded-lg border border-orange-200 dark:border-neutral-800">
               <div className="text-2xl font-bold text-orange-600 dark:text-orange-400">{stats.totalForecast}</div>
               <div className="text-sm text-orange-700 dark:text-orange-300 font-medium">Total Demand (30 Days)</div>
             </div>
@@ -556,8 +556,8 @@ const PredictionAnalytics = ({
       </Card>
 
       {/* Main Chart */}
-      <Card className="shadow-lg border-0 bg-white/95 dark:bg-slate-800/95 backdrop-blur-sm">
-        <CardHeader className="bg-gradient-to-r from-indigo-50 to-purple-50 dark:from-slate-800 dark:to-slate-800 rounded-t-lg">
+      <Card className="shadow-lg border-0 bg-white/95 dark:bg-neutral-900/90 backdrop-blur-sm">
+        <CardHeader className="bg-gradient-to-r from-indigo-50 to-purple-50 dark:from-neutral-900 dark:to-neutral-900 rounded-t-lg">
           <CardTitle className="flex items-center space-x-2 text-slate-900 dark:text-white">
             {getChartIcon()}
             <span>{getChartTitle()}</span>

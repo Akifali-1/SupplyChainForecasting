@@ -69,7 +69,7 @@ const Dashboard = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen py-12 px-4 bg-gradient-to-br from-slate-50 to-indigo-50 dark:from-slate-900 dark:to-slate-900">
+      <div className="min-h-screen py-12 px-4 bg-gradient-to-br from-slate-50 to-indigo-50 dark:from-black dark:to-black">
         <div className="max-w-7xl mx-auto flex items-center justify-center min-h-[400px]">
           <div className="text-center">
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4" />
@@ -81,13 +81,13 @@ const Dashboard = () => {
   }
 
   return (
-    <div className="min-h-screen py-12 px-4 sm:px-6 lg:px-8 bg-gradient-to-br from-slate-50 to-indigo-50 dark:from-slate-900 dark:to-slate-900">
+    <div className="min-h-screen py-12 px-4 sm:px-6 lg:px-8 bg-gradient-to-br from-slate-50 to-indigo-50 dark:from-black dark:to-black">
       <div className="max-w-7xl mx-auto">
         {/* Header */}
         <div className="mb-8 animate-fade-in-up">
           <div className="flex items-center justify-between flex-wrap gap-4">
             <div>
-              <div className="inline-flex items-center space-x-2 bg-white/80 dark:bg-slate-800/80 backdrop-blur-sm px-4 py-2 rounded-full border border-indigo-200 dark:border-slate-700 shadow-lg mb-3">
+              <div className="inline-flex items-center space-x-2 bg-white/80 dark:bg-neutral-900/80 backdrop-blur-sm px-4 py-2 rounded-full border border-indigo-200 dark:border-neutral-800 shadow-lg mb-3">
                 <Sparkles className="h-4 w-4 text-indigo-500" />
                 <span className="text-sm font-medium text-indigo-700 dark:text-indigo-300">Dashboard</span>
               </div>
@@ -118,7 +118,7 @@ const Dashboard = () => {
             { label: 'Products At Risk', value: atRisk, Icon: AlertTriangle, color: 'from-red-500 to-red-600', textColor: atRisk > 0 ? 'text-red-600 dark:text-red-400' : 'text-green-600 dark:text-green-400' },
             { label: 'Needs Reorder', value: needsReorder, Icon: RefreshCw, color: 'from-amber-500 to-orange-600', textColor: needsReorder > 0 ? 'text-amber-600 dark:text-amber-400' : 'text-green-600 dark:text-green-400' },
           ].map(({ label, value, Icon, color, textColor }) => (
-            <Card key={label} className="shadow-lg border-0 bg-white/90 dark:bg-slate-800/90 backdrop-blur-sm hover:shadow-xl transition-shadow">
+            <Card key={label} className="shadow-lg border-0 bg-white/90 dark:bg-neutral-900/95 backdrop-blur-sm hover:shadow-xl transition-shadow">
               <CardContent className="p-5">
                 <div className="flex items-center justify-between">
                   <div>
@@ -136,12 +136,12 @@ const Dashboard = () => {
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
           {/* Trending Products */}
-          <Card className="lg:col-span-2 shadow-xl border-0 bg-white/90 dark:bg-slate-800/90 backdrop-blur-sm animate-fade-in-up" style={{ animationDelay: '0.15s' }}>
-            <CardHeader className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-slate-800 dark:to-slate-800 rounded-t-lg">
+          <Card className="lg:col-span-2 shadow-xl border-0 bg-white/90 dark:bg-neutral-900/95 backdrop-blur-sm animate-fade-in-up" style={{ animationDelay: '0.15s' }}>
+            <CardHeader className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-neutral-900 dark:to-neutral-900 rounded-t-lg">
               <CardTitle className="flex items-center space-x-2 text-slate-900 dark:text-white">
                 <TrendingUp className="h-5 w-5 text-blue-600 dark:text-blue-400" />
                 <span>Top Trending Products</span>
-                <Badge className="bg-white/80 text-blue-700 border-blue-200 dark:bg-slate-700 dark:text-blue-300 ml-auto">30d</Badge>
+                <Badge className="bg-white/80 text-blue-700 border-blue-200 dark:bg-neutral-700 dark:text-blue-300 ml-auto">30d</Badge>
               </CardTitle>
             </CardHeader>
             <CardContent className="p-0">
@@ -151,14 +151,14 @@ const Dashboard = () => {
                   <p>No trending data yet. Upload data and train a model to see insights.</p>
                 </div>
               ) : (
-                <div className="divide-y divide-slate-100 dark:divide-slate-700">
+                <div className="divide-y divide-slate-100 dark:divide-neutral-800">
                   {trending.slice(0, 8).map((item, i) => {
                     const growth = item.growth_rate || 0;
                     const isUp = item.trend_direction === 'up';
                     const isDown = item.trend_direction === 'down';
                     return (
                       <button key={item.product} onClick={() => navigate('/prediction', { state: { product: item.product } })}
-                        className="w-full flex items-center justify-between px-6 py-3.5 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors text-left group">
+                        className="w-full flex items-center justify-between px-6 py-3.5 hover:bg-slate-50 dark:hover:bg-neutral-900/40 transition-colors text-left group">
                         <div className="flex items-center space-x-3 min-w-0">
                           <span className="text-xs font-mono text-slate-400 w-5">{i + 1}</span>
                           <span className="font-medium text-slate-900 dark:text-white truncate group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">{item.product}</span>
@@ -179,8 +179,8 @@ const Dashboard = () => {
           </Card>
 
           {/* Quick Actions */}
-          <Card className="shadow-xl border-0 bg-white/90 dark:bg-slate-800/90 backdrop-blur-sm animate-fade-in-up" style={{ animationDelay: '0.2s' }}>
-            <CardHeader className="bg-gradient-to-r from-purple-50 to-pink-50 dark:from-slate-800 dark:to-slate-800 rounded-t-lg">
+          <Card className="shadow-xl border-0 bg-white/90 dark:bg-neutral-900/95 backdrop-blur-sm animate-fade-in-up" style={{ animationDelay: '0.2s' }}>
+            <CardHeader className="bg-gradient-to-r from-purple-50 to-pink-50 dark:from-neutral-900 dark:to-neutral-900 rounded-t-lg">
               <CardTitle className="flex items-center space-x-2 text-slate-900 dark:text-white">
                 <Zap className="h-5 w-5 text-purple-600 dark:text-purple-400" />
                 <span>Quick Actions</span>
@@ -194,7 +194,7 @@ const Dashboard = () => {
                 { label: 'Retrain Model', desc: 'Re-train with latest data', icon: Brain, route: '/upload', gradient: 'from-purple-600 to-pink-600', adminOnly: true },
               ].filter(action => !action.adminOnly || user?.role === 'admin').map(({ label, desc, icon: Icon, route, gradient }) => (
                 <button key={label} onClick={() => navigate(route)}
-                  className="w-full flex items-center space-x-3 p-3 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-all group text-left">
+                  className="w-full flex items-center space-x-3 p-3 rounded-xl hover:bg-slate-50 dark:hover:bg-neutral-900/40 transition-all group text-left">
                   <div className={`w-10 h-10 bg-gradient-to-br ${gradient} rounded-lg flex items-center justify-center flex-shrink-0 group-hover:scale-110 transition-transform`}>
                     <Icon className="h-5 w-5 text-white" />
                   </div>
@@ -210,8 +210,8 @@ const Dashboard = () => {
         </div>
 
         {/* Model Health */}
-        <Card className="shadow-xl border-0 bg-white/90 dark:bg-slate-800/90 backdrop-blur-sm animate-fade-in-up" style={{ animationDelay: '0.25s' }}>
-          <CardHeader className="bg-gradient-to-r from-slate-50 to-blue-50 dark:from-slate-800 dark:to-slate-800 rounded-t-lg">
+        <Card className="shadow-xl border-0 bg-white/90 dark:bg-neutral-900/95 backdrop-blur-sm animate-fade-in-up" style={{ animationDelay: '0.25s' }}>
+          <CardHeader className="bg-gradient-to-r from-slate-50 to-blue-50 dark:from-neutral-900 dark:to-neutral-900 rounded-t-lg">
             <CardTitle className="flex items-center space-x-2 text-slate-900 dark:text-white">
               <Brain className="h-5 w-5 text-slate-600 dark:text-slate-400" />
               <span>Model Health</span>

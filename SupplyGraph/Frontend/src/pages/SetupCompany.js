@@ -43,7 +43,7 @@ const SetupCompany = () => {
   if (authLoading) return null;
 
   return (
-    <div className="min-h-screen bg-slate-950 flex items-center justify-center px-4 relative overflow-hidden">
+    <div className="min-h-screen bg-black flex items-center justify-center px-4 relative overflow-hidden">
       {/* Background glows */}
       <div className="absolute top-1/3 left-1/4 w-96 h-96 bg-blue-600/10 rounded-full blur-3xl pointer-events-none" />
       <div className="absolute bottom-1/4 right-1/4 w-80 h-80 bg-violet-600/10 rounded-full blur-3xl pointer-events-none" />
@@ -62,7 +62,7 @@ const SetupCompany = () => {
         </div>
 
         {/* Card */}
-        <div className="bg-slate-900/70 border border-slate-800 rounded-2xl shadow-2xl backdrop-blur-xl overflow-hidden">
+        <div className="bg-neutral-900/70 border border-neutral-850 rounded-2xl shadow-2xl backdrop-blur-xl overflow-hidden">
           {/* Top gradient line */}
           <div className="h-1 w-full bg-gradient-to-r from-blue-500 via-violet-500 to-blue-500" />
 
@@ -92,7 +92,7 @@ const SetupCompany = () => {
                   placeholder="e.g. Walmart Supply Co."
                   value={companyName}
                   onChange={(e) => { setCompanyName(e.target.value); setError(''); }}
-                  className="h-12 bg-slate-800/60 border-slate-700 text-white placeholder:text-slate-500 focus:border-blue-500 focus:ring-blue-500/20 text-base rounded-lg"
+                  className="h-12 bg-neutral-800/60 border-neutral-800 text-white placeholder:text-slate-500 focus:border-blue-500 focus:ring-blue-500/20 text-base rounded-lg"
                   autoFocus
                   maxLength={80}
                 />
@@ -107,10 +107,10 @@ const SetupCompany = () => {
                 <div className="flex flex-wrap gap-2">
                   {SUGGESTIONS.map((s) => (
                     <button
-                      key={s}
-                      type="button"
-                      onClick={() => setCompanyName(s)}
-                      className="px-3 py-1.5 text-xs rounded-lg border border-slate-700 text-slate-400 hover:border-blue-500/50 hover:text-blue-400 hover:bg-blue-500/5 transition-all"
+                       key={s}
+                       type="button"
+                       onClick={() => setCompanyName(s)}
+                       className="px-3 py-1.5 text-xs rounded-lg border border-neutral-800 text-slate-400 hover:border-blue-500/50 hover:text-blue-400 hover:bg-blue-500/5 transition-all"
                     >
                       {s}
                     </button>

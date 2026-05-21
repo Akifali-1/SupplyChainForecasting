@@ -24,7 +24,7 @@ const VisualizationDemo = () => {
   };
 
   return (
-    <div className="min-h-screen py-12 px-4 sm:px-6 lg:px-8 bg-gradient-to-br from-slate-50 to-indigo-50 dark:from-slate-900 dark:to-slate-900">
+    <div className="min-h-screen py-12 px-4 sm:px-6 lg:px-8 bg-gradient-to-br from-slate-50 to-indigo-50 dark:from-black dark:to-black">
       <div className="max-w-6xl mx-auto">
         {/* Header */}
         <div className="text-center mb-8">
@@ -38,7 +38,7 @@ const VisualizationDemo = () => {
 
         {/* Chart Types Overview */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-          <Card className="shadow-lg border-0 bg-white/95 dark:bg-slate-800/95 backdrop-blur-sm hover:shadow-xl transition-all duration-300">
+          <Card className="shadow-lg border-0 bg-white/95 dark:bg-neutral-900/90 backdrop-blur-sm hover:shadow-xl transition-all duration-300">
             <CardContent className="p-6 text-center">
               <TrendingUp className="h-8 w-8 text-blue-600 dark:text-blue-400 mx-auto mb-3" />
               <h3 className="font-semibold text-slate-900 dark:text-white mb-2">Line Charts</h3>
@@ -46,7 +46,7 @@ const VisualizationDemo = () => {
             </CardContent>
           </Card>
 
-          <Card className="shadow-lg border-0 bg-white/95 dark:bg-slate-800/95 backdrop-blur-sm hover:shadow-xl transition-all duration-300">
+          <Card className="shadow-lg border-0 bg-white/95 dark:bg-neutral-900/90 backdrop-blur-sm hover:shadow-xl transition-all duration-300">
             <CardContent className="p-6 text-center">
               <BarChart3 className="h-8 w-8 text-green-600 dark:text-green-400 mx-auto mb-3" />
               <h3 className="font-semibold text-slate-900 dark:text-white mb-2">Bar Charts</h3>
@@ -54,7 +54,7 @@ const VisualizationDemo = () => {
             </CardContent>
           </Card>
 
-          <Card className="shadow-lg border-0 bg-white/95 dark:bg-slate-800/95 backdrop-blur-sm hover:shadow-xl transition-all duration-300">
+          <Card className="shadow-lg border-0 bg-white/95 dark:bg-neutral-900/90 backdrop-blur-sm hover:shadow-xl transition-all duration-300">
             <CardContent className="p-6 text-center">
               <Activity className="h-8 w-8 text-purple-600 dark:text-purple-400 mx-auto mb-3" />
               <h3 className="font-semibold text-slate-900 dark:text-white mb-2">Analytics</h3>
@@ -62,7 +62,7 @@ const VisualizationDemo = () => {
             </CardContent>
           </Card>
 
-          <Card className="shadow-lg border-0 bg-white/95 dark:bg-slate-800/95 backdrop-blur-sm hover:shadow-xl transition-all duration-300">
+          <Card className="shadow-lg border-0 bg-white/95 dark:bg-neutral-900/90 backdrop-blur-sm hover:shadow-xl transition-all duration-300">
             <CardContent className="p-6 text-center">
               <PieChart className="h-8 w-8 text-orange-600 dark:text-orange-400 mx-auto mb-3" />
               <h3 className="font-semibold text-slate-900 dark:text-white mb-2">Distribution</h3>
@@ -73,8 +73,8 @@ const VisualizationDemo = () => {
 
         {/* Simple Charts Demo */}
         <div className="space-y-6 mb-8">
-          <Card className="shadow-lg border-0 bg-white/95 dark:bg-slate-800/95 backdrop-blur-sm">
-            <CardHeader className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-slate-800 dark:to-slate-800 rounded-t-lg">
+          <Card className="shadow-lg border-0 bg-white/95 dark:bg-neutral-900/90 backdrop-blur-sm">
+            <CardHeader className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-neutral-900 dark:to-neutral-900 rounded-t-lg">
               <CardTitle className="flex items-center space-x-2 text-slate-900 dark:text-white">
                 <TrendingUp className="h-6 w-6 text-blue-600 dark:text-blue-400" />
                 <span>Simple Chart Components</span>
@@ -106,8 +106,8 @@ const VisualizationDemo = () => {
         </div>
 
         {/* Analytics Dashboard Demo */}
-        <Card className="shadow-lg border-0 bg-white/95 dark:bg-slate-800/95 backdrop-blur-sm">
-          <CardHeader className="bg-gradient-to-r from-indigo-50 to-purple-50 dark:from-slate-800 dark:to-slate-800 rounded-t-lg">
+        <Card className="shadow-lg border-0 bg-white/95 dark:bg-neutral-900/90 backdrop-blur-sm">
+          <CardHeader className="bg-gradient-to-r from-indigo-50 to-purple-50 dark:from-neutral-900 dark:to-neutral-900 rounded-t-lg">
             <CardTitle className="flex items-center space-x-2 text-slate-900 dark:text-white">
               <Activity className="h-6 w-6 text-indigo-600 dark:text-indigo-400" />
               <span>Comprehensive Analytics Dashboard</span>
@@ -127,8 +127,8 @@ const VisualizationDemo = () => {
         </Card>
 
         {/* Features List */}
-        <Card className="shadow-lg border-0 bg-white/95 dark:bg-slate-800/95 backdrop-blur-sm mt-8">
-          <CardHeader className="bg-gradient-to-r from-green-50 to-emerald-50 dark:from-slate-800 dark:to-slate-800 rounded-t-lg">
+        <Card className="shadow-lg border-0 bg-white/95 dark:bg-neutral-900/90 backdrop-blur-sm mt-8">
+          <CardHeader className="bg-gradient-to-r from-green-50 to-emerald-50 dark:from-neutral-900 dark:to-neutral-900 rounded-t-lg">
             <CardTitle className="flex items-center space-x-2 text-slate-900 dark:text-white">
               <BarChart3 className="h-6 w-6 text-green-600 dark:text-green-400" />
               <span>Visualization Features</span>

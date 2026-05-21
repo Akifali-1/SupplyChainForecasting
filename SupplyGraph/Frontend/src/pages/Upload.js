@@ -279,8 +279,6 @@ const Upload = () => {
       if (pollRef.current) clearInterval(pollRef.current);
       pollRef.current = setInterval(async () => {
         try {
-          // Remove redundant log to avoid console spam
-          // console.log('[Training] Polling training status');
           const statusResponse = await getTrainingStatus(companyId);
           const status = statusResponse?.status || statusResponse?.ml_status?.status;
           const progress = statusResponse?.progress !== undefined ? statusResponse.progress : (statusResponse?.ml_status?.progress || 0);
@@ -291,22 +289,16 @@ const Upload = () => {
           // Log detailed training metrics if available
           if (metrics) {
             console.log('[Training] Training metrics', metrics);
-            // Log loss if available
             if (metrics.loss !== undefined) {
               console.log(`[Training] Current loss: ${metrics.loss.toFixed(6)}`);
             }
-            // Log accuracy if available
             if (metrics.accuracy !== undefined) {
               console.log(`[Training] Current accuracy: ${(metrics.accuracy * 100).toFixed(2)}%`);
             }
-            // Log epoch if available
             if (metrics.epoch !== undefined) {
               console.log(`[Training] Current epoch: ${metrics.epoch}`);
             }
           }
-
-          // Reduce console spam for the 500ms status checks
-          // console.log('[Training] Status update', { status, progress, message });
 
           // Update progress bar and status message
           setFineTuningProgress(progress);
@@ -349,24 +341,20 @@ const Upload = () => {
               description: error || "Training failed. Please try again.",
               variant: "destructive"
             });
-            // We shouldn't throw inside setInterval
           } else if (status === 'training') {
-            // Provide more detailed training updates
             if (metrics && metrics.epoch !== undefined) {
               setTrainingStatusMessage(`Training epoch ${metrics.epoch} - Loss: ${metrics.loss !== undefined ? metrics.loss.toFixed(6) : 'N/A'}`);
             }
           }
         } catch (pollError) {
           console.log('[Training] Status polling error (continuing)', pollError.message);
-          // Don't break on polling errors, continue trying
         }
 
-        // Timeout after 30 minutes (1,800,000 ms) for large datasets
+        // Timeout after 30 minutes
         if (Date.now() - pollStart > 1800000) {
           clearInterval(pollRef.current);
           pollRef.current = null;
           console.error('[Training] Training timeout');
-          // Don't throw here to avoid unhandled promise rejection in interval
           setTrainingStatusMessage('Training timeout - please check status manually');
         }
       }, 500); // Poll every 500ms for faster real-time updates
@@ -378,7 +366,6 @@ const Upload = () => {
         
         clearInterval(pollRef.current);
         pollRef.current = null;
-        // Only trigger completion if the interval hasn't already done it
         setFineTuningComplete(prev => {
           if (!prev) {
             setFineTuningProgress(100);
@@ -444,63 +431,63 @@ const Upload = () => {
     }
   };
 
-  const FileUploadCard = ({ title, description, fileType, accept = ".csv", gradient }) => (
-    <Card className={`border-dashed border-2 border-slate-300 dark:border-neutral-800 hover:border-blue-400 dark:hover:border-blue-400 transition-all duration-300 group hover:shadow-lg bg-gradient-to-br ${gradient} dark:from-neutral-900/90 dark:to-neutral-900/90`}>
+  const FileUploadCard = ({ title, description, fileType, accept = ".csv" }) => (
+    <Card className="border-dashed border-2 border-white/[0.08] hover:border-[#00B4D8]/50 transition-all duration-300 group hover:shadow-[0_0_25px_rgba(0,180,216,0.15)] bg-white/[0.01] hover:bg-white/[0.02] backdrop-blur-xl rounded-2xl relative overflow-hidden">
       <CardContent className="p-6">
         <div className="text-center">
           {convertedPaths && uploadType === 'single' ? (
             <div className="space-y-3 animate-fade-in">
               <div className="relative">
-                <CheckCircle className="h-12 w-12 text-green-500 mx-auto animate-bounce-gentle" />
-                <div className="absolute -top-1 -right-1 w-4 h-4 bg-green-400 rounded-full animate-ping"></div>
+                <CheckCircle className="h-12 w-12 text-emerald-500 mx-auto animate-bounce-gentle" />
+                <div className="absolute -top-1 -right-1 w-4 h-4 bg-emerald-400 rounded-full animate-ping"></div>
               </div>
               <div>
-                <p className="font-semibold text-slate-900 dark:text-white">File generated</p>
-                <p className="text-sm text-slate-600 dark:text-slate-400">Open Separate Files tab to view paths</p>
+                <p className="font-semibold text-white">File generated</p>
+                <p className="text-xs text-slate-400">Open Separate Files tab to view paths</p>
               </div>
-              <div className="w-full bg-green-100 dark:bg-green-900/50 rounded-full h-2">
-                <div className="bg-gradient-to-r from-green-400 to-green-500 h-2 rounded-full w-full"></div>
+              <div className="w-full bg-white/[0.04] rounded-full h-1.5 mt-2">
+                <div className="bg-gradient-to-r from-emerald-400 to-[#00B4D8] h-1.5 rounded-full w-full"></div>
               </div>
             </div>
           ) : (uploadType === 'multiple' && manualPaths[fileType]) ? (
             <div className="space-y-3 animate-fade-in">
               <div className="relative">
-                <CheckCircle className="h-12 w-12 text-green-500 mx-auto animate-bounce-gentle" />
-                <div className="absolute -top-1 -right-1 w-4 h-4 bg-green-400 rounded-full animate-ping"></div>
+                <CheckCircle className="h-12 w-12 text-emerald-500 mx-auto animate-bounce-gentle" />
+                <div className="absolute -top-1 -right-1 w-4 h-4 bg-emerald-400 rounded-full animate-ping"></div>
               </div>
               <div>
-                <p className="font-semibold text-slate-900 dark:text-white">Files uploaded</p>
-                <p className="text-sm text-slate-600 dark:text-slate-400">{fileType === 'nodes' ? 'nodes.csv' : fileType === 'edges' ? 'edges.csv' : 'demand.csv'} ready</p>
+                <p className="font-semibold text-white">Files uploaded</p>
+                <p className="text-xs text-slate-400">{fileType === 'nodes' ? 'nodes.csv' : fileType === 'edges' ? 'edges.csv' : 'demand.csv'} ready</p>
               </div>
-              <div className="w-full bg-green-100 dark:bg-green-900/50 rounded-full h-2">
-                <div className="bg-gradient-to-r from-green-400 to-green-500 h-2 rounded-full w-full"></div>
+              <div className="w-full bg-white/[0.04] rounded-full h-1.5 mt-2">
+                <div className="bg-gradient-to-r from-emerald-400 to-[#00B4D8] h-1.5 rounded-full w-full"></div>
               </div>
             </div>
           ) : files[fileType] ? (
             <div className="space-y-3 animate-fade-in">
               <div className="relative">
-                <CheckCircle className="h-12 w-12 text-green-500 mx-auto animate-bounce-gentle" />
-                <div className="absolute -top-1 -right-1 w-4 h-4 bg-green-400 rounded-full animate-ping"></div>
+                <CheckCircle className="h-12 w-12 text-emerald-500 mx-auto animate-bounce-gentle" />
+                <div className="absolute -top-1 -right-1 w-4 h-4 bg-emerald-400 rounded-full animate-ping"></div>
               </div>
               <div>
-                <p className="font-semibold text-slate-900 dark:text-white">{files[fileType].name}</p>
-                <p className="text-sm text-slate-600 dark:text-slate-400">
+                <p className="font-semibold text-white truncate max-w-[200px] mx-auto">{files[fileType].name}</p>
+                <p className="text-xs text-slate-450">
                   {(files[fileType].size / 1024).toFixed(1)} KB
                 </p>
               </div>
-              <div className="w-full bg-green-100 dark:bg-green-900/50 rounded-full h-2">
-                <div className="bg-gradient-to-r from-green-400 to-green-500 h-2 rounded-full w-full animate-pulse"></div>
+              <div className="w-full bg-white/[0.04] rounded-full h-1.5 mt-2">
+                <div className="bg-gradient-to-r from-[#00B4D8] to-[#7B2FBE] h-1.5 rounded-full w-full animate-pulse"></div>
               </div>
             </div>
           ) : (
             <div className="space-y-3">
               <div className="relative group-hover:scale-110 transition-transform duration-300">
-                <UploadIcon className="h-12 w-12 text-slate-400 mx-auto group-hover:text-blue-500 transition-colors" />
-                <div className="absolute inset-0 bg-blue-400/20 rounded-full blur-xl opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                <UploadIcon className="h-12 w-12 text-slate-500 mx-auto group-hover:text-[#00B4D8] transition-colors" />
+                <div className="absolute inset-0 bg-[#00B4D8]/20 rounded-full blur-xl opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
               </div>
               <div>
-                <p className="font-semibold text-slate-900 dark:text-white group-hover:text-blue-600 transition-colors">{title}</p>
-                <p className="text-sm text-slate-600 dark:text-slate-400">{description}</p>
+                <p className="font-semibold text-white group-hover:text-[#00B4D8] transition-colors">{title}</p>
+                <p className="text-xs text-slate-400 mt-1">{description}</p>
               </div>
             </div>
           )}
@@ -509,13 +496,12 @@ const Upload = () => {
               type="file"
               accept={accept}
               onChange={(e) => handleFileChange(fileType, e.target.files[0])}
-              className="mt-4 block w-full text-sm text-slate-500 dark:text-slate-400
-                file:mr-4 file:py-2 file:px-4
-                file:rounded-lg file:border-0
-                file:text-sm file:font-semibold
-                file:bg-gradient-to-r file:from-blue-50 file:to-purple-50 dark:file:from-neutral-800 dark:file:to-neutral-800
-                file:text-blue-700 dark:file:text-blue-300
-                hover:file:from-blue-100 hover:file:to-purple-100 dark:hover:file:from-neutral-700 dark:hover:file:to-neutral-700
+              className="mt-4 block w-full text-xs text-slate-450
+                file:mr-4 file:py-1.5 file:px-3
+                file:rounded-lg file:border file:border-white/[0.08]
+                file:text-xs file:font-semibold
+                file:bg-white/[0.03] file:text-white
+                hover:file:bg-white/[0.08] hover:file:border-white/[0.12]
                 file:cursor-pointer file:transition-all file:duration-300
                 cursor-pointer transition-colors"
             />
@@ -527,336 +513,378 @@ const Upload = () => {
 
   if (checkingState) {
     return (
-      <div className="min-h-screen py-12 px-4 flex justify-center items-center bg-gradient-to-br from-slate-50 to-blue-50 dark:from-black dark:to-black">
+      <div className="min-h-screen py-12 px-4 flex justify-center items-center bg-[#000000] text-white">
         <div className="text-center animate-pulse">
-          <Brain className="h-12 w-12 text-blue-500 mx-auto mb-4" />
-          <p className="text-slate-600 dark:text-slate-400">Loading workspace...</p>
+          <Brain className="h-12 w-12 text-[#00B4D8] mx-auto mb-4" />
+          <p className="text-slate-400 font-mono text-sm">Synchronizing neural node workspace...</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen py-12 px-4 sm:px-6 lg:px-8 bg-gradient-to-br from-slate-50 to-blue-50 dark:from-black dark:to-black">
-      <div className="max-w-4xl mx-auto">
+    <div className="min-h-screen py-12 px-4 sm:px-6 lg:px-8 bg-[#000000] relative overflow-hidden text-white">
+      {/* Background radial glow */}
+      <div className="absolute top-1/4 left-1/4 w-[500px] h-[500px] bg-[#00B4D8]/5 rounded-full blur-[140px] pointer-events-none" />
+      <div className="absolute bottom-1/3 right-1/4 w-[600px] h-[600px] bg-[#7B2FBE]/5 rounded-full blur-[160px] pointer-events-none" />
+
+      <div className="max-w-4xl mx-auto relative z-10">
         {/* Header */}
-        <div className="text-center mb-8 animate-fade-in-up">
-          <div className="inline-flex items-center space-x-2 bg-white/80 dark:bg-neutral-900/80 backdrop-blur-sm px-4 py-2 rounded-full border border-blue-200 dark:border-neutral-800 shadow-lg mb-4">
-            <Database className="h-4 w-4 text-blue-500 dark:text-blue-400" />
-            <span className="text-sm font-medium text-blue-700 dark:text-blue-300">Data Upload Center</span>
-            <Sparkles className="h-4 w-4 text-purple-500 dark:text-purple-400" />
+        <div className="text-center mb-10 animate-fade-in-up">
+          <div className="inline-flex items-center space-x-2 bg-white/[0.02] backdrop-blur-md px-4 py-2 rounded-full border border-white/[0.08] shadow-[0_0_15px_rgba(0,0,0,0.5)] mb-4">
+            <Database className="h-4 w-4 text-[#00B4D8]" />
+            <span className="text-xs font-semibold tracking-wider text-slate-300 uppercase">Data Upload Center</span>
+            <Sparkles className="h-4 w-4 text-[#7B2FBE]" />
           </div>
-          <h1 className="text-3xl md:text-4xl font-bold bg-gradient-to-r from-slate-800 to-blue-600 dark:from-slate-200 dark:to-blue-400 bg-clip-text text-transparent mb-4">
-            Upload Your Supply Chain Data
+          <h1 className="text-3xl md:text-5xl font-extrabold bg-gradient-to-b from-white via-white to-slate-400 bg-clip-text text-transparent tracking-tight mb-4">
+            Supply Chain Dataset ingestion
           </h1>
-          <p className="text-xl text-slate-600 dark:text-slate-300 max-w-2xl mx-auto leading-relaxed">
-            Upload your supply chain data to start building your custom AI forecasting model
+          <p className="text-base md:text-lg text-slate-400 max-w-2xl mx-auto leading-relaxed">
+            Feed nodes, edges, and transactional sales demand into the deep forecasting GNN
           </p>
         </div>
 
-        {/* Main Upload Card - Hide during training or when completed */}
+        {/* Main Upload Card */}
         {!(fineTuning || fineTuningComplete) && (
-          <>
-            <Card className="shadow-2xl border-0 bg-white/90 dark:bg-neutral-900/95 backdrop-blur-sm animate-fade-in-up mb-8" style={{ animationDelay: '0.1s' }}>
-          <CardHeader className="bg-gradient-to-r from-blue-50 to-purple-50 dark:from-neutral-900 dark:to-neutral-900 rounded-t-lg">
-            <CardTitle className="flex items-center space-x-2 text-slate-900 dark:text-white">
-              <Database className="h-6 w-6 text-blue-600 dark:text-blue-400" />
-              <span>Data Upload</span>
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="p-6">
-            <Tabs value={uploadType} onValueChange={setUploadType} className="w-full">
-              <TabsList className="grid w-full grid-cols-2 mb-6 bg-gradient-to-r from-blue-50 to-purple-50 dark:from-neutral-900 dark:to-neutral-900">
-                <TabsTrigger value="single" className="flex items-center space-x-2 data-[state=active]:bg-white dark:data-[state=active]:bg-neutral-800 data-[state=active]:shadow-md">
-                  <FileText className="h-4 w-4" />
-                  <span>Single Dataset</span>
-                </TabsTrigger>
-                <TabsTrigger value="multiple" className="flex items-center space-x-2 data-[state=active]:bg-white dark:data-[state=active]:bg-neutral-800 data-[state=active]:shadow-md">
-                  <Database className="h-4 w-4" />
-                  <span>Separate Files</span>
-                </TabsTrigger>
-              </TabsList>
+          <div className="space-y-8 animate-fade-in-up">
+            <Card className="border border-white/[0.07] bg-white/[0.015] backdrop-blur-2xl rounded-2xl shadow-[0_8px_32px_0_rgba(0,0,0,0.8)] overflow-hidden">
+              <CardHeader className="border-b border-white/[0.06] bg-white/[0.01] p-6">
+                <CardTitle className="flex items-center space-x-3 text-white text-lg font-semibold">
+                  <Database className="h-5 w-5 text-[#00B4D8]" />
+                  <span>Staging Area</span>
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="p-6">
+                <Tabs value={uploadType} onValueChange={setUploadType} className="w-full">
+                  <TabsList className="flex space-x-1 bg-white/[0.02] border border-white/[0.06] p-1.5 rounded-xl mb-8">
+                    <TabsTrigger value="single" className="flex-1 flex items-center justify-center space-x-2 py-2.5 rounded-lg text-xs font-semibold transition-all duration-300 data-[state=active]:bg-white/[0.06] data-[state=active]:text-[#00B4D8] data-[state=active]:border-white/[0.08] text-slate-450 hover:text-white">
+                      <FileText className="h-4 w-4" />
+                      <span>Single Dataset Ingestion</span>
+                    </TabsTrigger>
+                    <TabsTrigger value="multiple" className="flex-1 flex items-center justify-center space-x-2 py-2.5 rounded-lg text-xs font-semibold transition-all duration-300 data-[state=active]:bg-white/[0.06] data-[state=active]:text-[#00B4D8] data-[state=active]:border-white/[0.08] text-slate-450 hover:text-white">
+                      <Database className="h-4 w-4" />
+                      <span>Unified Pipeline Nodes</span>
+                    </TabsTrigger>
+                  </TabsList>
 
-              <TabsContent value="single" className="space-y-4">
-                <div className="mb-6 p-4 bg-gradient-to-r from-blue-50 to-cyan-50 dark:from-neutral-900/60 dark:to-neutral-900/60 rounded-lg border border-blue-200 dark:border-neutral-800">
-                  <p className="text-slate-700 dark:text-slate-300 mb-2 font-medium">📊 Single Dataset Upload</p>
-                  <p className="text-slate-600 dark:text-slate-400 text-sm">
-                    Upload a single CSV file containing your complete supply chain dataset with all necessary columns
-                  </p>
-                </div>
-                <FileUploadCard
-                  title="Supply Chain Dataset"
-                  description="Upload your complete dataset (CSV format)"
-                  fileType="single"
-                  gradient="from-blue-50 to-cyan-50"
-                />
-                {convertedPaths && (
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <TabsContent value="single" className="space-y-4 outline-none">
+                    <div className="mb-6 p-4 bg-white/[0.01] border border-white/[0.06] rounded-xl hover:bg-white/[0.02] transition-colors">
+                      <p className="text-white text-sm font-semibold mb-1 flex items-center gap-1.5">
+                        <span className="w-1.5 h-1.5 rounded-full bg-[#00B4D8]" />
+                        Structured Raw Aggregator
+                      </p>
+                      <p className="text-slate-400 text-xs">
+                        Ingest a singular CSV containing comprehensive network history; our background worker splits nodes, edges, and orders on the fly.
+                      </p>
+                    </div>
+                    
                     <FileUploadCard
-                      title="Nodes File (generated)"
-                      description="nodes.csv path"
-                      fileType="nodes"
-                      gradient="from-green-50 to-emerald-50"
+                      title="Supply Chain Dataset"
+                      description="Upload raw comprehensive database snapshot (CSV)"
+                      fileType="single"
                     />
-                    <FileUploadCard
-                      title="Edges File (generated)"
-                      description="edges.csv path"
-                      fileType="edges"
-                      gradient="from-orange-50 to-amber-50"
-                    />
-                    <FileUploadCard
-                      title="Demand File (generated)"
-                      description="demand.csv path"
-                      fileType="demand"
-                      gradient="from-pink-50 to-rose-50"
-                    />
+
+                    {convertedPaths && (
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-4">
+                        <FileUploadCard
+                          title="Nodes Structure"
+                          description="nodes.csv ready"
+                          fileType="nodes"
+                        />
+                        <FileUploadCard
+                          title="Edges Topology"
+                          description="edges.csv ready"
+                          fileType="edges"
+                        />
+                        <FileUploadCard
+                          title="Sales Orders"
+                          description="demand.csv ready"
+                          fileType="demand"
+                        />
+                      </div>
+                    )}
+                  </TabsContent>
+
+                  <TabsContent value="multiple" className="space-y-4 outline-none">
+                    <div className="mb-6 p-4 bg-white/[0.01] border border-white/[0.06] rounded-xl hover:bg-white/[0.02] transition-colors">
+                      <p className="text-white text-sm font-semibold mb-1 flex items-center gap-1.5">
+                        <span className="w-1.5 h-1.5 rounded-full bg-[#7B2FBE]" />
+                        Custom Multi-File Pipeline
+                      </p>
+                      <p className="text-slate-400 text-xs">
+                        Stage specialized individual CSVs explicitly defining company nodes, network topology edges, and timestamped transaction counts.
+                      </p>
+                    </div>
+
+                    {/* Sample Creation */}
+                    <div className="mb-6 p-4 bg-white/[0.02] border border-[#00B4D8]/20 rounded-xl">
+                      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                        <div>
+                          <p className="text-white text-sm font-semibold flex items-center gap-1.5">
+                            <Sparkles className="h-4 w-4 text-[#00B4D8]" />
+                            Pre-compiled Mock Topology
+                          </p>
+                          <p className="text-slate-400 text-xs mt-0.5">Spin up a sample graph network to preview prediction models instantly.</p>
+                        </div>
+                        <Button
+                          onClick={handleCreateSample}
+                          className="bg-white/[0.04] hover:bg-white/[0.08] text-white border border-white/[0.08] text-xs font-semibold rounded-lg py-1 px-4 transition-all"
+                        >
+                          Generate Sample Data
+                        </Button>
+                      </div>
+                    </div>
+
+                    {/* Manual Path Entry */}
+                    <div className="mb-6 p-5 bg-white/[0.01] border border-white/[0.06] rounded-2xl">
+                      <h4 className="font-semibold text-white text-xs tracking-wider uppercase mb-4 flex items-center gap-2">
+                        <Zap className="h-3.5 w-3.5 text-[#7B2FBE]" />
+                        Staged File Target Paths
+                      </h4>
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div>
+                          <Label className="text-slate-400 font-medium text-xs">Nodes Path</Label>
+                          <Input
+                            value={manualPaths.nodes}
+                            onChange={(e) => setManualPaths(prev => ({ ...prev, nodes: e.target.value }))}
+                            placeholder="uploads/companyId/nodes.csv"
+                            className="mt-1.5 bg-white/[0.02] border border-white/[0.08] text-white focus:border-[#00B4D8]/50 focus:ring-0 focus:outline-none placeholder-slate-650 rounded-xl px-4 py-2 font-mono text-xs w-full"
+                          />
+                        </div>
+                        <div>
+                          <Label className="text-slate-400 font-medium text-xs">Edges Path</Label>
+                          <Input
+                            value={manualPaths.edges}
+                            onChange={(e) => setManualPaths(prev => ({ ...prev, edges: e.target.value }))}
+                            placeholder="uploads/companyId/edges.csv"
+                            className="mt-1.5 bg-white/[0.02] border border-white/[0.08] text-white focus:border-[#00B4D8]/50 focus:ring-0 focus:outline-none placeholder-slate-650 rounded-xl px-4 py-2 font-mono text-xs w-full"
+                          />
+                        </div>
+                        <div>
+                          <Label className="text-slate-400 font-medium text-xs">Demand Path</Label>
+                          <Input
+                            value={manualPaths.demand}
+                            onChange={(e) => setManualPaths(prev => ({ ...prev, demand: e.target.value }))}
+                            placeholder="uploads/companyId/demand.csv"
+                            className="mt-1.5 bg-white/[0.02] border border-white/[0.08] text-white focus:border-[#00B4D8]/50 focus:ring-0 focus:outline-none placeholder-slate-650 rounded-xl px-4 py-2 font-mono text-xs w-full"
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      <FileUploadCard
+                        title="Nodes Schema"
+                        description="Store location properties"
+                        fileType="nodes"
+                      />
+                      <FileUploadCard
+                        title="Edges Network"
+                        description="Topology & plant mapping"
+                        fileType="edges"
+                      />
+                      <FileUploadCard
+                        title="Demand Logs"
+                        description="Time series order ledger"
+                        fileType="demand"
+                      />
+                    </div>
+                  </TabsContent>
+                </Tabs>
+
+                {/* Upload Progress */}
+                {uploading && (
+                  <div className="mt-6 space-y-3 animate-fade-in">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-semibold text-slate-350">Uploading datasets to cloud worker...</span>
+                      <span className="text-xs font-bold text-[#00B4D8] font-mono">{Math.round(uploadProgress)}%</span>
+                    </div>
+                    <div className="relative w-full h-2 bg-white/[0.04] rounded-full overflow-hidden border border-white/[0.06]">
+                      <div 
+                        className="absolute top-0 left-0 h-full bg-gradient-to-r from-[#00B4D8] to-[#7B2FBE] rounded-full transition-all duration-300"
+                        style={{ width: `${uploadProgress}%` }}
+                      />
+                    </div>
+                    <div className="flex items-center space-x-2 text-xs text-slate-400">
+                      <Loader2 className="h-3.5 w-3.5 animate-spin text-[#00B4D8]" />
+                      <span>Validating schema column constraints...</span>
+                    </div>
                   </div>
                 )}
-              </TabsContent>
 
-              <TabsContent value="multiple" className="space-y-4">
-                <div className="mb-6 p-4 bg-gradient-to-r from-purple-50 to-pink-50 dark:from-neutral-900/60 dark:to-neutral-900/60 rounded-lg border border-purple-200 dark:border-neutral-800">
-                  <p className="text-slate-700 dark:text-slate-300 mb-2 font-medium">📁 Multi-File Upload</p>
-                  <p className="text-slate-600 dark:text-slate-400 text-sm">
-                    Upload three separate CSV files or use sample data for comprehensive supply chain network analysis
-                  </p>
+                {/* Upload Button */}
+                <div className="mt-8 flex justify-center">
+                  <Button
+                    onClick={handleUpload}
+                    disabled={uploading}
+                    className="px-10 py-4 bg-gradient-to-r from-[#00B4D8] to-[#7B2FBE] hover:from-[#00D4F8] hover:to-[#9B3FFE] text-white font-bold transition-all duration-300 hover:scale-[1.02] active:scale-[0.98] hover:shadow-[0_0_25px_rgba(0,180,216,0.35)] rounded-xl border-0 cursor-pointer flex items-center justify-center space-x-2"
+                  >
+                    {uploading ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin text-white" />
+                        Injesting files...
+                      </>
+                    ) : uploadComplete && (convertedPaths || (manualPaths && manualPaths.nodes)) ? (
+                      <>
+                        <CheckCircle className="mr-2 h-4 w-4 text-emerald-400" />
+                        Injest Complete
+                      </>
+                    ) : (
+                      <>
+                        <span>Process & Upload Files</span>
+                        <UploadIcon className="ml-2 h-4 w-4 group-hover:translate-y-[-2px] transition-transform" />
+                      </>
+                    )}
+                  </Button>
                 </div>
+              </CardContent>
+            </Card>
 
-                {/* Sample Creation */}
-                <div className="mb-6 p-4 bg-gradient-to-r from-blue-50 to-cyan-50 dark:from-neutral-900/60 dark:to-neutral-900/60 rounded-lg border border-blue-200 dark:border-neutral-800">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-slate-700 dark:text-slate-300 mb-1 font-medium">🎯 Quick Start with Sample Data</p>
-                      <p className="text-slate-600 dark:text-slate-400 text-sm">Create a sample dataset to test the system</p>
+            {/* File Requirements Section */}
+            <Card className="border border-white/[0.07] bg-white/[0.01] backdrop-blur-xl rounded-2xl shadow-[0_8px_32px_0_rgba(0,0,0,0.6)] overflow-hidden">
+              <CardHeader className="border-b border-white/[0.06] bg-white/[0.005] p-6">
+                <CardTitle className="flex items-center space-x-2.5 text-white text-base font-semibold">
+                  <Info className="h-4.5 w-4.5 text-[#00B4D8]" />
+                  <span>Network Topology Constraints</span>
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="p-6">
+                {uploadType === 'single' ? (
+                  <div className="space-y-4">
+                    <h4 className="font-semibold text-slate-200 text-sm">Single Dataset Guidelines:</h4>
+                    <div className="bg-white/[0.01] p-5 rounded-2xl border border-white/[0.06] space-y-4">
+                      <p className="text-xs text-slate-400 leading-relaxed">
+                        Ensure your consolidated CSV has chronological demand patterns along with topological routing mappings.
+                      </p>
+                      <div className="space-y-3 text-xs">
+                        <div className="flex items-center space-x-2.5">
+                          <div className="w-1.5 h-1.5 bg-[#00B4D8] rounded-full shrink-0"></div>
+                          <span><strong>Date</strong> column (YYYY-MM-DD format) - mandatory timestamp reference.</span>
+                        </div>
+                        <div className="flex items-center space-x-2.5">
+                          <div className="w-1.5 h-1.5 bg-[#7B2FBE] rounded-full shrink-0"></div>
+                          <span><strong>SKU Columns</strong> (must contain numerical demand units). These headers automatically construct product nodes.</span>
+                        </div>
+                        <div className="flex items-center space-x-2.5">
+                          <div className="w-1.5 h-1.5 bg-pink-500 rounded-full shrink-0"></div>
+                          <span><strong>Optional routing attributes</strong> (e.g. <code>Plant</code>, <code>node1</code>, <code>node2</code>) map spatial edge vectors dynamically.</span>
+                        </div>
+                      </div>
+                      <div className="text-[11px] font-mono text-[#00B4D8] bg-black/40 p-2.5 rounded-lg border border-white/[0.04]">
+                        Example Header: Date, Plant, node1, node2, SKU_A, SKU_B, SKU_C
+                      </div>
                     </div>
-                    <Button
-                      onClick={handleCreateSample}
-                      className="bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700 dark:from-blue-700 dark:to-cyan-700 dark:hover:from-blue-600 dark:hover:to-cyan-600 text-white"
-                    >
-                      Create Sample
-                    </Button>
                   </div>
-                </div>
-
-                {/* Manual Path Entry */}
-                <div className="mb-6 p-4 bg-gradient-to-r from-slate-50 to-slate-100 dark:from-neutral-900/60 dark:to-neutral-900/60 rounded-lg border border-slate-200 dark:border-neutral-800">
-                  <h4 className="font-semibold text-slate-800 dark:text-white mb-3">Manual File Paths</h4>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <div>
-                      <Label className="text-slate-700 dark:text-slate-300 font-medium">Nodes Path</Label>
-                      <Input
-                        value={manualPaths.nodes}
-                        onChange={(e) => setManualPaths(prev => ({ ...prev, nodes: e.target.value }))}
-                        placeholder="uploads/companyId/nodes.csv"
-                        className="mt-1 bg-white dark:bg-neutral-900 text-slate-900 dark:text-white border-slate-200 dark:border-neutral-800"
-                      />
-                    </div>
-                    <div>
-                      <Label className="text-slate-700 dark:text-slate-300 font-medium">Edges Path</Label>
-                      <Input
-                        value={manualPaths.edges}
-                        onChange={(e) => setManualPaths(prev => ({ ...prev, edges: e.target.value }))}
-                        placeholder="uploads/companyId/edges.csv"
-                        className="mt-1 bg-white dark:bg-neutral-900 text-slate-900 dark:text-white border-slate-200 dark:border-neutral-800"
-                      />
-                    </div>
-                    <div>
-                      <Label className="text-slate-700 dark:text-slate-300 font-medium">Demand Path</Label>
-                      <Input
-                        value={manualPaths.demand}
-                        onChange={(e) => setManualPaths(prev => ({ ...prev, demand: e.target.value }))}
-                        placeholder="uploads/companyId/demand.csv"
-                        className="mt-1 bg-white dark:bg-neutral-900 text-slate-900 dark:text-white border-slate-200 dark:border-neutral-800"
-                      />
-                    </div>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <FileUploadCard
-                    title="Nodes File"
-                    description="nodes.csv - Store and location data"
-                    fileType="nodes"
-                    gradient="from-green-50 to-emerald-50"
-                  />
-                  <FileUploadCard
-                    title="Edges File"
-                    description="edges.csv - Connection relationships"
-                    fileType="edges"
-                    gradient="from-orange-50 to-amber-50"
-                  />
-                  <FileUploadCard
-                    title="Demand File"
-                    description="demand.csv - Historical demand data"
-                    fileType="demand"
-                    gradient="from-pink-50 to-rose-50"
-                  />
-                </div>
-              </TabsContent>
-            </Tabs>
-
-            {/* Upload Progress */}
-            {uploading && (
-              <div className="mt-6 space-y-3 animate-fade-in">
-                <div className="flex items-center justify-between">
-                  <span className="text-sm font-medium text-slate-700 dark:text-slate-300">Uploading files...</span>
-                  <span className="text-sm text-slate-500 dark:text-slate-400">{Math.round(uploadProgress)}%</span>
-                </div>
-                <Progress value={uploadProgress} className="h-3" />
-                <div className="flex items-center space-x-2 text-sm text-slate-600 dark:text-slate-400">
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                  <span>Processing your data securely...</span>
-                </div>
-              </div>
-            )}
-
-            {/* Upload Button */}
-            <div className="mt-8 flex justify-center">
-              <Button
-                onClick={handleUpload}
-                disabled={uploading}
-                className="px-10 py-3 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 dark:from-blue-700 dark:to-purple-700 dark:hover:from-blue-600 dark:hover:to-purple-600 text-white font-semibold transition-all duration-300 hover:scale-105 hover:shadow-xl group border-0 rounded-xl"
-              >
-                {uploading ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Uploading & Processing...
-                  </>
-                ) : uploadComplete && (convertedPaths || (manualPaths && manualPaths.nodes)) ? (
-                  <>
-                    <CheckCircle className="mr-2 h-4 w-4 animate-bounce-gentle" />
-                    Upload Complete
-                  </>
                 ) : (
-                  <>
-                    Process & Upload Files
-                    <UploadIcon className="ml-2 h-4 w-4 group-hover:translate-y-[-2px] transition-transform" />
-                  </>
+                  <div className="space-y-6">
+                    <h4 className="font-semibold text-slate-200 text-sm">Multi-File Specification:</h4>
+
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      {/* nodes */}
+                      <div className="border-l-2 border-l-[#00B4D8]/70 border-t border-r border-b border-white/[0.05] bg-[#00B4D8]/[0.01] p-5 rounded-2xl hover:bg-[#00B4D8]/[0.02] transition-all">
+                        <h5 className="font-semibold text-[#00B4D8] text-sm mb-2">nodes.csv</h5>
+                        <ul className="text-xs text-slate-400 space-y-1.5">
+                          <li className="flex items-start gap-1">
+                            <span className="text-[#00B4D8]">•</span>
+                            <span><strong>Node</strong> - SKU identifier (must map to column headers in orders)</span>
+                          </li>
+                          <li className="flex items-start gap-1">
+                            <span className="text-[#00B4D8]">•</span>
+                            <span><strong>Plant</strong> - Facility or parent warehouse tag</span>
+                          </li>
+                        </ul>
+                      </div>
+
+                      {/* edges */}
+                      <div className="border-l-2 border-l-[#7B2FBE]/70 border-t border-r border-b border-white/[0.05] bg-[#7B2FBE]/[0.01] p-5 rounded-2xl hover:bg-[#7B2FBE]/[0.02] transition-all">
+                        <h5 className="font-semibold text-[#7B2FBE] text-sm mb-2">Edges (Plant).csv</h5>
+                        <ul className="text-xs text-slate-400 space-y-1.5">
+                          <li className="flex items-start gap-1">
+                            <span className="text-[#7B2FBE]">•</span>
+                            <span><strong>Plant</strong> - Sourcing node hub</span>
+                          </li>
+                          <li className="flex items-start gap-1">
+                            <span className="text-[#7B2FBE]">•</span>
+                            <span><strong>node1</strong> / <strong>node2</strong> - Directional linking tags</span>
+                          </li>
+                        </ul>
+                      </div>
+
+                      {/* demand */}
+                      <div className="border-l-2 border-l-pink-500/70 border-t border-r border-b border-white/[0.05] bg-pink-500/[0.01] p-5 rounded-2xl hover:bg-pink-500/[0.02] transition-all">
+                        <h5 className="font-semibold text-pink-400 text-sm mb-2">Sales Order.csv</h5>
+                        <ul className="text-xs text-slate-400 space-y-1.5">
+                          <li className="flex items-start gap-1">
+                            <span className="text-pink-400">•</span>
+                            <span><strong>Date</strong> - Aggregated daily stamp</span>
+                          </li>
+                          <li className="flex items-start gap-1">
+                            <span className="text-pink-400">•</span>
+                            <span><strong>SKUs</strong> - Column per SKU with daily volumes</span>
+                          </li>
+                        </ul>
+                      </div>
+                    </div>
+                  </div>
                 )}
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* File Requirements Section */}
-        <Card className="shadow-lg border-0 bg-white/80 dark:bg-neutral-900/90 backdrop-blur-sm animate-fade-in-up mb-8" style={{ animationDelay: '0.2s' }}>
-          <CardHeader>
-            <CardTitle className="flex items-center space-x-2 text-slate-900 dark:text-white">
-              <Info className="h-5 w-5 text-blue-600 dark:text-blue-400" />
-              <span>File Requirements</span>
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="p-6">
-            {uploadType === 'single' ? (
-              <div className="space-y-4">
-                <h4 className="font-semibold text-slate-800 dark:text-white">Single Dataset Requirements:</h4>
-                <div className="bg-blue-50 dark:bg-neutral-900/60 p-4 rounded-lg border border-blue-200 dark:border-neutral-800 space-y-4">
-                  <p className="text-sm text-slate-700 dark:text-slate-300">Provide one CSV that our processor can convert into nodes/edges/Sales Order files.</p>
-                  <div className="space-y-3 text-sm">
-                    <div className="flex items-center space-x-2">
-                      <div className="w-2 h-2 bg-pink-500 rounded-full"></div>
-                      <span><strong>Date</strong> column (YYYY-MM-DD) — required.</span>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <div className="w-2 h-2 bg-orange-500 rounded-full"></div>
-                      <span><strong>Numeric product columns</strong> (one per SKU) — names can be anything, values must be numeric. These columns become nodes and the Sales Order wide format.</span>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
-                      <span><strong>Optional graph context</strong>: <code>Plant</code>, <code>node1</code>, <code>node2</code> (or synonyms such as “factory”, “source”, “target”). When present, we use them to build Edges (Plant).csv automatically.</span>
-                    </div>
-                  </div>
-                  <p className="text-xs text-slate-600 dark:text-slate-400 italic">Example header: <code>Date, Plant, node1, node2, Product_A, Product_B, Product_C</code></p>
-                </div>
-              </div>
-            ) : (
-              <div className="space-y-6">
-                <h4 className="font-semibold text-slate-800 dark:text-white">Multi-File Requirements:</h4>
-
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <div className="bg-green-50 dark:bg-neutral-900/60 p-4 rounded-lg border border-green-200 dark:border-neutral-800">
-                    <h5 className="font-semibold text-green-800 dark:text-green-400 mb-2">nodes.csv</h5>
-                    <ul className="text-sm text-green-700 dark:text-green-300 space-y-1">
-                      <li>• <strong>Node</strong> - Product/SKU name (must match Sales Order columns)</li>
-                      <li>• <strong>Plant</strong> - Optional parent facility or plant reference</li>
-                    </ul>
-                  </div>
-
-                  <div className="bg-orange-50 dark:bg-neutral-900/60 p-4 rounded-lg border border-orange-200 dark:border-neutral-800">
-                    <h5 className="font-semibold text-orange-800 dark:text-orange-400 mb-2">Edges (Plant).csv</h5>
-                    <ul className="text-sm text-orange-700 dark:text-orange-300 space-y-1">
-                      <li>• <strong>Plant</strong> - Facility or hub</li>
-                      <li>• <strong>node1</strong> - Source node (can be plant or product)</li>
-                      <li>• <strong>node2</strong> - Destination node</li>
-                      <li className="text-xs text-orange-600 dark:text-orange-400">Add both Plant→Product and Product→Plant rows to capture bidirectional links.</li>
-                    </ul>
-                  </div>
-
-                  <div className="bg-pink-50 dark:bg-neutral-900/60 p-4 rounded-lg border border-pink-200 dark:border-neutral-800">
-                    <h5 className="font-semibold text-pink-800 dark:text-pink-400 mb-2">Sales Order.csv</h5>
-                    <ul className="text-sm text-pink-700 dark:text-pink-300 space-y-1">
-                      <li>• <strong>Date</strong> column</li>
-                      <li>• One column per product/SKU (names must match <code>Node</code> values)</li>
-                      <li>• Each row represents aggregated demand for that date</li>
-                      <li className="text-xs text-pink-600 dark:text-pink-400">This file is the “demand.csv” path referenced by the API.</li>
-                    </ul>
-                  </div>
-                </div>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-        </>
+              </CardContent>
+            </Card>
+          </div>
         )}
 
         {/* Fine-tuning Section */}
         {(uploadComplete || fineTuning) && (
-          <Card className="shadow-2xl border-0 bg-white/90 dark:bg-neutral-900/95 backdrop-blur-sm animate-fade-in-up">
-            <CardHeader className="bg-gradient-to-r from-purple-50 to-pink-50 dark:from-neutral-900 dark:to-neutral-900 rounded-t-lg">
-              <CardTitle className="flex items-center space-x-2 text-slate-900 dark:text-white">
-                <Brain className="h-6 w-6 text-purple-600 dark:text-purple-400" />
-                <span>AI Model Fine-tuning</span>
-                {fineTuning && <Zap className="h-5 w-5 text-yellow-500 animate-pulse" />}
+          <Card className="border border-white/[0.07] bg-white/[0.015] backdrop-blur-2xl rounded-2xl shadow-[0_8px_32px_0_rgba(0,0,0,0.8)] overflow-hidden animate-fade-in-up">
+            <CardHeader className="border-b border-white/[0.06] bg-gradient-to-r from-[#00B4D8]/10 to-[#7B2FBE]/10 p-6">
+              <CardTitle className="flex items-center space-x-3 text-white text-lg font-semibold">
+                <Brain className="h-5 w-5 text-[#7B2FBE]" />
+                <span>Neural Net Engine Optimization</span>
+                {fineTuning && <Zap className="h-4.5 w-4.5 text-yellow-400 animate-pulse" />}
               </CardTitle>
             </CardHeader>
             <CardContent className="p-6">
               <div className="text-center space-y-6">
-                <div className="inline-flex items-center space-x-2 bg-green-50 dark:bg-green-900/30 px-4 py-2 rounded-full border border-green-200 dark:border-green-800">
-                  <CheckCircle className="h-4 w-4 text-green-500 dark:text-green-400" />
-                  <span className="text-sm font-medium text-green-700 dark:text-green-300">Data uploaded successfully</span>
+                <div className="inline-flex items-center space-x-2 bg-emerald-500/10 px-4 py-1.5 rounded-full border border-emerald-500/20">
+                  <CheckCircle className="h-4 w-4 text-emerald-400" />
+                  <span className="text-xs font-semibold tracking-wider text-emerald-400 uppercase">Snapshot Staged</span>
                 </div>
 
                 <div className="max-w-md mx-auto">
-                  <p className="text-slate-600 dark:text-slate-400 mb-4">
-                    Ready to train your custom AI model! This process will optimize the forecasting algorithm specifically for your data patterns.
+                  <p className="text-slate-350 text-sm leading-relaxed mb-4">
+                    Ready to initiate localized GNN weights adjustment. This runs a spatial convolution backprop tailored to your network topology configuration.
                   </p>
 
                   {fineTuning && (
-                    <div className="space-y-4 animate-fade-in">
+                    <div className="space-y-4 animate-fade-in pt-2">
                       <div className="flex items-center justify-between">
-                        <span className="text-sm font-medium text-slate-700 dark:text-slate-300">Training AI model...</span>
-                        <span className="text-sm text-slate-500 dark:text-slate-400">{Math.round(fineTuningProgress)}%</span>
+                        <span className="text-xs font-semibold text-slate-300">GNN Fine-Tuning Calibration...</span>
+                        <span className="text-xs font-bold text-[#7B2FBE] font-mono">{Math.round(fineTuningProgress)}%</span>
                       </div>
-                      <Progress value={fineTuningProgress} className="h-3" />
-                      <div className="flex items-center justify-center space-x-2 text-sm text-slate-600 dark:text-slate-400">
-                        <Brain className="h-4 w-4 animate-pulse text-purple-500 dark:text-purple-400" />
+                      <div className="relative w-full h-2 bg-white/[0.04] rounded-full overflow-hidden border border-white/[0.06]">
+                        <div 
+                          className="absolute top-0 left-0 h-full bg-gradient-to-r from-[#00B4D8] to-[#7B2FBE] rounded-full transition-all duration-300 shadow-[0_0_12px_rgba(123,47,190,0.5)]"
+                          style={{ width: `${fineTuningProgress}%` }}
+                        />
+                      </div>
+                      <div className="flex items-center justify-center space-x-2 text-xs text-slate-400 font-mono">
+                        <Brain className="h-3.5 w-3.5 animate-pulse text-[#7B2FBE]" />
                         <span>
                           {trainingStatusMessage ||
-                            (fineTuningProgress < 10 ? "Initializing training process..." :
-                              fineTuningProgress < 20 ? "Validating input files..." :
-                                fineTuningProgress < 30 ? "Loading base model..." :
-                                  fineTuningProgress < 40 ? "Preparing training data..." :
-                                    fineTuningProgress < 50 ? "Checking model compatibility..." :
-                                      fineTuningProgress < 90 ? "Training neural network..." :
-                                        fineTuningProgress < 100 ? "Saving trained model..." :
-                                          "Training completed!")}
+                            (fineTuningProgress < 10 ? "Initializing training weights..." :
+                              fineTuningProgress < 20 ? "Checking topology dimensions..." :
+                                fineTuningProgress < 30 ? "Booting neural transformer layer..." :
+                                  fineTuningProgress < 40 ? "Formatting time-series vectors..." :
+                                    fineTuningProgress < 50 ? "Checking edge convolution..." :
+                                      fineTuningProgress < 90 ? "Propagating loss vectors..." :
+                                        fineTuningProgress < 100 ? "Saving optimized weights..." :
+                                          "Engine optimization complete!")}
                         </span>
                       </div>
                     </div>
                   )}
                 </div>
 
-                <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
+                <div className="flex flex-col sm:flex-row items-center justify-center gap-4 pt-4">
                   {fineTuningComplete && (
                     <Button
                       variant="outline"
@@ -865,36 +893,34 @@ const Upload = () => {
                         setUploadComplete(false);
                         setFineTuning(false);
                       }}
-                      size="lg"
-                      className="px-8 py-3 border-2 border-slate-200 dark:border-neutral-800 hover:bg-slate-50 dark:hover:bg-neutral-950 text-slate-700 dark:text-slate-300 font-semibold rounded-xl"
+                      className="px-6 py-3.5 border border-white/[0.08] bg-white/[0.02] hover:bg-white/[0.06] text-white font-semibold rounded-xl text-xs tracking-wider uppercase transition-all"
                     >
-                      <Database className="mr-2 h-5 w-5" />
-                      Upload New Data
+                      <Database className="mr-2 h-4 w-4" />
+                      Upload New Topology
                     </Button>
                   )}
-                  {/* Single Train button — always does a fresh force-retrain */}
+                  
                   <Button
                     onClick={() => handleFineTuning(true)}
                     disabled={fineTuning}
-                    size="lg"
-                    className="px-10 py-3 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 dark:from-purple-700 dark:to-pink-700 dark:hover:from-purple-600 dark:hover:to-pink-600 text-white font-semibold transition-all duration-300 hover:scale-105 hover:shadow-xl group border-0 rounded-xl"
+                    className="px-10 py-4 bg-gradient-to-r from-[#00B4D8] to-[#7B2FBE] hover:from-[#00D4F8] hover:to-[#9B3FFE] text-white font-bold transition-all duration-300 hover:scale-[1.02] active:scale-[0.98] hover:shadow-[0_0_25px_rgba(0,180,216,0.35)] rounded-xl border-0 cursor-pointer flex items-center justify-center space-x-2"
                   >
                     {fineTuning ? (
                       <>
-                        <Brain className="mr-2 h-5 w-5 animate-pulse" />
-                        Training in Progress...
+                        <Brain className="mr-2 h-4 w-4 animate-spin text-white" />
+                        Fine-Tuning In Progress...
                       </>
                     ) : fineTuningComplete ? (
                       <>
-                        <Zap className="mr-2 h-5 w-5" />
-                        Retrain Model
-                        <ArrowRight className="ml-2 h-5 w-5 group-hover:translate-x-1 transition-transform" />
+                        <Zap className="mr-2 h-4 w-4" />
+                        <span>Force Reset Retrain</span>
+                        <ArrowRight className="ml-2 h-4 w-4 group-hover:translate-x-1 transition-transform" />
                       </>
                     ) : (
                       <>
-                        <Zap className="mr-2 h-5 w-5" />
-                        Start AI Fine-tuning
-                        <ArrowRight className="ml-2 h-5 w-5 group-hover:translate-x-1 transition-transform" />
+                        <Zap className="mr-2 h-4 w-4" />
+                        <span>Boot GNN Optimization</span>
+                        <ArrowRight className="ml-2 h-4 w-4 group-hover:translate-x-1 transition-transform" />
                       </>
                     )}
                   </Button>
@@ -903,21 +929,20 @@ const Upload = () => {
                     <Button
                       onClick={handleCancelTraining}
                       variant="destructive"
-                      size="lg"
-                      className="px-8 py-3 bg-red-500 hover:bg-red-600 dark:bg-red-600 dark:hover:bg-red-700 text-white font-semibold transition-all duration-300 rounded-xl"
+                      className="px-6 py-3.5 bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20 font-semibold rounded-xl text-xs tracking-wider uppercase transition-all"
                     >
-                      Cancel Training
+                      Abort Session
                     </Button>
                   )}
                 </div>
 
                 {fineTuningComplete && (
-                  <div className="animate-fade-in space-y-2">
-                    <p className="text-green-600 dark:text-green-400 font-semibold flex items-center justify-center space-x-2">
-                      <CheckCircle className="h-4 w-4" />
-                      <span>Model training completed successfully!</span>
+                  <div className="animate-fade-in space-y-2 pt-4">
+                    <p className="text-emerald-400 font-semibold flex items-center justify-center space-x-2 text-sm">
+                      <CheckCircle className="h-4 w-4 text-emerald-400" />
+                      <span>Model engine calibrated successfully!</span>
                     </p>
-                    <p className="text-slate-500 dark:text-slate-400 text-sm">Redirecting to predictions page...</p>
+                    <p className="text-slate-500 text-xs font-mono">Redirecting to prediction cockpit...</p>
                   </div>
                 )}
               </div>
@@ -926,7 +951,7 @@ const Upload = () => {
         )}
 
         {/* Status Display */}
-        <div className="mt-8">
+        <div className="mt-10">
           <StatusDisplay companyId={localStorage.getItem('companyId') || (localStorage.getItem('user') ? JSON.parse(localStorage.getItem('user')).companyId : null)} />
         </div>
       </div>

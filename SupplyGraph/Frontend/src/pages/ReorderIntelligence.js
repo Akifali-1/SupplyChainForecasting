@@ -22,27 +22,57 @@ function getCompanyId(user) {
 function statusConfig(status) {
   switch (status) {
     case 'critical':
-      return { label: 'Critical', color: 'text-red-600 dark:text-red-400', bg: 'bg-red-50 dark:bg-red-900/20', border: 'border-red-200 dark:border-red-800', dot: 'bg-red-500' };
+      return { 
+        label: 'Critical', 
+        color: 'text-rose-450', 
+        bg: 'bg-rose-500/[0.03]', 
+        border: 'border-rose-500/20', 
+        dot: 'bg-rose-500 shadow-[0_0_10px_rgba(244,63,94,0.5)]' 
+      };
     case 'reorder_needed':
-      return { label: 'Reorder', color: 'text-amber-600 dark:text-amber-400', bg: 'bg-amber-50 dark:bg-amber-900/20', border: 'border-amber-200 dark:border-amber-800', dot: 'bg-amber-500' };
+      return { 
+        label: 'Reorder', 
+        color: 'text-amber-400', 
+        bg: 'bg-amber-500/[0.03]', 
+        border: 'border-amber-500/20', 
+        dot: 'bg-amber-500 shadow-[0_0_10px_rgba(245,158,11,0.5)]' 
+      };
     case 'overstock':
-      return { label: 'Overstock', color: 'text-blue-600 dark:text-blue-400', bg: 'bg-blue-50 dark:bg-blue-900/20', border: 'border-blue-200 dark:border-blue-800', dot: 'bg-blue-500' };
+      return { 
+        label: 'Overstock', 
+        color: 'text-[#00B4D8]', 
+        bg: 'bg-[#00B4D8]/[0.03]', 
+        border: 'border-[#00B4D8]/20', 
+        dot: 'bg-[#00B4D8] shadow-[0_0_10px_rgba(0,180,216,0.5)]' 
+      };
     case 'ok':
-      return { label: 'OK', color: 'text-emerald-600 dark:text-emerald-400', bg: 'bg-emerald-50 dark:bg-emerald-900/20', border: 'border-emerald-200 dark:border-emerald-800', dot: 'bg-emerald-500' };
+      return { 
+        label: 'OK', 
+        color: 'text-emerald-450', 
+        bg: 'bg-emerald-500/[0.03]', 
+        border: 'border-emerald-500/20', 
+        dot: 'bg-emerald-450 shadow-[0_0_10px_rgba(16,185,129,0.5)]' 
+      };
     default:
-      return { label: 'No Forecast', color: 'text-slate-500 dark:text-slate-400', bg: 'bg-slate-50 dark:bg-neutral-900', border: 'border-slate-200 dark:border-neutral-800', dot: 'bg-slate-400' };
+      return { 
+        label: 'No Forecast', 
+        color: 'text-slate-400', 
+        bg: 'bg-white/[0.01]', 
+        border: 'border-white/[0.06]', 
+        dot: 'bg-slate-500 shadow-[0_0_8px_rgba(100,116,139,0.4)]' 
+      };
   }
 }
 
 function SummaryCard({ label, count, icon: Icon, colorClass }) {
   return (
-    <div className={`flex items-center gap-3 px-5 py-4 rounded-2xl border bg-white dark:bg-neutral-900/90 border-slate-200 dark:border-neutral-800 shadow-sm hover:shadow-md transition-shadow`}>
-      <div className={`p-2.5 rounded-xl ${colorClass}`}>
+    <div className="flex items-center gap-4 px-5 py-4 rounded-2xl border border-white/[0.07] bg-white/[0.015] backdrop-blur-2xl shadow-[0_4px_20px_rgba(0,0,0,0.5)] hover:bg-white/[0.025] hover:border-white/[0.1] transition-all duration-300 group">
+      <div className={`p-3 rounded-xl ${colorClass} bg-white/[0.03] border border-white/[0.05] group-hover:scale-105 transition-transform duration-300`}>
         <Icon className="h-5 w-5" />
       </div>
       <div>
-        <p className="text-2xl font-bold text-slate-900 dark:text-white">{count}</p>
-        <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">{label}</p>
+        <p className="text-2xl font-bold text-white tracking-tight font-mono">{count}</p>
+        <p className="text-xs text-slate-400 font-semibold uppercase tracking-wider mt-0.5">{label}</p>
       </div>
     </div>
   );
@@ -52,9 +82,9 @@ function AnomalyBadge({ anomaly }) {
   if (!anomaly) return null;
   const spike = anomaly.type === 'demand_spike';
   return (
-    <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold ${
-      spike ? 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-300'
-             : 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300'
+    <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold ${
+      spike ? 'bg-orange-500/10 text-orange-400 border border-orange-500/20'
+             : 'bg-purple-500/10 text-purple-400 border border-purple-500/20'
     }`}>
       {spike ? <TrendingUp className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />}
       {spike ? `Demand Spike ×${anomaly.ratio}` : `Demand Drop ×${anomaly.ratio}`}
@@ -69,71 +99,74 @@ function ProductRow({ item, onOrder, ordering }) {
   const sc = statusConfig(item.stock_status);
 
   return (
-    <div className={`rounded-2xl border ${sc.border} ${sc.bg} transition-all duration-200 hover:shadow-md`}>
+    <div className="rounded-2xl border border-white/[0.06] bg-white/[0.015] hover:bg-white/[0.035] backdrop-blur-2xl transition-all duration-300 shadow-[0_4px_20px_rgba(0,0,0,0.3)] relative overflow-hidden group">
+      {/* Glow highlight stripe on left */}
+      <div className={`absolute left-0 top-0 bottom-0 w-[4px] ${sc.dot}`} />
+      
       {/* Main row */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 px-5 py-4">
-
-        {/* Status dot + name */}
-        <div className="flex items-center gap-3 flex-1 min-w-0">
-          <span className={`shrink-0 h-2.5 w-2.5 rounded-full ${sc.dot} shadow-sm ring-2 ring-white dark:ring-neutral-900`} />
+      <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 px-6 py-5">
+        
+        {/* Status indicator + Name */}
+        <div className="flex items-center gap-4 flex-1 min-w-0">
+          <span className={`shrink-0 h-2 w-2 rounded-full ${sc.dot}`} />
           <div className="min-w-0">
-            <p className="font-semibold text-slate-900 dark:text-white truncate text-sm">
+            <p className="font-bold text-white tracking-wide truncate text-sm">
               {item.product_id.replace(/_/g, ' ')}
             </p>
-            <div className="flex items-center gap-2 flex-wrap mt-0.5">
-              <span className={`text-xs font-medium ${sc.color}`}>{sc.label}</span>
+            <div className="flex items-center gap-2.5 flex-wrap mt-1">
+              <span className={`text-[10px] font-bold tracking-wider uppercase ${sc.color}`}>{sc.label}</span>
               <AnomalyBadge anomaly={item.anomaly} />
             </div>
           </div>
         </div>
 
-        {/* Key metrics */}
-        <div className="grid grid-cols-3 sm:grid-cols-4 gap-x-6 gap-y-1 text-xs shrink-0">
-          <div className="text-center">
-            <p className="text-slate-500 dark:text-slate-400">Stock</p>
-            <p className="font-bold text-slate-800 dark:text-slate-200">{item.current_stock.toLocaleString()}</p>
+        {/* Key metrics grid */}
+        <div className="grid grid-cols-3 sm:grid-cols-4 gap-x-8 gap-y-1.5 text-center shrink-0">
+          <div>
+            <p className="text-[10px] text-slate-500 uppercase tracking-wider font-semibold">Stock</p>
+            <p className="font-bold text-slate-200 mt-0.5 font-mono text-sm">{item.current_stock.toLocaleString()}</p>
           </div>
-          <div className="text-center">
-            <p className="text-slate-500 dark:text-slate-400">ROP</p>
-            <p className={`font-bold ${item.rop !== null && item.current_stock <= item.rop ? 'text-red-600 dark:text-red-400' : 'text-slate-800 dark:text-slate-200'}`}>
+          <div>
+            <p className="text-[10px] text-slate-500 uppercase tracking-wider font-semibold">ROP</p>
+            <p className={`font-bold mt-0.5 font-mono text-sm ${item.rop !== null && item.current_stock <= item.rop ? 'text-rose-400' : 'text-slate-300'}`}>
               {item.rop !== null ? item.rop.toLocaleString() : '—'}
             </p>
           </div>
-          <div className="text-center">
-            <p className="text-slate-500 dark:text-slate-400">Coverage</p>
-            <p className={`font-bold ${
-              item.coverage_days !== null && item.coverage_days <= item.lead_time_days ? 'text-red-600 dark:text-red-400'
-              : item.coverage_days !== null && item.coverage_days <= 14 ? 'text-amber-600 dark:text-amber-400'
-              : 'text-slate-800 dark:text-slate-200'
+          <div>
+            <p className="text-[10px] text-slate-500 uppercase tracking-wider font-semibold">Coverage</p>
+            <p className={`font-bold mt-0.5 font-mono text-sm ${
+              item.coverage_days !== null && item.coverage_days <= item.lead_time_days ? 'text-rose-400'
+              : item.coverage_days !== null && item.coverage_days <= 14 ? 'text-amber-400'
+              : 'text-slate-350'
             }`}>
               {item.coverage_days !== null ? `${item.coverage_days}d` : '—'}
             </p>
           </div>
-          <div className="text-center hidden sm:block">
-            <p className="text-slate-500 dark:text-slate-400">Avg/Day</p>
-            <p className="font-bold text-slate-800 dark:text-slate-200">
+          <div className="hidden sm:block">
+            <p className="text-[10px] text-slate-500 uppercase tracking-wider font-semibold">Avg/Day</p>
+            <p className="font-bold text-slate-300 mt-0.5 font-mono text-sm">
               {item.has_forecast ? item.avg_daily_forecast.toFixed(1) : '—'}
             </p>
           </div>
         </div>
 
         {/* Actions */}
-        <div className="flex items-center gap-2 shrink-0">
+        <div className="flex items-center gap-3 shrink-0">
           {(item.stock_status === 'critical' || item.stock_status === 'reorder_needed') && (
             <button
               onClick={() => onOrder(item.product_id)}
               disabled={ordering === item.product_id}
-              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg bg-violet-600 hover:bg-violet-700 text-white transition-all duration-200 hover:scale-105 disabled:opacity-60 disabled:cursor-not-allowed shadow-sm"
+              className="flex items-center gap-2 px-3.5 py-2 text-xs font-bold uppercase tracking-wider rounded-xl bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 text-white transition-all duration-300 hover:scale-[1.04] disabled:opacity-50 disabled:scale-100 disabled:cursor-not-allowed shadow-[0_0_15px_rgba(124,58,237,0.3)] border-0 cursor-pointer"
             >
               {ordering === item.product_id
                 ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
                 : <ShoppingCart className="h-3.5 w-3.5" />}
-              {ordering === item.product_id ? 'Ordering…' : 'Order Now'}
+              <span>{ordering === item.product_id ? 'Ordering…' : 'Order Now'}</span>
             </button>
           )}
           <button
             onClick={() => setExpanded(x => !x)}
-            className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-white/60 dark:hover:bg-neutral-800 transition-colors"
+            className="p-2 rounded-xl text-slate-400 hover:text-white hover:bg-white/[0.05] border border-white/[0.04] transition-all cursor-pointer"
           >
             {expanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
           </button>
@@ -142,48 +175,48 @@ function ProductRow({ item, onOrder, ordering }) {
 
       {/* Expanded details */}
       {expanded && (
-        <div className="border-t border-dashed border-current/10 px-5 py-4 grid grid-cols-2 sm:grid-cols-4 gap-4 text-xs">
-          <div>
-            <p className="text-slate-500 dark:text-slate-400 mb-0.5">Lead Time</p>
-            <p className="font-semibold text-slate-800 dark:text-slate-200">{item.lead_time_days} days</p>
+        <div className="border-t border-dashed border-white/[0.06] bg-white/[0.005] px-6 py-5 grid grid-cols-2 sm:grid-cols-4 gap-6 text-xs">
+          <div className="space-y-1">
+            <p className="text-[10px] text-slate-500 uppercase tracking-wider font-semibold">Lead Time</p>
+            <p className="font-bold text-slate-300 font-mono">{item.lead_time_days} days</p>
           </div>
-          <div>
-            <p className="text-slate-500 dark:text-slate-400 mb-0.5">Safety Stock</p>
-            <p className="font-semibold text-slate-800 dark:text-slate-200">{item.safety_stock.toLocaleString()} units</p>
+          <div className="space-y-1">
+            <p className="text-[10px] text-slate-500 uppercase tracking-wider font-semibold">Safety Stock</p>
+            <p className="font-bold text-slate-300 font-mono">{item.safety_stock.toLocaleString()} units</p>
           </div>
-          <div>
-            <p className="text-slate-500 dark:text-slate-400 mb-0.5">30-Day Forecast</p>
-            <p className="font-semibold text-slate-800 dark:text-slate-200">
+          <div className="space-y-1">
+            <p className="text-[10px] text-slate-500 uppercase tracking-wider font-semibold">30-Day Forecast</p>
+            <p className="font-bold text-slate-350 font-mono">
               {item.has_forecast ? item.total_30_day_forecast.toLocaleString() : 'No forecast yet'}
             </p>
           </div>
-          <div>
-            <p className="text-slate-500 dark:text-slate-400 mb-0.5">Unit Cost</p>
-            <p className="font-semibold text-slate-800 dark:text-slate-200">
+          <div className="space-y-1">
+            <p className="text-[10px] text-slate-500 uppercase tracking-wider font-semibold">Unit Cost</p>
+            <p className="font-bold text-slate-300 font-mono">
               {item.unit_cost > 0 ? `$${item.unit_cost.toFixed(2)}` : '—'}
             </p>
           </div>
           {item.order_by_date && (
-            <div>
-              <p className="text-slate-500 dark:text-slate-400 mb-0.5">Order By</p>
-              <p className="font-semibold text-amber-600 dark:text-amber-400 flex items-center gap-1">
-                <Clock className="h-3 w-3" />
+            <div className="space-y-1">
+              <p className="text-[10px] text-slate-500 uppercase tracking-wider font-semibold">Order By</p>
+              <p className="font-bold text-amber-400 flex items-center gap-1 font-mono">
+                <Clock className="h-3.5 w-3.5 text-amber-400" />
                 {item.order_by_date}
               </p>
             </div>
           )}
           {item.suggested_order_qty !== null && item.suggested_order_qty > 0 && (
-            <div>
-              <p className="text-slate-500 dark:text-slate-400 mb-0.5">Suggested Qty</p>
-              <p className="font-semibold text-violet-600 dark:text-violet-400">
+            <div className="space-y-1">
+              <p className="text-[10px] text-slate-500 uppercase tracking-wider font-semibold">Suggested Qty</p>
+              <p className="font-bold text-violet-450 text-violet-400 font-mono">
                 {item.suggested_order_qty.toLocaleString()} units
               </p>
             </div>
           )}
           {item.unit_cost > 0 && item.suggested_order_qty > 0 && (
-            <div>
-              <p className="text-slate-500 dark:text-slate-400 mb-0.5">Est. Order Value</p>
-              <p className="font-semibold text-slate-800 dark:text-slate-200">
+            <div className="space-y-1">
+              <p className="text-[10px] text-slate-500 uppercase tracking-wider font-semibold">Est. Order Value</p>
+              <p className="font-bold text-slate-200 font-mono">
                 ${(item.unit_cost * item.suggested_order_qty).toLocaleString(undefined, { maximumFractionDigits: 0 })}
               </p>
             </div>
@@ -302,38 +335,44 @@ export default function ReorderIntelligence() {
 
   // ─── Render ────────────────────────────────────────────────────────────────
   return (
-    <div className="min-h-screen py-10 px-4 sm:px-6 lg:px-8 bg-gradient-to-br from-slate-50 via-violet-50/30 to-slate-100 dark:from-black dark:via-black dark:to-black">
-      <div className="max-w-6xl mx-auto space-y-8">
+    <div className="min-h-screen py-12 px-4 sm:px-6 lg:px-8 bg-[#000000] relative overflow-hidden text-white">
+      {/* Radial glow background lights */}
+      <div className="absolute top-1/4 right-1/4 w-[500px] h-[500px] bg-[#7B2FBE]/5 rounded-full blur-[140px] pointer-events-none" />
+      <div className="absolute bottom-1/4 left-1/4 w-[600px] h-[600px] bg-[#00B4D8]/5 rounded-full blur-[160px] pointer-events-none" />
+
+      <div className="max-w-6xl mx-auto space-y-8 relative z-10">
 
         {/* ── Header ── */}
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6">
           <div>
-            <div className="inline-flex items-center gap-2 bg-violet-100 dark:bg-violet-900/30 text-violet-700 dark:text-violet-300 px-3 py-1 rounded-full text-xs font-semibold mb-2">
+            <div className="inline-flex items-center gap-2 bg-white/[0.02] border border-white/[0.08] text-[#00B4D8] px-3.5 py-1.5 rounded-full text-xs font-semibold mb-3">
               <Zap className="h-3.5 w-3.5" />
-              AI-Powered
+              AI-Powered Cognitive Model
             </div>
-            <h1 className="text-3xl font-bold text-slate-900 dark:text-white">Reorder Intelligence</h1>
-            <p className="text-slate-500 dark:text-slate-400 mt-1 text-sm">
-              GAT+LSTM forecasts joined with live inventory — proactive stock management.
+            <h1 className="text-3xl md:text-5xl font-extrabold bg-gradient-to-b from-white via-white to-slate-400 bg-clip-text text-transparent tracking-tight">
+              Reorder Intelligence
+            </h1>
+            <p className="text-slate-400 mt-2 text-sm max-w-xl leading-relaxed">
+              GAT+LSTM predictions merged with live inventory telemetry for preemptive catalog management.
             </p>
             {cacheAgeLabel && (
-              <p className="text-xs text-slate-400 dark:text-slate-500 mt-1 flex items-center gap-1">
-                <Info className="h-3 w-3" />
-                Forecast data last updated {cacheAgeLabel}
+              <p className="text-xs text-slate-500 mt-2 flex items-center gap-1">
+                <Info className="h-3.5 w-3.5 text-[#00B4D8]" />
+                Forecast weights parsed {cacheAgeLabel}
               </p>
             )}
           </div>
-          <div className="flex items-center gap-2 flex-wrap">
+          <div className="flex items-center gap-3 flex-wrap">
             {/* Upload snapshot */}
-            <label className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold cursor-pointer transition-all duration-200 shadow-sm border
+            <label className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold tracking-wider uppercase cursor-pointer transition-all duration-300 shadow-lg border
               ${uploading
-                ? 'bg-slate-100 dark:bg-neutral-800 text-slate-400 cursor-not-allowed border-slate-200 dark:border-neutral-800'
-                : 'bg-white dark:bg-neutral-900 border-slate-200 dark:border-neutral-800 text-slate-700 dark:text-slate-300 hover:border-violet-400 dark:hover:border-violet-650 hover:text-violet-600 dark:hover:text-violet-400 hover:shadow-md'
+                ? 'bg-white/[0.02] border-white/[0.06] text-slate-500 cursor-not-allowed'
+                : 'bg-white/[0.03] border-white/[0.08] text-white hover:bg-white/[0.06] hover:border-[#00B4D8]/50 hover:shadow-[0_0_15px_rgba(0,180,216,0.2)]'
               }`}>
               {uploading
-                ? <Loader2 className="h-4 w-4 animate-spin" />
-                : <Upload className="h-4 w-4" />}
-              {uploading ? 'Uploading…' : 'Upload Snapshot'}
+                ? <Loader2 className="h-4 w-4 animate-spin text-[#00B4D8]" />
+                : <Upload className="h-4 w-4 text-[#00B4D8]" />}
+              <span>{uploading ? 'Processing…' : 'Upload Snapshot'}</span>
               <input
                 type="file"
                 accept=".csv"
@@ -342,23 +381,25 @@ export default function ReorderIntelligence() {
                 onChange={handleUpload}
               />
             </label>
+
             {/* Refresh */}
             <button
               onClick={() => fetchIntelligence(true)}
               disabled={refreshing || loading}
-              className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold bg-white dark:bg-neutral-900 border border-slate-200 dark:border-neutral-800 text-slate-700 dark:text-slate-300 hover:border-violet-400 hover:text-violet-600 dark:hover:text-violet-400 transition-all duration-200 shadow-sm disabled:opacity-50"
+              className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold tracking-wider uppercase bg-white/[0.03] border border-white/[0.08] text-white hover:bg-white/[0.06] hover:border-[#7B2FBE]/50 hover:shadow-[0_0_15px_rgba(123,47,190,0.2)] transition-all duration-300 shadow-lg disabled:opacity-50 cursor-pointer"
             >
-              <RefreshCw className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
-              Refresh
+              <RefreshCw className={`h-4 w-4 text-[#7B2FBE] ${refreshing ? 'animate-spin' : ''}`} />
+              <span>Refresh</span>
             </button>
+
             {/* Export */}
             {allItems.length > 0 && (
               <button
                 onClick={exportCSV}
-                className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold bg-white dark:bg-neutral-900 border border-slate-200 dark:border-neutral-800 text-slate-700 dark:text-slate-300 hover:border-slate-400 transition-all duration-200 shadow-sm"
+                className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold tracking-wider uppercase bg-white/[0.03] border border-white/[0.08] text-white hover:bg-white/[0.06] hover:border-slate-500 transition-all duration-300 shadow-lg cursor-pointer"
               >
-                <Download className="h-4 w-4" />
-                Export
+                <Download className="h-4 w-4 text-slate-400" />
+                <span>Export</span>
               </button>
             )}
           </div>
@@ -366,25 +407,22 @@ export default function ReorderIntelligence() {
 
         {/* ── Summary cards ── */}
         {data?.summary && (
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
-            <SummaryCard label="Critical"       count={data.summary.critical}       icon={XCircle}      colorClass="bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400" />
-            <SummaryCard label="Reorder Needed" count={data.summary.reorder_needed} icon={AlertTriangle} colorClass="bg-amber-100 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400" />
-            <SummaryCard label="Healthy"        count={data.summary.ok}             icon={CheckCircle2}  colorClass="bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400" />
-            <SummaryCard label="Overstock"      count={data.summary.overstock}      icon={Package}      colorClass="bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400" />
-            <SummaryCard label="No Forecast"    count={data.summary.no_forecast}    icon={BarChart3}    colorClass="bg-slate-100 dark:bg-neutral-800 text-slate-500 dark:text-slate-400" />
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
+            <SummaryCard label="Critical"       count={data.summary.critical}       icon={XCircle}      colorClass="text-rose-400 bg-rose-500/10 border-rose-500/20" />
+            <SummaryCard label="Reorder Needed" count={data.summary.reorder_needed} icon={AlertTriangle} colorClass="text-amber-400 bg-amber-500/10 border-amber-500/20" />
+            <SummaryCard label="Healthy"        count={data.summary.ok}             icon={CheckCircle2}  colorClass="text-emerald-400 bg-emerald-500/10 border-emerald-500/20" />
+            <SummaryCard label="Overstock"      count={data.summary.overstock}      icon={Package}      colorClass="text-[#00B4D8] bg-[#00B4D8]/10 border-[#00B4D8]/20" />
+            <SummaryCard label="No Forecast"    count={data.summary.no_forecast}    icon={BarChart3}    colorClass="text-slate-400 bg-white/[0.03] border-white/[0.05]" />
           </div>
         )}
-
-
 
         {/* ── Loading ── */}
         {loading && (
           <div className="flex flex-col items-center justify-center py-24 gap-4">
             <div className="relative">
-              <div className="h-16 w-16 rounded-full border-4 border-violet-200 dark:border-violet-800" />
-              <div className="absolute inset-0 h-16 w-16 rounded-full border-4 border-violet-600 dark:border-violet-400 border-t-transparent animate-spin" />
+              <div className="h-16 w-16 rounded-full border-4 border-white/[0.04] border-t-[#00B4D8] animate-spin" />
             </div>
-            <p className="text-slate-500 dark:text-slate-400 text-sm">Computing reorder intelligence…</p>
+            <p className="text-slate-400 font-mono text-xs">Computing real-time coverage projections...</p>
           </div>
         )}
 
@@ -392,38 +430,38 @@ export default function ReorderIntelligence() {
         {!loading && error && (
           error.toLowerCase().includes('snapshot') ? (
             <div className="flex flex-col items-center py-6 px-4 animate-fade-in-up">
-              <Card className="w-full max-w-xl shadow-2xl border-0 bg-white/95 dark:bg-neutral-900/95 backdrop-blur-sm">
-                <CardHeader className="bg-gradient-to-r from-blue-50 to-purple-50 dark:from-neutral-900 dark:to-neutral-900 rounded-t-2xl border-b border-slate-100 dark:border-neutral-800/50">
-                  <CardTitle className="flex items-center space-x-2 text-slate-900 dark:text-white">
-                    <Database className="h-6 w-6 text-blue-600 dark:text-blue-400" />
+              <Card className="w-full max-w-xl border border-white/[0.08] bg-white/[0.015] backdrop-blur-2xl rounded-2xl shadow-[0_8px_32px_0_rgba(0,0,0,0.85)] overflow-hidden">
+                <CardHeader className="border-b border-white/[0.06] bg-white/[0.01] p-6">
+                  <CardTitle className="flex items-center space-x-3 text-white text-lg font-semibold">
+                    <Database className="h-5 w-5 text-[#00B4D8]" />
                     <span>Initialize Reorder Intelligence</span>
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="p-8 space-y-6">
-                  <div className="text-sm text-slate-600 dark:text-slate-300 leading-relaxed text-center">
+                  <div className="text-sm text-slate-300 leading-relaxed text-center">
                     To start displaying suggestions, upload a current inventory snapshot CSV file.
                   </div>
 
                   {/* Sleek, matching file upload zone from Upload.js */}
                   <label className="block">
-                    <div className="border-dashed border-2 border-slate-300 dark:border-neutral-800 hover:border-blue-400 dark:hover:border-blue-400 transition-all duration-300 group hover:shadow-lg bg-gradient-to-br from-blue-50/20 to-cyan-50/20 dark:from-neutral-900/90 dark:to-neutral-900/90 rounded-2xl p-8 cursor-pointer relative">
+                    <div className="border-dashed border-2 border-white/[0.08] hover:border-[#00B4D8]/50 transition-all duration-300 group hover:shadow-[0_0_25px_rgba(0,180,216,0.15)] bg-white/[0.01] hover:bg-white/[0.02] backdrop-blur-xl rounded-2xl p-8 cursor-pointer relative overflow-hidden">
                       <div className="text-center space-y-3">
                         {uploading ? (
                           <div className="space-y-3">
-                            <Loader2 className="h-12 w-12 text-blue-500 mx-auto animate-spin" />
+                            <Loader2 className="h-12 w-12 text-[#00B4D8] mx-auto animate-spin" />
                             <div>
-                              <p className="font-semibold text-slate-900 dark:text-white">Processing Snapshot...</p>
-                              <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">Mapping warehouse stock levels...</p>
+                              <p className="font-semibold text-white">Processing Snapshot...</p>
+                              <p className="text-xs text-slate-400 mt-1">Mapping warehouse stock levels...</p>
                             </div>
                           </div>
                         ) : (
                           <div className="space-y-3">
                             <div className="relative group-hover:scale-105 transition-transform duration-300">
-                              <Upload className="h-12 w-12 text-slate-450 mx-auto group-hover:text-blue-500 transition-colors" />
+                              <Upload className="h-12 w-12 text-slate-500 mx-auto group-hover:text-[#00B4D8] transition-colors" />
                             </div>
                             <div>
-                              <p className="font-semibold text-slate-900 dark:text-white group-hover:text-blue-600 transition-colors">Choose Inventory CSV File</p>
-                              <p className="text-xs text-slate-500 dark:text-slate-400">drag and drop or click to browse</p>
+                              <p className="font-semibold text-white group-hover:text-[#00B4D8] transition-colors">Choose Inventory CSV File</p>
+                              <p className="text-xs text-slate-455 text-slate-400 mt-1">drag and drop or click to browse</p>
                             </div>
                           </div>
                         )}
@@ -438,21 +476,21 @@ export default function ReorderIntelligence() {
                     </div>
                   </label>
 
-                  <div className="text-[11px] text-slate-400 dark:text-slate-500 flex items-center justify-center gap-1.5 text-center">
+                  <div className="text-[11px] text-slate-500 flex items-center justify-center gap-1.5 text-center">
                     Required columns: 
-                    <code className="bg-slate-100 dark:bg-neutral-800 px-1.5 py-0.5 rounded text-violet-600 dark:text-violet-400 font-semibold">product_id</code> 
+                    <code className="bg-white/[0.04] px-2 py-0.5 rounded text-violet-400 font-mono">product_id</code> 
                     and 
-                    <code className="bg-slate-100 dark:bg-neutral-800 px-1.5 py-0.5 rounded text-violet-600 dark:text-violet-400 font-semibold">current_stock</code>
+                    <code className="bg-white/[0.04] px-2 py-0.5 rounded text-violet-400 font-mono">current_stock</code>
                   </div>
                 </CardContent>
               </Card>
             </div>
           ) : (
             <div className="flex flex-col items-center py-20 gap-4">
-              <div className="p-4 rounded-2xl bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 max-w-lg w-full text-center">
-                <XCircle className="h-10 w-10 text-red-500 mx-auto mb-3" />
-                <p className="font-semibold text-red-700 dark:text-red-300 mb-1">Could not load data</p>
-                <p className="text-sm text-red-600 dark:text-red-400">{error}</p>
+              <div className="p-5 rounded-2xl bg-rose-500/10 border border-rose-500/20 max-w-lg w-full text-center">
+                <XCircle className="h-10 w-10 text-rose-455 text-rose-400 mx-auto mb-3" />
+                <p className="font-semibold text-white mb-1">Could not load dataset</p>
+                <p className="text-xs text-slate-400 font-mono">{error}</p>
               </div>
             </div>
           )
@@ -462,20 +500,20 @@ export default function ReorderIntelligence() {
         {!loading && !error && data && (
           <>
             {/* Filter bar */}
-            <div className="flex items-center gap-2 flex-wrap">
+            <div className="flex items-center gap-3 flex-wrap bg-white/[0.015] border border-white/[0.06] p-2 rounded-2xl">
               {FILTERS.map(f => (
                 <button
                   key={f.key}
                   onClick={() => setFilterStatus(f.key)}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all duration-200 ${
+                  className={`px-4 py-2 rounded-xl text-xs font-bold tracking-wider uppercase transition-all duration-300 cursor-pointer ${
                     filterStatus === f.key
-                      ? 'bg-violet-600 text-white shadow-sm'
-                      : 'bg-white dark:bg-neutral-900 border border-slate-200 dark:border-neutral-800 text-slate-600 dark:text-slate-300 hover:border-violet-400'
+                      ? 'bg-gradient-to-r from-[#00B4D8] to-[#7B2FBE] text-white shadow-[0_0_15px_rgba(0,180,216,0.3)] border-0'
+                      : 'bg-transparent border border-transparent text-slate-400 hover:text-white hover:border-white/[0.08]'
                   }`}
                 >
-                  {f.label}
-                  <span className={`ml-1.5 px-1.5 py-0.5 rounded-full text-xs ${
-                    filterStatus === f.key ? 'bg-white/20 text-white' : 'bg-slate-100 dark:bg-neutral-800 text-slate-500 dark:text-slate-400'
+                  <span>{f.label}</span>
+                  <span className={`ml-2 px-1.5 py-0.5 rounded text-[10px] font-mono font-bold ${
+                    filterStatus === f.key ? 'bg-white/20 text-white' : 'bg-white/[0.05] text-slate-400'
                   }`}>
                     {f.key === 'all' ? allItems.length : (data.summary[f.key] ?? 0)}
                   </span>
@@ -485,12 +523,12 @@ export default function ReorderIntelligence() {
 
             {/* Product rows */}
             {filteredItems.length === 0 ? (
-              <div className="text-center py-16 text-slate-400 dark:text-slate-500">
-                <Package className="h-12 w-12 mx-auto mb-3 opacity-40" />
-                <p className="font-medium">No products in this category</p>
+              <div className="text-center py-20 border border-white/[0.06] rounded-2xl bg-white/[0.01]">
+                <Package className="h-12 w-12 mx-auto mb-3 text-slate-600 animate-pulse" />
+                <p className="font-semibold text-slate-400">No matching products located in this scope</p>
               </div>
             ) : (
-              <div className="space-y-3">
+              <div className="space-y-4">
                 {filteredItems.map(item => (
                   <ProductRow
                     key={item.product_id}
@@ -503,8 +541,8 @@ export default function ReorderIntelligence() {
             )}
 
             {/* Snapshot metadata */}
-            <p className="text-xs text-center text-slate-400 dark:text-slate-600">
-              Inventory snapshot: {new Date(data.snapshotDate).toLocaleString()} · {data.totalItems} products
+            <p className="text-[10px] text-center text-slate-500 font-mono uppercase tracking-wider pt-4">
+              Inventory Snapshot: {new Date(data.snapshotDate).toLocaleString()} · {data.totalItems} Active Nodes
             </p>
           </>
         )}

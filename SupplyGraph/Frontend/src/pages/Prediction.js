@@ -1,7 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import { Button } from '../components/ui/button';
-import { Input } from '../components/ui/input';
-import { Label } from '../components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import { Badge } from '../components/ui/badge';
 import { useToast } from '../hooks/use-toast';
@@ -22,10 +20,10 @@ import {
   Brain,
   Zap,
   BarChart,
-  LineChart,
   Activity,
   Download,
-  Search
+  Search,
+  Clock
 } from 'lucide-react';
 
 // Searchable product autocomplete — shows 6 at a time, filters as you type
@@ -51,37 +49,46 @@ const ProductSearch = ({ nodeList, value, onChange }) => {
 
   return (
     <div ref={ref} className="relative">
-      <Search className="absolute left-3 top-3.5 h-4 w-4 text-slate-400 dark:text-slate-500 z-10" />
+      <Search className="absolute left-3.5 top-4 h-4 w-4 text-slate-500 z-10" />
       <input
         id="productSearch"
         type="text"
         autoComplete="off"
         value={query}
-        placeholder="Search products..."
+        placeholder="Filter skus or search products..."
         onFocus={() => setOpen(true)}
         onChange={(e) => { setQuery(e.target.value); setOpen(true); onChange(''); }}
-        className="pl-10 h-12 w-full border border-slate-300 dark:border-neutral-800 focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 dark:focus:border-purple-400 transition-all duration-300 rounded-lg bg-white dark:bg-neutral-950 text-slate-900 dark:text-white"
+        className="pl-10 h-12 w-full border border-white/[0.08] bg-white/[0.02] focus:border-[#00B4D8]/50 focus:ring-0 focus:outline-none transition-all duration-300 rounded-xl text-white placeholder-slate-500 font-mono text-sm"
       />
       {value && (
-        <button type="button" onClick={() => { setQuery(''); onChange(''); }}
-          className="absolute right-3 top-3.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300">
+        <button
+          type="button"
+          onClick={() => { setQuery(''); onChange(''); }}
+          className="absolute right-4 top-3.5 text-slate-500 hover:text-white font-mono text-sm"
+        >
           ✕
         </button>
       )}
       {open && filtered.length > 0 && (
-        <ul className="absolute z-50 mt-1 w-full max-h-[220px] overflow-y-auto bg-white dark:bg-neutral-900 border border-slate-200 dark:border-neutral-800 rounded-lg shadow-xl">
+        <ul className="absolute z-50 mt-1.5 w-full max-h-[220px] overflow-y-auto bg-black/95 border border-white/[0.08] backdrop-blur-2xl rounded-xl shadow-[0_8px_30px_rgb(0,0,0,0.85)] divide-y divide-white/[0.04]">
           {filtered.slice(0, 50).map((node, i) => (
             <li key={node}>
-              <button type="button"
+              <button
+                type="button"
                 onClick={() => { onChange(node); setQuery(node); setOpen(false); }}
-                className={`w-full text-left px-4 py-2.5 text-sm hover:bg-purple-50 dark:hover:bg-neutral-850 transition-colors flex items-center space-x-2 ${value === node ? 'bg-purple-50 dark:bg-neutral-850 text-purple-700 dark:text-purple-300 font-medium' : 'text-slate-700 dark:text-slate-300'} ${i === 0 ? 'rounded-t-lg' : ''}`}>
-                <Package className="h-3.5 w-3.5 text-slate-400 flex-shrink-0" />
+                className={`w-full text-left px-4 py-3 text-xs font-mono hover:bg-white/[0.03] transition-colors flex items-center space-x-2 ${
+                  value === node
+                    ? 'bg-white/[0.04] text-[#00B4D8] font-bold'
+                    : 'text-slate-300'
+                }`}
+              >
+                <Package className="h-4 w-4 text-slate-500 flex-shrink-0" />
                 <span>{node}</span>
               </button>
             </li>
           ))}
           {filtered.length === 0 && (
-            <li className="px-4 py-3 text-sm text-slate-500 dark:text-slate-400 text-center">No matching products</li>
+            <li className="px-4 py-3 text-xs font-mono text-slate-550 text-center">No matching nodes located</li>
           )}
         </ul>
       )}
@@ -123,13 +130,6 @@ const Prediction = () => {
     fetchNodes();
   }, []);
 
-  const handleChange = (e) => {
-    setFormData({
-      ...formData,
-      [e.target.name]: e.target.value
-    });
-  };
-
   const handleSubmit = async (e) => {
     e.preventDefault();
 
@@ -151,7 +151,6 @@ const Prediction = () => {
       }
       if (!companyId) throw new Error('Missing companyId');
 
-      // Check if model exists (reused for confidence later)
       let cachedModelInfo = null;
       try {
         cachedModelInfo = await getModelInfo(companyId);
@@ -174,11 +173,9 @@ const Prediction = () => {
         product: formData.productName
       };
 
-      const resp = await predict(companyId, [inputRow], 30); // Request 30-day forecast
+      const resp = await predict(companyId, [inputRow], 30);
+      const predObj = resp?.prediction ?? resp;
 
-      const predObj = resp?.prediction ?? resp; // handle both {prediction:{...}} and flat {...}
-
-      // Handle 30-day forecast or single day prediction
       let yhat = 0;
       let total30Days = 0;
       let forecastArray = null;
@@ -188,7 +185,6 @@ const Prediction = () => {
       const backendRawPeak = Number(predObj?.rawPredicted);
       
       if (backendForecastArray && backendForecastArray.length === 30) {
-        // 30-day forecast
         forecastArray = backendForecastArray;
         total30Days = Number.isFinite(backendTotal)
           ? backendTotal
@@ -196,7 +192,6 @@ const Prediction = () => {
         const avgFromBackend = Number.isFinite(backendAverage) ? backendAverage : null;
         yhat = Number.isFinite(avgFromBackend) ? avgFromBackend : (total30Days / 30);
       } else {
-        // Single day prediction (backward compatibility)
         const yhatRaw = Array.isArray(predObj?.prediction)
           ? predObj.prediction[0]
           : Array.isArray(resp?.prediction)
@@ -206,13 +201,11 @@ const Prediction = () => {
         yhat = Number.isFinite(yhatParsed) ? yhatParsed : 0;
       }
 
-      // Get historical data for charts
       let historicalData = [];
       try {
         const historicalResp = await getHistoricalData(companyId, formData.productName, 30);
         historicalData = Array.isArray(historicalResp.historical_data) ? historicalResp.historical_data : [];
 
-        // Validate historical data format
         historicalData = historicalData.filter(item =>
           item &&
           typeof item === 'object' &&
@@ -221,7 +214,6 @@ const Prediction = () => {
           item.demand > 0
         );
       } catch (error) {
-        // Fallback to generated data if historical data is not available
         historicalData = Array.from({ length: 20 }).map((_, i) => ({
           date: new Date(Date.now() - (19 - i) * 86400000).toISOString(),
           demand: Math.max(1, Math.round(Math.random() * 1000)),
@@ -229,7 +221,6 @@ const Prediction = () => {
         }));
       }
 
-      // Calculate confidence from actual model metrics (reuse cachedModelInfo)
       let confidence = 75;
       const valMape = cachedModelInfo?.metrics?.val_mape;
       if (typeof valMape === 'number' && valMape >= 0 && valMape <= 1) {
@@ -237,13 +228,12 @@ const Prediction = () => {
         confidence = Math.min(99, Math.max(30, confidence));
       }
 
-      // Determine trend based on prediction value
       let trend = 'flat';
       if (yhat > 100) trend = 'increasing';
       else if (yhat < 50) trend = 'decreasing';
 
       const predictionPayload = {
-        predictedDemand: Math.round((Number.isFinite(backendTotal) ? backendTotal : total30Days) || yhat), // total window
+        predictedDemand: Math.round((Number.isFinite(backendTotal) ? backendTotal : total30Days) || yhat),
         displayPredicted: Number.isFinite(backendTotal)
           ? Math.round(backendTotal)
           : Number.isFinite(total30Days)
@@ -254,7 +244,7 @@ const Prediction = () => {
           : forecastArray
             ? Math.max(...forecastArray.map(val => Number(val) || 0))
             : yhat,
-        prediction: forecastArray || backendForecastArray || (Array.isArray(predObj?.prediction) ? predObj.prediction : [yhat]), // Include full forecast array
+        prediction: forecastArray || backendForecastArray || (Array.isArray(predObj?.prediction) ? predObj.prediction : [yhat]),
         total_30_days: Number.isFinite(backendTotal) ? backendTotal : total30Days,
         average_daily: Number.isFinite(backendAverage) ? backendAverage : yhat,
         next_day_prediction: forecastArray && forecastArray.length
@@ -275,15 +265,9 @@ const Prediction = () => {
       };
 
       setPrediction(predictionPayload);
-
-
       toast({ title: 'Success!', description: 'Demand prediction generated successfully' });
     } catch (error) {
-      console.error('[Prediction] Error during prediction process', {
-        error: error.message,
-        stack: error.stack,
-        timestamp: new Date().toISOString()
-      });
+      console.error('[Prediction] Error during prediction process', error);
       toast({
         title: "Error",
         description: error.message || "Prediction failed. Please try again.",
@@ -297,9 +281,9 @@ const Prediction = () => {
   const getTrendIcon = (trend) => {
     switch (trend) {
       case 'increasing':
-        return <TrendingUp className="h-4 w-4 text-green-500" />;
+        return <TrendingUp className="h-4 w-4 text-green-400" />;
       case 'decreasing':
-        return <TrendingDown className="h-4 w-4 text-red-500" />;
+        return <TrendingDown className="h-4 w-4 text-rose-400" />;
       default:
         return <Minus className="h-4 w-4 text-slate-500" />;
     }
@@ -308,52 +292,54 @@ const Prediction = () => {
   const getTrendColor = (trend) => {
     switch (trend) {
       case 'increasing':
-        return 'bg-green-100 text-green-800 border-green-200 dark:bg-green-900/30 dark:text-green-300 dark:border-green-800';
+        return 'bg-green-500/10 text-green-400 border border-green-500/20';
       case 'decreasing':
-        return 'bg-red-100 text-red-800 border-red-200 dark:bg-red-900/30 dark:text-red-300 dark:border-red-800';
+        return 'bg-red-500/10 text-red-400 border border-red-500/20';
       default:
-        return 'bg-slate-100 text-slate-800 border-slate-200 dark:bg-neutral-800 dark:text-neutral-300 dark:border-neutral-700';
+        return 'bg-white/[0.02] text-slate-400 border border-white/10';
     }
   };
 
-  // Chart view state
-  const [chartView, setChartView] = useState('analytics'); // 'simple' or 'analytics'
+  const [chartView, setChartView] = useState('analytics');
 
   return (
-    <div className="min-h-screen py-12 px-4 sm:px-6 lg:px-8 bg-gradient-to-br from-slate-50 to-indigo-50 dark:from-black dark:to-black">
-      <div className="max-w-4xl mx-auto">
+    <div className="min-h-screen py-24 px-4 sm:px-6 lg:px-8 bg-[#000000] relative overflow-hidden text-white">
+      {/* Background Ambient Glow Orbs */}
+      <div className="absolute top-[10%] left-[-10%] w-[450px] h-[450px] rounded-full bg-[#00B4D8]/8 blur-[130px] pointer-events-none" />
+      <div className="absolute bottom-[20%] right-[-10%] w-[450px] h-[450px] rounded-full bg-[#7B2FBE]/6 blur-[130px] pointer-events-none" />
+
+      <div className="max-w-4xl mx-auto relative z-10 animate-fade-in">
         {/* Header */}
-        <div className="text-center mb-8 animate-fade-in-up">
-          <div className="inline-flex items-center space-x-2 bg-white/80 dark:bg-neutral-900/80 backdrop-blur-sm px-4 py-2 rounded-full border border-blue-200 dark:border-neutral-800 shadow-lg mb-4">
-            <Brain className="h-4 w-4 text-blue-500 dark:text-blue-400" />
-            <span className="text-sm font-medium text-blue-700 dark:text-blue-300">AI Prediction Engine</span>
-            <Sparkles className="h-4 w-4 text-purple-500 dark:text-purple-400" />
+        <div className="text-center mb-10">
+          <div className="inline-flex items-center space-x-2 bg-white/[0.02] border border-white/[0.08] backdrop-blur-xl px-4 py-1.5 rounded-full shadow-2xl mb-4">
+            <Brain className="h-3.5 w-3.5 text-[#00B4D8]" />
+            <span className="text-xs font-mono tracking-widest text-[#00B4D8] uppercase">Predictive Kernel v1.2</span>
+            <Sparkles className="h-3.5 w-3.5 text-[#7B2FBE]" />
           </div>
-          <h1 className="text-3xl md:text-4xl font-bold bg-gradient-to-r from-slate-800 to-blue-600 dark:from-slate-200 dark:to-blue-400 bg-clip-text text-transparent mb-4">
-            Demand Prediction Dashboard
+          <h1 className="text-3xl md:text-5xl font-extrabold tracking-tight bg-gradient-to-b from-white to-slate-400 bg-clip-text text-transparent">
+            Demand Prediction Engine
           </h1>
-          <p className="text-xl text-slate-600 dark:text-slate-300 max-w-2xl mx-auto leading-relaxed">
-            Get AI-powered demand forecasts with advanced analytics and actionable insights
+          <p className="text-slate-450 mt-3 text-sm md:text-base max-w-xl mx-auto leading-relaxed">
+            Acquire deep, neural forecasting insights. Our GAT+LSTM hybrid layers predict safety capacity spikes and flow anomalies.
           </p>
         </div>
 
         {/* Prediction Input Form */}
-        <Card className="shadow-2xl border-0 bg-white/90 dark:bg-neutral-900/90 backdrop-blur-sm animate-fade-in-up mb-8">
-          <CardHeader className="bg-gradient-to-r from-blue-50 to-purple-50 dark:from-neutral-900 dark:to-neutral-900 rounded-t-lg">
-            <CardTitle className="flex items-center space-x-2 text-slate-900 dark:text-white">
-              <Target className="h-6 w-6 text-blue-600 dark:text-blue-400" />
-              <span>Prediction Input</span>
+        <Card className="border border-white/[0.06] bg-white/[0.015] backdrop-blur-2xl overflow-hidden shadow-2xl mb-8">
+          <CardHeader className="border-b border-white/[0.05] bg-white/[0.01] px-6 py-4">
+            <CardTitle className="flex items-center space-x-2 text-white">
+              <Target className="h-5 w-5 text-[#00B4D8]" />
+              <span className="font-semibold text-sm uppercase tracking-wider font-mono">Prediction Matrix Selection</span>
             </CardTitle>
           </CardHeader>
           <CardContent className="p-6">
             <form onSubmit={handleSubmit} className="space-y-6">
               <div className="grid grid-cols-1 gap-6">
-                {/* Product Name — Searchable Autocomplete */}
                 <div className="space-y-2">
-                  <Label htmlFor="productSearch" className="text-slate-700 dark:text-slate-300 font-medium flex items-center space-x-2">
-                    <Package className="h-4 w-4 text-purple-500 dark:text-purple-400" />
-                    <span>Select Product</span>
-                  </Label>
+                  <label htmlFor="productSearch" className="text-xs font-mono uppercase tracking-wider text-slate-500 flex items-center space-x-2">
+                    <Package className="h-4 w-4 text-[#7B2FBE]" />
+                    <span>Selected Product / SKU identifier</span>
+                  </label>
                   <ProductSearch
                     nodeList={nodeList}
                     value={formData.productName}
@@ -366,18 +352,18 @@ const Prediction = () => {
                 <Button
                   type="submit"
                   disabled={loading}
-                  className="px-10 py-3 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 dark:from-blue-700 dark:to-purple-700 dark:hover:from-blue-600 dark:hover:to-purple-600 text-white font-semibold transition-all duration-300 hover:scale-[1.02] hover:shadow-xl group border-0 rounded-lg"
+                  className="px-10 py-3 bg-gradient-to-r from-[#00B4D8] to-[#7B2FBE] hover:from-[#00B4D8]/95 hover:to-[#7B2FBE]/95 text-white font-mono text-xs uppercase tracking-wider rounded-xl border-0 shadow-lg"
                 >
                   {loading ? (
                     <>
                       <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Generating Prediction...
+                      Resolving Nodes...
                     </>
                   ) : (
                     <>
-                      <Zap className="mr-2 h-4 w-4" />
-                      Get AI Prediction
-                      <BarChart3 className="ml-2 h-4 w-4 group-hover:scale-110 transition-transform" />
+                      <Zap className="mr-2 h-4 w-4 text-amber-300" />
+                      Get AI Demand Forecast
+                      <BarChart3 className="ml-2 h-4 w-4 text-[#00B4D8]" />
                     </>
                   )}
                 </Button>
@@ -385,103 +371,101 @@ const Prediction = () => {
             </form>
 
             {/* Quick Tips */}
-            <div className="mt-6 p-4 bg-gradient-to-r from-blue-50 to-purple-50 dark:from-neutral-900/50 dark:to-neutral-900/50 rounded-lg border border-blue-200 dark:border-neutral-800">
-              <h4 className="font-medium text-slate-800 dark:text-slate-300 mb-2 flex items-center space-x-2">
-                <Lightbulb className="h-4 w-4 text-yellow-500 dark:text-yellow-400" />
-                <span>Quick Tips</span>
-              </h4>
-              <ul className="text-sm text-slate-600 dark:text-slate-400 space-y-1">
-                <li>• Use specific store names for better accuracy</li>
-                <li>• Include product categories when possible</li>
-                <li>• Try seasonal products for trend analysis</li>
-              </ul>
+            <div className="mt-6 p-4 bg-white/[0.01] border border-white/[0.06] rounded-xl flex items-start gap-3">
+              <Lightbulb className="h-5 w-5 text-amber-400 shrink-0 mt-0.5" />
+              <div>
+                <h4 className="font-semibold text-xs text-white uppercase font-mono tracking-wider mb-1">Forecast Directives</h4>
+                <ul className="text-[11px] font-mono text-slate-550 space-y-1">
+                  <li>• GNN maps dependencies based on historical nodes.</li>
+                  <li>• If anomalies are returned, check reorder directives.</li>
+                </ul>
+              </div>
             </div>
           </CardContent>
         </Card>
 
         {/* Results Section */}
         {prediction ? (
-          <div className="space-y-6 animate-fade-in-up" style={{ animationDelay: '0.1s' }}>
+          <div className="space-y-6 animate-fade-in-up">
             {/* Main Prediction Card */}
-            <Card className="shadow-2xl border-0 bg-white/90 dark:bg-neutral-900/90 backdrop-blur-sm overflow-hidden">
-              <CardHeader className="bg-gradient-to-r from-green-50 to-emerald-50 dark:from-neutral-900 dark:to-neutral-900 rounded-t-lg">
+            <Card className="border border-white/[0.06] bg-white/[0.015] backdrop-blur-2xl overflow-hidden shadow-2xl">
+              <CardHeader className="border-b border-white/[0.05] bg-white/[0.01] px-6 py-4">
                 <CardTitle className="flex items-center justify-between">
-                  <div className="flex items-center space-x-2">
-                    <BarChart3 className="h-6 w-6 text-green-600 dark:text-green-400" />
-                    <span className="text-slate-900 dark:text-white">Demand Forecast Results</span>
+                  <div className="flex items-center space-x-2 text-white">
+                    <BarChart3 className="h-5 w-5 text-green-400" />
+                    <span className="font-semibold text-sm uppercase tracking-wider font-mono font-bold">Demand Forecast Results</span>
                   </div>
-                  <Badge className="bg-white/80 text-green-700 border-green-200 shadow-sm dark:bg-neutral-850 dark:text-green-300 dark:border-green-800">
+                  <Badge className="bg-[#00B4D8]/10 text-[#00B4D8] border border-[#00B4D8]/20 font-mono text-xs uppercase rounded-lg px-2.5 py-1">
                     Confidence: {prediction.confidence}
                   </Badge>
                 </CardTitle>
               </CardHeader>
               <CardContent className="p-6">
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                  
                   <div className="text-center group">
-                    <div className="bg-gradient-to-br from-blue-50 to-blue-100 dark:from-neutral-950 dark:to-neutral-900 rounded-2xl p-6 hover:from-blue-100 hover:to-blue-200 dark:hover:from-neutral-900 dark:hover:to-neutral-900 transition-all duration-300 hover:scale-105">
-                      <div className="text-4xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 dark:from-blue-400 dark:to-purple-400 bg-clip-text text-transparent mb-2">
+                    <div className="bg-white/[0.01] border border-white/[0.05] rounded-2xl p-5 hover:bg-white/[0.03] transition-all duration-300">
+                      <div className="text-3xl font-extrabold text-white mb-1.5 tracking-tight">
                         {(() => {
                           const nextDay = Number.isFinite(prediction?.next_day_prediction)
                             ? prediction.next_day_prediction
                             : Number(prediction?.rawPredicted ?? prediction?.predictedDemand ?? prediction?.average_daily);
-                          const value = Number.isFinite(nextDay) ? nextDay : 0;
-                          return value.toLocaleString(undefined, { maximumFractionDigits: 0 });
+                          return Math.round(nextDay).toLocaleString();
                         })()}
                       </div>
-                      <p className="text-slate-600 dark:text-slate-400 font-medium">
-                        Predicted Units (Next Day)
-                      </p>
+                      <p className="text-[10px] font-mono uppercase tracking-wider text-slate-500">Predicted Units (Next Day)</p>
                       {Number.isFinite(prediction?.total_30_days) && (
-                        <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-                          30-day total: {Number(prediction.total_30_days).toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                        <p className="text-[9px] font-mono text-slate-400 mt-1">
+                          30D Total: {Math.round(prediction.total_30_days).toLocaleString()}
                         </p>
                       )}
-                      <div className="mt-2 h-1 bg-gradient-to-r from-blue-400 to-purple-400 dark:from-blue-500 dark:to-purple-500 rounded-full"></div>
+                      <div className="mt-3.5 h-1 bg-gradient-to-r from-[#00B4D8] to-[#7B2FBE] rounded-full"></div>
                     </div>
                   </div>
 
                   <div className="text-center group">
-                    <div className="bg-gradient-to-br from-slate-50 to-slate-100 dark:from-neutral-950 dark:to-neutral-900 rounded-2xl p-6 hover:from-slate-100 hover:to-slate-200 dark:hover:from-neutral-900 dark:hover:to-neutral-900 transition-all duration-300 hover:scale-105">
+                    <div className="bg-white/[0.01] border border-white/[0.05] rounded-2xl p-5 hover:bg-white/[0.03] transition-all duration-300">
                       <div className="flex items-center justify-center space-x-2 mb-2">
                         {getTrendIcon(prediction.trend)}
-                        <Badge className={`${getTrendColor(prediction.trend)} font-medium`}>
+                        <Badge className={`${getTrendColor(prediction.trend)} font-mono text-[10px] uppercase rounded-lg`}>
                           {prediction.trend}
                         </Badge>
                       </div>
-                      <p className="text-slate-600 dark:text-slate-400 font-medium">Market Trend</p>
-                      <div className="mt-2 h-1 bg-gradient-to-r from-slate-300 to-slate-400 dark:from-neutral-800 dark:to-neutral-700 rounded-full"></div>
+                      <p className="text-[10px] font-mono uppercase tracking-wider text-slate-500">Market Trend</p>
+                      <div className="mt-3.5 h-1 bg-gradient-to-r from-slate-650 to-slate-800 rounded-full"></div>
                     </div>
                   </div>
 
                   <div className="text-center group">
-                    <div className="bg-gradient-to-br from-green-50 to-green-100 dark:from-neutral-950 dark:to-neutral-900 rounded-2xl p-6 hover:from-green-100 hover:to-green-200 dark:hover:from-neutral-900 dark:hover:to-neutral-900 transition-all duration-300 hover:scale-105">
-                      <div className="text-4xl font-bold text-green-600 dark:text-green-400 mb-2">
+                    <div className="bg-white/[0.01] border border-white/[0.05] rounded-2xl p-5 hover:bg-white/[0.03] transition-all duration-300">
+                      <div className="text-3xl font-extrabold text-green-400 mb-1.5 tracking-tight">
                         {prediction.confidence}
                       </div>
-                      <p className="text-slate-600 dark:text-slate-400 font-medium">AI Confidence</p>
-                      <div className="mt-2 h-1 bg-gradient-to-r from-green-400 to-emerald-400 dark:from-green-500 dark:to-emerald-500 rounded-full"></div>
+                      <p className="text-[10px] font-mono uppercase tracking-wider text-slate-500">GNN Stability Confidence</p>
+                      <div className="mt-3.5 h-1 bg-gradient-to-r from-green-500 to-emerald-500 rounded-full"></div>
                     </div>
                   </div>
+
                 </div>
 
-                <div className="bg-gradient-to-r from-slate-50 to-blue-50 dark:from-neutral-950 dark:to-neutral-900 rounded-xl p-6 border border-slate-200 dark:border-neutral-800">
+                <div className="bg-white/[0.01] border border-white/[0.05] rounded-xl p-5 font-mono text-xs">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="flex items-center space-x-3">
-                      <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-blue-600 rounded-lg flex items-center justify-center">
-                        <Store className="h-5 w-5 text-white" />
+                      <div className="w-8.5 h-8.5 bg-[#00B4D8]/10 rounded-lg flex items-center justify-center">
+                        <Store className="h-4.5 w-4.5 text-[#00B4D8]" />
                       </div>
                       <div>
-                        <span className="font-medium text-slate-900 dark:text-white">Store:</span>
-                        <span className="text-slate-700 dark:text-slate-400 ml-2">{prediction.storeName}</span>
+                        <span className="text-slate-500 uppercase text-[10px] block">Facility Node</span>
+                        <span className="text-white font-bold text-sm">{prediction.storeName || 'Primary hub'}</span>
                       </div>
                     </div>
                     <div className="flex items-center space-x-3">
-                      <div className="w-10 h-10 bg-gradient-to-br from-purple-500 to-purple-600 rounded-lg flex items-center justify-center">
-                        <Package className="h-5 w-5 text-white" />
+                      <div className="w-8.5 h-8.5 bg-[#7B2FBE]/10 rounded-lg flex items-center justify-center">
+                        <Package className="h-4.5 w-4.5 text-[#7B2FBE]" />
                       </div>
                       <div>
-                        <span className="font-medium text-slate-900 dark:text-white">Product:</span>
-                        <span className="text-slate-700 dark:text-slate-400 ml-2">{prediction.productName}</span>
+                        <span className="text-slate-500 uppercase text-[10px] block">Product Identifier</span>
+                        <span className="text-white font-bold text-sm">{prediction.productName}</span>
                       </div>
                     </div>
                   </div>
@@ -489,34 +473,40 @@ const Prediction = () => {
               </CardContent>
             </Card>
 
-
-
             {/* Demand Visualization */}
-            <Card className="shadow-2xl border-0 bg-white/90 dark:bg-neutral-900/90 backdrop-blur-sm">
-              <CardHeader className="bg-gradient-to-r from-indigo-50 to-purple-50 dark:from-neutral-900 dark:to-neutral-900 rounded-t-lg">
+            <Card className="border border-white/[0.06] bg-white/[0.015] backdrop-blur-2xl overflow-hidden shadow-2xl">
+              <CardHeader className="border-b border-white/[0.05] bg-white/[0.01] px-6 py-4">
                 <CardTitle className="flex items-center justify-between">
-                  <div className="flex items-center space-x-2 text-slate-900 dark:text-white">
-                    <BarChart3 className="h-6 w-6 text-indigo-600 dark:text-indigo-400" />
-                    <span>Demand Visualization</span>
+                  <div className="flex items-center space-x-2 text-white">
+                    <BarChart3 className="h-5 w-5 text-indigo-400" />
+                    <span className="font-semibold text-sm uppercase tracking-wider font-mono">Forecast Visualization Matrix</span>
                   </div>
                   <div className="flex space-x-2">
                     <Button
                       variant={chartView === 'simple' ? 'default' : 'outline'}
                       size="sm"
                       onClick={() => setChartView('simple')}
-                      className="flex items-center space-x-2"
+                      className={`px-3 py-1 font-mono text-[10px] uppercase rounded-xl border ${
+                        chartView === 'simple'
+                          ? 'bg-[#00B4D8]/10 text-[#00B4D8] border-[#00B4D8]/20'
+                          : 'bg-white/[0.01] border-white/[0.08] text-slate-400 hover:bg-white/[0.04]'
+                      }`}
                     >
-                      <BarChart className="h-4 w-4" />
-                      <span>Simple</span>
+                      <BarChart className="h-3.5 w-3.5 mr-1" />
+                      Simple
                     </Button>
                     <Button
                       variant={chartView === 'analytics' ? 'default' : 'outline'}
                       size="sm"
                       onClick={() => setChartView('analytics')}
-                      className="flex items-center space-x-2"
+                      className={`px-3 py-1 font-mono text-[10px] uppercase rounded-xl border ${
+                        chartView === 'analytics'
+                          ? 'bg-[#00B4D8]/10 text-[#00B4D8] border-[#00B4D8]/20'
+                          : 'bg-white/[0.01] border-white/[0.08] text-slate-400 hover:bg-white/[0.04]'
+                      }`}
                     >
-                      <Activity className="h-4 w-4" />
-                      <span>Analytics</span>
+                      <Activity className="h-3.5 w-3.5 mr-1" />
+                      Analytics
                     </Button>
                   </div>
                 </CardTitle>
@@ -524,7 +514,6 @@ const Prediction = () => {
               <CardContent className="p-6">
                 {chartView === 'simple' ? (
                   <div className="space-y-6">
-                    {/* Simple Line Chart */}
                     <DemandChart
                       historicalData={[]}
                       prediction={prediction}
@@ -533,8 +522,6 @@ const Prediction = () => {
                       showPrediction={true}
                       productName={prediction.productName}
                     />
-
-                    {/* Simple Bar Chart */}
                     <DemandChart
                       historicalData={[]}
                       prediction={prediction}
@@ -545,7 +532,6 @@ const Prediction = () => {
                     />
                   </div>
                 ) : (
-                  /* Comprehensive Analytics Dashboard */
                   <PredictionAnalytics
                     historicalData={prediction.historicalData}
                     prediction={prediction}
@@ -559,7 +545,7 @@ const Prediction = () => {
             {/* Export Forecast CSV */}
             {prediction?.prediction && Array.isArray(prediction.prediction) && (
               <div className="flex justify-end">
-                <button
+                <Button
                   onClick={() => {
                     const forecastArr = prediction.prediction;
                     const today = new Date();
@@ -577,36 +563,36 @@ const Prediction = () => {
                     a.click();
                     URL.revokeObjectURL(url);
                   }}
-                  className="inline-flex items-center space-x-2 px-4 py-2 border border-slate-300 dark:border-neutral-800 rounded-lg text-sm font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-neutral-850 transition-colors"
+                  className="border border-white/[0.08] bg-white/[0.02] hover:bg-white/[0.05] text-slate-350 hover:text-white font-mono text-xs uppercase tracking-wider rounded-xl px-4 py-2.5"
                 >
-                  <Download className="h-4 w-4" />
-                  <span>Export Forecast CSV</span>
-                </button>
+                  <Download className="mr-2 h-3.5 w-3.5" />
+                  Export Forecast CSV
+                </Button>
               </div>
             )}
 
             {/* AI Recommendations */}
-            <Card className="shadow-2xl border-0 bg-white/90 dark:bg-neutral-900/90 backdrop-blur-sm">
-              <CardHeader className="bg-gradient-to-r from-yellow-50 to-orange-50 dark:from-neutral-900 dark:to-neutral-900 rounded-t-lg">
-                <CardTitle className="flex items-center space-x-2 text-slate-900 dark:text-white">
-                  <Lightbulb className="h-6 w-6 text-yellow-600 dark:text-yellow-400" />
-                  <span>AI-Powered Recommendations</span>
-                  <Sparkles className="h-5 w-5 text-yellow-500 animate-pulse" />
+            <Card className="border border-white/[0.06] bg-white/[0.015] backdrop-blur-2xl overflow-hidden shadow-2xl">
+              <CardHeader className="border-b border-white/[0.05] bg-white/[0.01] px-6 py-4">
+                <CardTitle className="flex items-center space-x-2 text-white">
+                  <Lightbulb className="h-5 w-5 text-amber-400" />
+                  <span className="font-semibold text-sm uppercase tracking-wider font-mono">Neural Logistics Recommendations</span>
+                  <Sparkles className="h-4 w-4 text-amber-300 animate-pulse" />
                 </CardTitle>
               </CardHeader>
               <CardContent className="p-6">
                 <div className="space-y-4">
                   {(prediction?.recommendations ?? []).map((recommendation, index) => (
-                    <div key={index} className="group">
-                      <div className="flex items-start space-x-4 p-4 bg-gradient-to-r from-slate-50 to-blue-50 dark:from-neutral-950 dark:to-neutral-900 rounded-xl border border-slate-200 dark:border-neutral-800 hover:from-blue-50 hover:to-purple-50 dark:hover:from-neutral-900 dark:hover:to-neutral-900 hover:border-blue-300 dark:hover:border-blue-700 transition-all duration-300 hover:shadow-md">
-                        <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-purple-600 text-white rounded-full flex items-center justify-center text-sm font-bold mt-0.5 group-hover:scale-110 transition-transform duration-300">
+                    <div key={index} className="group font-mono text-xs text-slate-300">
+                      <div className="flex items-start bg-black/25 border border-white/[0.03] p-4 rounded-xl gap-3 hover:bg-black/45 transition-colors">
+                        <div className="w-6 h-6 bg-gradient-to-br from-[#00B4D8] to-[#7B2FBE] text-white rounded-full flex items-center justify-center font-bold mt-0.5 group-hover:scale-105 transition-transform duration-300 shrink-0">
                           {index + 1}
                         </div>
-                        <div className="flex-1">
-                          <p className="text-slate-700 dark:text-slate-300 leading-relaxed group-hover:text-slate-800 dark:group-hover:text-slate-200 transition-colors">{recommendation}</p>
+                        <div className="flex-1 pt-1">
+                          <p className="leading-relaxed text-slate-400 group-hover:text-slate-200 transition-colors">{recommendation}</p>
                         </div>
-                        <div className="opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-                          <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
+                        <div className="opacity-0 group-hover:opacity-100 transition-opacity duration-300 mt-1.5 shrink-0">
+                          <div className="w-1.5 h-1.5 bg-[#00B4D8] rounded-full animate-pulse"></div>
                         </div>
                       </div>
                     </div>
@@ -616,33 +602,20 @@ const Prediction = () => {
             </Card>
           </div>
         ) : (
-          <Card className="shadow-2xl border-0 bg-white/90 dark:bg-neutral-900/90 backdrop-blur-sm animate-fade-in-up">
-            <CardContent className="py-16">
-              <div className="text-center">
-                <div className="relative mb-6">
-                  <BarChart3 className="h-20 w-20 text-slate-300 dark:text-slate-600 mx-auto" />
-                  <div className="absolute inset-0 bg-gradient-to-r from-blue-400/20 to-purple-400/20 dark:from-blue-400/10 dark:to-purple-400/10 rounded-full blur-xl"></div>
-                </div>
-                <h3 className="text-2xl font-bold bg-gradient-to-r from-slate-800 to-blue-600 dark:from-slate-200 dark:to-blue-400 bg-clip-text text-transparent mb-4">
-                  Ready to Generate AI Predictions
-                </h3>
-                <p className="text-slate-600 dark:text-slate-400 max-w-md mx-auto leading-relaxed mb-6">
-                  Select a product to get AI-powered demand forecasts with interactive charts and actionable insights.
-                </p>
-                <div className="flex justify-center space-x-4">
-                  <div className="flex items-center space-x-2 text-sm text-slate-500 dark:text-slate-400">
-                    <Brain className="h-4 w-4 text-blue-500 dark:text-blue-400" />
-                    <span>AI-Powered</span>
-                  </div>
-                  <div className="flex items-center space-x-2 text-sm text-slate-500 dark:text-slate-400">
-                    <BarChart3 className="h-4 w-4 text-purple-500 dark:text-purple-400" />
-                    <span>Real-time Charts</span>
-                  </div>
-                  <div className="flex items-center space-x-2 text-sm text-slate-500 dark:text-slate-400">
-                    <Lightbulb className="h-4 w-4 text-yellow-500 dark:text-yellow-400" />
-                    <span>Smart Insights</span>
-                  </div>
-                </div>
+          <Card className="border border-white/[0.06] bg-white/[0.015] backdrop-blur-2xl overflow-hidden shadow-2xl">
+            <CardContent className="py-20 text-center">
+              <div className="relative mb-6">
+                <BarChart3 className="h-16 w-16 text-slate-700 mx-auto" />
+                <div className="absolute inset-0 bg-[#00B4D8]/5 rounded-full blur-xl"></div>
+              </div>
+              <h3 className="text-xl font-bold text-white mb-3">Ready to Analyze Product Nodes</h3>
+              <p className="text-slate-500 font-mono text-xs max-w-sm mx-auto leading-relaxed mb-6">
+                Input a valid product node in the selection matrix. Our GAT+LSTM layers will compute 30D flow trends instantly.
+              </p>
+              <div className="flex justify-center space-x-6 text-[10px] font-mono text-slate-500 uppercase tracking-widest">
+                <span className="flex items-center gap-1"><Brain className="h-3 w-3 text-[#7B2FBE]" /> AI Forecast</span>
+                <span className="flex items-center gap-1"><Clock className="h-3 w-3 text-[#00B4D8]" /> 30D Window</span>
+                <span className="flex items-center gap-1"><Target className="h-3 w-3 text-green-400" /> Action Insights</span>
               </div>
             </CardContent>
           </Card>

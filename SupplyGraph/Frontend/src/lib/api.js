@@ -233,7 +233,8 @@ export async function logout() {
 
 export function getGoogleAuthUrl() {
   logger.info('API', 'Getting Google auth URL');
-  return `${API_BASE}/api/auth/google`;
+  const origin = typeof window !== 'undefined' ? window.location.origin : 'http://localhost:3000';
+  return `${API_BASE}/api/auth/google?frontendUrl=${encodeURIComponent(origin)}`;
 }
 
 export async function getHistoricalData(companyId, product, intervalDays) {

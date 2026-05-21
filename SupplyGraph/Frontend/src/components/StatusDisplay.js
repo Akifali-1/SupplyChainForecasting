@@ -69,7 +69,7 @@ const StatusDisplay = ({ companyId }) => {
       case 'error':
         return <AlertCircle className="h-5 w-5 text-red-500" />;
       default:
-        return <Zap className="h-5 w-5 text-slate-500 dark:text-slate-400" />;
+        return <Zap className="h-5 w-5 text-neutral-500 dark:text-neutral-400" />;
     }
   };
 
@@ -84,7 +84,7 @@ const StatusDisplay = ({ companyId }) => {
       case 'error':
         return 'bg-red-100 text-red-800 border-red-200 dark:bg-red-900/30 dark:text-red-300 dark:border-red-800';
       default:
-        return 'bg-slate-100 text-slate-800 border-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700';
+        return 'bg-slate-100 text-slate-800 border-slate-200 dark:bg-neutral-800 dark:text-neutral-300 dark:border-neutral-700';
     }
   };
 
@@ -106,7 +106,7 @@ const StatusDisplay = ({ companyId }) => {
 
   if (loading && !company) {
     return (
-      <Card className="shadow-lg border-0 bg-white/90 dark:bg-slate-800/90 backdrop-blur-sm">
+      <Card className="shadow-lg border-0 bg-white/90 dark:bg-neutral-900/90 backdrop-blur-sm">
         <CardContent className="p-6">
           <div className="flex items-center justify-center space-x-2">
             <Loader2 className="h-5 w-5 animate-spin text-blue-500" />
@@ -119,7 +119,7 @@ const StatusDisplay = ({ companyId }) => {
 
   if (!company) {
     return (
-      <Card className="shadow-lg border-0 bg-white/90 dark:bg-slate-800/90 backdrop-blur-sm">
+      <Card className="shadow-lg border-0 bg-white/90 dark:bg-neutral-900/90 backdrop-blur-sm">
         <CardContent className="p-6">
           <div className="text-center text-slate-600 dark:text-slate-400">
             <AlertCircle className="h-8 w-8 mx-auto mb-2 text-slate-400 dark:text-slate-500" />
@@ -131,8 +131,8 @@ const StatusDisplay = ({ companyId }) => {
   }
 
   return (
-    <Card className="shadow-lg border-0 bg-white/90 dark:bg-slate-800/90 backdrop-blur-sm">
-      <CardHeader className="bg-gradient-to-r from-slate-50 to-blue-50 dark:from-slate-800 dark:to-slate-800 rounded-t-lg">
+    <Card className="shadow-lg border-0 bg-white/90 dark:bg-neutral-900/90 backdrop-blur-sm">
+      <CardHeader className="bg-gradient-to-r from-slate-50 to-blue-50 dark:from-neutral-900 dark:to-neutral-900 rounded-t-lg">
         <CardTitle className="flex items-center justify-between">
           <div className="flex items-center space-x-2">
             <Brain className="h-6 w-6 text-blue-600 dark:text-blue-400" />
@@ -143,7 +143,7 @@ const StatusDisplay = ({ companyId }) => {
             disabled={loading}
             variant="outline"
             size="sm"
-            className="border-slate-300 hover:border-blue-400 dark:border-slate-600 dark:hover:border-blue-400 dark:text-white"
+            className="border-slate-300 hover:border-blue-400 dark:border-neutral-700 dark:hover:border-blue-400 dark:text-white"
           >
             {loading ? (
               <Loader2 className="h-4 w-4 animate-spin" />
@@ -168,7 +168,7 @@ const StatusDisplay = ({ companyId }) => {
             </Badge>
           </div>
 
-          <div className="bg-gradient-to-r from-slate-50 to-blue-50 dark:from-slate-800 dark:to-slate-800 rounded-lg p-4 border border-slate-200 dark:border-slate-700">
+          <div className="bg-gradient-to-r from-slate-50 to-blue-50 dark:from-neutral-900 dark:to-neutral-900 rounded-lg p-4 border border-slate-200 dark:border-neutral-800">
             <div className="flex items-center space-x-2 mb-2">
               <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse"></div>
               <span className="text-sm font-medium text-slate-700 dark:text-slate-300">Real-time Status</span>

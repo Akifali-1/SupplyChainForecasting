@@ -360,12 +360,6 @@ class DemandPredictor:
     def predict(self, company_id, input_data, forecast_days=30):
         """Generate demand prediction using autoregressive rollout for N days.
         
-        For each forecast day:
-        1. Run model forward pass to get next-day prediction for all nodes
-        2. Shift the input window: drop oldest timestep, append prediction as newest
-        3. Inverse-scale the prediction and store it
-        4. Repeat for forecast_days
-        
         Returns dict with day-wise predictions array and 30-day total.
         """
         try:
@@ -374,23 +368,13 @@ class DemandPredictor:
                 print(f"MAKING PREDICTION FOR COMPANY: {company_id}")
                 print(f"{'='*60}")
             
-            # 1. Load model and metadata
-            model, model_doc = self._load_company_model(company_id)
+            # Load metadata to find the matching index for the requested product
+            _, model_doc = self._load_company_model(company_id)
             node_list = model_doc.get('node_list', [])
             if not node_list and model_doc.get('node_to_idx'):
                 node_list = list(model_doc['node_to_idx'].keys())
-            scalers = model_doc.get('scalers', {})
-            max_timesteps = model_doc.get('architecture', {}).get('max_timesteps', 5)
             
-            if self.debug:
-                print(f"  Nodes: {len(node_list)}, Max timesteps: {max_timesteps}")
-            
-            # 2. Load company's data and prepare initial input
-            sales_df, edges_df, nodes_df = self._load_company_data(company_id)
-            x = self._prepare_time_series_from_sales(sales_df, node_list, max_timesteps, scalers)
-            edge_index = self._build_edge_index_from_edges(edges_df, node_list)
-            
-            # 3. Find requested product (exact case-insensitive match only)
+            # Find requested product
             requested_product = None
             if isinstance(input_data, list) and len(input_data) > 0:
                 requested_product = input_data[0].get('product', '')
@@ -404,82 +388,35 @@ class DemandPredictor:
                         break
             
             if product_idx is None and requested_product:
-                if self.debug:
-                    print(f"  Product '{requested_product}' not found in node list")
-                    print(f"  Available: {node_list[:10]}...")
-                # Return error instead of silently falling back
                 raise ValueError(f"Product '{requested_product}' not found. Available: {node_list[:10]}")
             
             if product_idx is None:
-                product_idx = 0  # Default to first node if no product specified
+                product_idx = 0
             
-            # 4. Parse forecast days
-            try:
-                forecast_days = int(forecast_days or 30)
-            except (TypeError, ValueError):
-                forecast_days = 30
-            forecast_days = max(1, min(forecast_days, 30))
+            matched_node = node_list[product_idx]
             
-            # 5. Autoregressive rollout for forecast_days
-            model.eval()
-            daily_predictions = []
-            current_x = x.clone()  # (num_nodes, max_timesteps, 1)
+            # 1. Run predict_all to get predictions for all nodes and update cache
+            batch_results = self.predict_all(company_id, forecast_days)
             
-            with torch.no_grad():
-                for day in range(forecast_days):
-                    # Forward pass — get next-day prediction for all nodes
-                    pred = model(current_x, edge_index)  # (num_nodes, 1)
-                    
-                    # Extract prediction for target product (in scaled space)
-                    scaled_pred = pred[product_idx].item()
-                    
-                    # Inverse-scale to get real units
-                    real_pred = scaled_pred
-                    if scalers and node_list[product_idx] in scalers:
-                        scaler_data = scalers[node_list[product_idx]]
-                        mean = np.array(scaler_data.get('mean_', [0.0]))
-                        scale = np.array(scaler_data.get('scale_', [1.0]))
-                        real_pred = scaled_pred * (scale[0] if scale.size else 1.0) + (mean[0] if mean.size else 0.0)
-                    
-                    # Floor at zero (demand can't be negative)
-                    real_pred = max(0.0, real_pred)
-                    daily_predictions.append(round(real_pred, 2))
-                    
-                    # Shift window: drop oldest timestep, append prediction (in scaled space)
-                    new_step = pred.unsqueeze(-1)  # (num_nodes, 1, 1)
-                    
-                    # Inject noise + momentum to prevent autoregressive mean collapse
-                    # Without this, predictions converge to the model's mean after ~5 steps
-                    if day > 1:
-                        noise_scale = 0.03 * (1 + day * 0.01)
-                        noise = torch.randn_like(new_step) * noise_scale
-                        # Blend with running average to prevent pure drift
-                        if day > 3:
-                            running_mean = current_x.mean(dim=1, keepdim=True)
-                            new_step = 0.85 * new_step + 0.15 * running_mean + noise
-                        else:
-                            new_step = new_step + noise
-                    
-                    current_x = torch.cat([current_x[:, 1:, :], new_step], dim=1)
-                    
-                    # Always print first 5 days so we can verify sanity in the terminal
-                    if day < 5:
-                        print(f"  [Predict] Day {day+1}: scaled={scaled_pred:.4f} | real={real_pred:.2f} | node={node_list[product_idx]}")
+            # 2. Get predictions for requested product
+            product_data = batch_results.get(matched_node, {
+                'prediction': [0.0] * forecast_days,
+                'average_daily': 0.0,
+                'total_30_days': 0.0
+            })
             
-            # 6. Compute summary statistics
-            total_30_days = sum(daily_predictions)
-            average_daily = total_30_days / len(daily_predictions) if daily_predictions else 0.0
+            daily_predictions = product_data['prediction']
+            average_daily = product_data['average_daily']
+            total_30_days = product_data['total_30_days']
             
-            if self.debug:
-                print(f"\n  Forecast summary ({forecast_days} days):")
-                print(f"    Total: {total_30_days:.2f}")
-                print(f"    Avg daily: {average_daily:.2f}")
-                print(f"    Range: [{min(daily_predictions):.2f}, {max(daily_predictions):.2f}]")
+            # Fetch shape for metadata
+            sales_df, _, _ = self._load_company_data(company_id)
+            max_timesteps = model_doc.get('architecture', {}).get('max_timesteps', 5)
             
             result = {
                 'company_id': company_id,
                 'requested_product': requested_product,
-                'matched_node': node_list[product_idx],
+                'matched_node': matched_node,
                 'model_type': 'GAT-LSTM Hybrid',
                 'forecast_days': forecast_days,
                 'prediction': daily_predictions,
@@ -487,8 +424,8 @@ class DemandPredictor:
                 'average_daily': round(average_daily, 2),
                 'total_30_days': round(total_30_days, 2),
                 'rawPredicted': round(max(daily_predictions) if daily_predictions else 0.0, 2),
-                'confidence': 75,  # Base confidence, can be improved with proper uncertainty estimation
-                'input_shape': list(x.shape),
+                'confidence': 75,
+                'input_shape': [len(node_list), max_timesteps, 1],
                 'timestamp': pd.Timestamp.now().isoformat()
             }
             
@@ -508,6 +445,7 @@ class DemandPredictor:
         """Generate demand prediction using autoregressive rollout for N days for ALL nodes simultaneously.
         
         Returns a dictionary mapping node_id (product name) to its prediction result.
+        Also caches results in MongoDB.
         """
         try:
             if self.debug:
@@ -537,7 +475,6 @@ class DemandPredictor:
             
             # 4. Autoregressive rollout for forecast_days
             model.eval()
-            num_nodes = len(node_list)
             daily_predictions = {node: [] for node in node_list}
             current_x = x.clone()
             
@@ -560,6 +497,17 @@ class DemandPredictor:
                     
                     # Shift window
                     new_step = pred.unsqueeze(-1)  # (num_nodes, 1, 1)
+                    
+                    # Inject noise + momentum to prevent autoregressive mean collapse
+                    if day > 1:
+                        noise_scale = 0.03 * (1 + day * 0.01)
+                        noise = torch.randn_like(new_step) * noise_scale
+                        if day > 3:
+                            running_mean = current_x.mean(dim=1, keepdim=True)
+                            new_step = 0.85 * new_step + 0.15 * running_mean + noise
+                        else:
+                            new_step = new_step + noise
+                            
                     current_x = torch.cat([current_x[:, 1:, :], new_step], dim=1)
             
             # 5. Build results dictionary
@@ -574,6 +522,24 @@ class DemandPredictor:
                     'total_30_days': round(total_30_days, 2)
                 }
             
+            # 6. Cache to MongoDB
+            if self.db is not None:
+                try:
+                    cache_doc = {
+                        'company_id': company_id,
+                        'predictions': results,
+                        'updated_at': pd.Timestamp.now().isoformat()
+                    }
+                    self.db.prediction_caches.replace_one(
+                        {'company_id': company_id},
+                        cache_doc,
+                        upsert=True
+                    )
+                    if self.debug:
+                        print("✓ Cached predictions to prediction_caches collection in MongoDB")
+                except Exception as cache_err:
+                    print(f"⚠️ Failed to cache predictions to MongoDB: {cache_err}")
+            
             return results
             
         except Exception as e:
@@ -581,4 +547,5 @@ class DemandPredictor:
             import traceback
             traceback.print_exc()
             raise
+
 

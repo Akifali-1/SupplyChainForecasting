@@ -1,10 +1,14 @@
 const express = require("express");
 const cors = require("cors");
 const session = require("express-session");
+const { MongoStore } = require("connect-mongo"); // ✅ Mongo session store
 const passport = require("./config/passport");   // ✅ Google strategy
 const dataRoutes = require("./routes/dataRoutes");
 const mlRoutes = require("./routes/mlRoutes");
 const authRoutes = require("./routes/authRoutes");
+const inviteRoutes = require("./routes/inviteRoutes"); // ✅ Invite routes
+const companyRoutes = require("./routes/companyRoutes"); // ✅ Company management routes
+const reorderRoutes = require("./routes/reorderRoutes"); // ✅ Reorder Intelligence routes
 require("dotenv").config();
 
 // Suppress MongoDB deprecation warnings
@@ -56,15 +60,25 @@ app.use(
 app.use(express.json());
 app.use("/uploads", express.static("uploads"));
 
-// ✅ Session middleware (needed for passport)
+// ✅ Enforce session secret in production
 const isProduction = process.env.NODE_ENV === 'production';
-// For Render, we need secure cookies with sameSite: 'none' for cross-origin requests
+if (isProduction && (!process.env.SESSION_SECRET || process.env.SESSION_SECRET === 'secret_key')) {
+  console.error("❌ CRITICAL ERROR: SESSION_SECRET is not configured or uses default in production!");
+  process.exit(1);
+}
+
+// ✅ Session middleware (needed for passport)
 const sessionConfig = {
   name: "scm.sid",
   secret: process.env.SESSION_SECRET || "secret_key",
   resave: false,
   saveUninitialized: false,
   proxy: true,
+  store: process.env.MONGO_URI ? MongoStore.create({
+    mongoUrl: process.env.MONGO_URI,
+    collectionName: "sessions",
+    ttl: 24 * 60 * 60 // 1 day
+  }) : undefined,
   cookie: {
     secure: isProduction, // HTTPS required in production
     sameSite: isProduction ? 'none' : 'lax', // 'none' allows cross-origin cookies
@@ -78,7 +92,8 @@ if (!isProduction || process.env.ML_DEBUG === '1') {
   console.log('🍪 Session Config:', {
     secure: sessionConfig.cookie.secure,
     sameSite: sessionConfig.cookie.sameSite,
-    httpOnly: sessionConfig.cookie.httpOnly
+    httpOnly: sessionConfig.cookie.httpOnly,
+    hasStore: !!sessionConfig.store
   });
 }
 
@@ -106,6 +121,9 @@ if (mongooseUri) {
 app.use("/api/data", dataRoutes);
 app.use("/api/ml", mlRoutes);
 app.use("/api/auth", authRoutes); // Google login/logout/me
+app.use("/api/invite", inviteRoutes); // ✅ Invite token routes
+app.use("/api/company", companyRoutes); // ✅ Company members routes
+app.use("/api/reorder", reorderRoutes); // ✅ Reorder Intelligence routes
 
 // Mongo (Atlas) minimal client - using same connection string as ML service
 const mongoUri = process.env.MONGO_URI;

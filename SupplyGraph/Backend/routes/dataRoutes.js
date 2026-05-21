@@ -4,6 +4,7 @@ const path = require("path");
 const fs = require("fs");
 const { processRawCSV } = require("../utils/dataProcessor");
 const { idempotencyMiddleware } = require("../utils/idempotency");
+const { requireAuth, requireRole } = require("../utils/auth"); // ✅ Import auth middlewares
 
 const router = express.Router();
 
@@ -26,16 +27,37 @@ const storage = multer.diskStorage({
 const upload = multer({
   storage: storage,
   fileFilter: function (req, file, cb) {
-    console.log('Multer fileFilter - file:', file);
-    cb(null, true);
+    // Strict MIME check + fallback extension check
+    const allowedMimes = ["text/csv", "application/csv", "application/vnd.ms-excel", "text/comma-separated-values"];
+    const isCsv = allowedMimes.includes(file.mimetype) || file.originalname.toLowerCase().endsWith('.csv');
+    if (isCsv) {
+      cb(null, true);
+    } else {
+      cb(null, false); // Reject upload gracefully, req.file will be undefined
+    }
   }
 });
 
-// File upload with idempotency - prevents duplicate file processing
-// Note: Idempotency key includes file hash, so same file = same key
-router.post("/convert/:companyId", upload.single("file"), idempotencyMiddleware({ ttl: 60 * 60 * 1000 }), async (req, res) => {
+// File upload with auth, role checking, tenancy protection, and idempotency
+router.post("/convert/:companyId", requireAuth, requireRole(["admin"]), upload.single("file"), idempotencyMiddleware({ ttl: 60 * 60 * 1000 }), async (req, res) => {
   try {
     const { companyId } = req.params;
+
+    // 1. Path traversal and sanitization check on companyId
+    if (!companyId || !/^[a-zA-Z0-9_-]+$/.test(companyId)) {
+      return res.status(400).json({
+        error: "Invalid Company ID",
+        details: "Company ID must be alphanumeric and cannot contain directory paths or special characters."
+      });
+    }
+
+    // 2. Inter-tenant data leakage protection
+    if (!req.user.companyId || req.user.companyId.toString() !== companyId) {
+      return res.status(403).json({
+        error: "Forbidden",
+        details: "You do not have authorization to upload or manage datasets for this organization."
+      });
+    }
 
     // Debug logging
     console.log("Request received for company:", companyId);

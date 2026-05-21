@@ -3,6 +3,7 @@ const router = express.Router();
 const axios = require("axios");
 const { etagMiddleware } = require("../utils/etag");
 const { idempotencyMiddleware } = require("../utils/idempotency");
+const { requireAuth, requireRole } = require("../utils/auth"); // ✅ Import auth middlewares
 
 // ML service runs in same container via supervisor, use localhost
 const ML_SERVICE_URL = process.env.ML_SERVICE_URL || "http://127.0.0.1:5001";
@@ -18,6 +19,32 @@ function logMlError(label, error) {
     stack: error?.stack,
   });
 }
+
+// Parameter validation middleware for companyId to enforce tenancy and prevent path traversal
+router.param("companyId", (req, res, next, companyId) => {
+  // Path traversal check
+  if (!companyId || !/^[a-zA-Z0-9_-]+$/.test(companyId)) {
+    return res.status(400).json({
+      error: "Invalid Company ID",
+      details: "Company ID must be alphanumeric and cannot contain directory paths or special characters."
+    });
+  }
+
+  // Require authentication for all companyId routes
+  if (!req.isAuthenticated || !req.isAuthenticated()) {
+    return res.status(401).json({ error: "Unauthorized", details: "Authentication required" });
+  }
+
+  // Multi-tenancy check
+  if (!req.user.companyId || req.user.companyId.toString() !== companyId) {
+    return res.status(403).json({
+      error: "Forbidden",
+      details: "You do not have authorization to access data for this organization."
+    });
+  }
+
+  next();
+});
 
 // Health check
 router.get("/health", async (req, res) => {
@@ -38,7 +65,7 @@ router.get("/health", async (req, res) => {
 });
 
 // Create sample dataset
-router.post("/create-sample/:companyId", idempotencyMiddleware({ ttl: 60 * 60 * 1000 }), async (req, res) => {
+router.post("/create-sample/:companyId", requireRole(["admin"]), idempotencyMiddleware({ ttl: 60 * 60 * 1000 }), async (req, res) => {
   try {
     const { companyId } = req.params;
     const { size = "small" } = req.body;
@@ -69,7 +96,7 @@ router.post("/create-sample/:companyId", idempotencyMiddleware({ ttl: 60 * 60 * 
 });
 
 // Fine-tune model - CRITICAL: Requires idempotency to prevent duplicate training jobs
-router.post("/fine-tune/:companyId", idempotencyMiddleware({ ttl: 24 * 60 * 60 * 1000 }), async (req, res) => {
+router.post("/fine-tune/:companyId", requireRole(["admin"]), idempotencyMiddleware({ ttl: 24 * 60 * 60 * 1000 }), async (req, res) => {
   try {
     // Disable Node.js server timeout for this request since training can take 12+ minutes
     req.setTimeout(0);
@@ -181,7 +208,7 @@ router.get("/training-status/:companyId", etagMiddleware, async (req, res) => {
 });
 
 // Cancel training
-router.post("/cancel-training/:companyId", async (req, res) => {
+router.post("/cancel-training/:companyId", requireRole(["admin"]), async (req, res) => {
   try {
     const { companyId } = req.params;
 
@@ -255,9 +282,15 @@ router.get("/validate-data/:companyId", etagMiddleware, async (req, res) => {
 router.get("/historical-data/:companyId", etagMiddleware, async (req, res) => {
   try {
     const { companyId } = req.params;
+    const { product, intervalDays } = req.query;
+
+    const qp = new URLSearchParams();
+    if (product) qp.set("product", product);
+    if (intervalDays) qp.set("intervalDays", intervalDays);
+    const qpStr = qp.toString();
 
     const mlResponse = await axios.get(
-      `${ML_SERVICE_URL}/historical-data/${companyId}`
+      `${ML_SERVICE_URL}/historical-data/${companyId}${qpStr ? '?' + qpStr : ''}`
     );
 
     res.json(mlResponse.data);
@@ -274,7 +307,7 @@ router.get("/inventory/trending/:companyId", etagMiddleware, async (req, res) =>
     const { timeRange = '30d' } = req.query;
 
     const mlResponse = await axios.get(
-      `${ML_SERVICE_URL}/inventory/trending/${companyId}?timeRange=${timeRange}`
+      `${ML_SERVICE_URL}/inventory/trending/${companyId}?time_range=${timeRange}`
     );
 
     res.json(mlResponse.data);

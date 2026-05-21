@@ -26,6 +26,11 @@ export const AuthProvider = ({ children }) => {
         if (userData) {
           setUser(userData);
           setIsAuthenticated(true);
+          // Sync with localStorage for legacy pages and fallback
+          localStorage.setItem('user', JSON.stringify(userData));
+          if (userData.companyId) {
+            localStorage.setItem('companyId', userData.companyId);
+          }
         } else {
           // Fallback to localStorage for backward compatibility
           const localUserData = localStorage.getItem('user');
@@ -33,6 +38,9 @@ export const AuthProvider = ({ children }) => {
             const parsedUser = JSON.parse(localUserData);
             setUser(parsedUser);
             setIsAuthenticated(true);
+            if (parsedUser.companyId) {
+              localStorage.setItem('companyId', parsedUser.companyId);
+            }
           }
         }
       } catch (error) {
@@ -43,6 +51,9 @@ export const AuthProvider = ({ children }) => {
           const parsedUser = JSON.parse(localUserData);
           setUser(parsedUser);
           setIsAuthenticated(true);
+          if (parsedUser.companyId) {
+            localStorage.setItem('companyId', parsedUser.companyId);
+          }
         }
       } finally {
         setLoading(false);

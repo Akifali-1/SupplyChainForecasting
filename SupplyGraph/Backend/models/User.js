@@ -4,6 +4,8 @@ const userSchema = new mongoose.Schema({
   googleId: { type: String, required: true, unique: true },
   email: { type: String, required: true },
   name: String,
+  role: { type: String, enum: ["admin", "user"], default: "user" },
+  companyId: { type: mongoose.Schema.Types.ObjectId, ref: "Company" },
   createdAt: { type: Date, default: Date.now }
 });
 

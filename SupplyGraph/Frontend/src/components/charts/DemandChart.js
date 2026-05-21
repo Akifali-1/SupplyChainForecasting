@@ -323,8 +323,8 @@ const DemandChart = ({
   };
 
   return (
-    <Card className="shadow-lg border-0 bg-white/95 dark:bg-slate-800/95 backdrop-blur-sm">
-      <CardHeader className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-slate-800 dark:to-slate-800 rounded-t-lg">
+    <Card className="shadow-lg border-0 bg-white/95 dark:bg-neutral-900/90 backdrop-blur-sm">
+      <CardHeader className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-neutral-900 dark:to-neutral-900 rounded-t-lg">
         <CardTitle className="flex items-center space-x-2 text-slate-900 dark:text-white">
           {getChartIcon()}
           <span>{title}</span>
@@ -356,20 +356,20 @@ const DemandChart = ({
         {/* Chart Statistics */}
         {finalData.length > 0 && (
           <div className="mt-6 grid grid-cols-3 gap-4">
-            <div className="text-center p-3 bg-gradient-to-br from-blue-50 to-blue-100 dark:from-slate-800 dark:to-slate-800 rounded-lg border border-blue-200 dark:border-slate-700">
+            <div className="text-center p-3 bg-gradient-to-br from-blue-50 to-blue-100 dark:from-neutral-900 dark:to-neutral-900 rounded-lg border border-blue-200 dark:border-neutral-800">
               <div className="text-lg font-bold text-blue-600 dark:text-blue-400">
                 {finalData.filter(item => !item.isPrediction).length}
               </div>
               <div className="text-sm text-blue-700 dark:text-blue-300 font-medium">Days of Data</div>
             </div>
-            <div className="text-center p-3 bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-800 dark:to-slate-800 rounded-lg border border-slate-200 dark:border-slate-700">
+            <div className="text-center p-3 bg-gradient-to-br from-slate-50 to-slate-100 dark:from-neutral-900 dark:to-neutral-900 rounded-lg border border-slate-200 dark:border-neutral-800">
               <div className="text-lg font-bold text-slate-600 dark:text-slate-400">
                 {finalData.filter(item => !item.isPrediction).length > 0 ?
                   Math.round(finalData.filter(item => !item.isPrediction).reduce((sum, item) => sum + item.demand, 0) / finalData.filter(item => !item.isPrediction).length) : 0}
               </div>
               <div className="text-sm text-slate-700 dark:text-slate-300 font-medium">Avg Daily Demand</div>
             </div>
-            <div className="text-center p-3 bg-gradient-to-br from-green-50 to-green-100 dark:from-slate-800 dark:to-slate-800 rounded-lg border border-green-200 dark:border-slate-700">
+            <div className="text-center p-3 bg-gradient-to-br from-green-50 to-green-100 dark:from-neutral-900 dark:to-neutral-900 rounded-lg border border-green-200 dark:border-neutral-800">
               <div className="text-lg font-bold text-green-600 dark:text-green-400">
                 {finalData.filter(item => !item.isPrediction).length > 0 ?
                   Math.max(...finalData.filter(item => !item.isPrediction).map(item => item.demand)) : 0}

@@ -9,8 +9,29 @@ const FRONTEND_URL = process.env.FRONTEND_URL || "http://localhost:3000";
 // Start Google OAuth
 router.get("/google", (req, res, next) => {
   console.log('🔐 OAuth: Initiating Google login');
-  console.log('🔐 OAuth: Frontend URL:', FRONTEND_URL);
-  passport.authenticate("google", { scope: ["profile", "email"] })(req, res, next);
+  
+  // Dynamic frontendUrl capture from query or referer
+  let frontendUrl = req.query.frontendUrl;
+  if (!frontendUrl && req.headers.referer) {
+    try {
+      const parsedReferer = new URL(req.headers.referer);
+      frontendUrl = parsedReferer.origin;
+    } catch (e) {
+      // Ignore URL parsing errors
+    }
+  }
+
+  if (frontendUrl) {
+    req.session.frontendUrl = frontendUrl;
+    console.log('🔐 OAuth: Cached frontendUrl in session:', frontendUrl);
+    req.session.save((err) => {
+      if (err) console.error('🔐 OAuth: Error saving session with frontendUrl:', err);
+      passport.authenticate("google", { scope: ["profile", "email"] })(req, res, next);
+    });
+  } else {
+    console.log('🔐 OAuth: Frontend URL (fallback):', FRONTEND_URL);
+    passport.authenticate("google", { scope: ["profile", "email"] })(req, res, next);
+  }
 });
 
 // Callback after Google OAuth
@@ -22,38 +43,48 @@ router.get(
     console.log('🔐 OAuth: Error param:', req.query.error);
     console.log('🔐 OAuth: Code param:', req.query.code ? 'present' : 'missing');
     
+    const targetFrontendUrl = req.session.frontendUrl || FRONTEND_URL;
+    console.log('🔐 OAuth: Target Frontend URL for redirections:', targetFrontendUrl);
+
     if (req.query.error) {
       console.error('❌ OAuth Error from Google:', req.query.error, req.query.error_description);
-      return res.redirect(`${FRONTEND_URL}/login?error=oauth_failed&details=${encodeURIComponent(req.query.error_description || req.query.error)}`);
+      return res.redirect(`${targetFrontendUrl}/login?error=oauth_failed&details=${encodeURIComponent(req.query.error_description || req.query.error)}`);
     }
     
     passport.authenticate("google", { 
-      failureRedirect: `${FRONTEND_URL}/login?error=oauth_failed`,
+      failureRedirect: `${targetFrontendUrl}/login?error=oauth_failed`,
       session: true
     }, (err, user, info) => {
       if (err) {
         console.error('❌ OAuth Passport Error:', err);
         console.error('❌ Error stack:', err.stack);
-        return res.redirect(`${FRONTEND_URL}/login?error=oauth_failed&details=${encodeURIComponent(err.message)}`);
+        return res.redirect(`${targetFrontendUrl}/login?error=oauth_failed&details=${encodeURIComponent(err.message)}`);
       }
       
       if (!user) {
         console.error('❌ OAuth: No user returned from Passport');
         console.error('❌ Passport info:', info);
-        return res.redirect(`${FRONTEND_URL}/login?error=oauth_failed`);
+        return res.redirect(`${targetFrontendUrl}/login?error=oauth_failed`);
       }
       
       // Log in the user
-      req.logIn(user, (loginErr) => {
+      req.logIn(user, async (loginErr) => {
         if (loginErr) {
           console.error('❌ OAuth: Login error:', loginErr);
-          return res.redirect(`${FRONTEND_URL}/login?error=oauth_failed&details=${encodeURIComponent(loginErr.message)}`);
+          return res.redirect(`${targetFrontendUrl}/login?error=oauth_failed&details=${encodeURIComponent(loginErr.message)}`);
         }
         
-        // Success - redirect to frontend OAuth callback handler
+        // Success — redirect to setup-company if first-time admin, otherwise dashboard
         console.log('✅ OAuth: Success, redirecting to frontend');
         console.log('✅ OAuth: User:', user.email);
-        res.redirect(`${FRONTEND_URL}/oauth/callback`);
+        const Company = require('../models/Company');
+        const company = user.companyId ? await Company.findById(user.companyId) : null;
+        const needsSetup = company && !company.setupComplete;
+        
+        // Clean up from session
+        delete req.session.frontendUrl;
+        
+        res.redirect(`${targetFrontendUrl}${needsSetup ? '/setup-company' : '/oauth/callback'}`);
       });
     })(req, res, next);
   }
@@ -67,13 +98,43 @@ router.get("/logout", (req, res) => {
 });
 
 // Get current user - ETag enabled (user data changes infrequently)
-router.get("/me", etagMiddleware, (req, res) => {
+router.get("/me", etagMiddleware, async (req, res) => {
   // Log session info for debugging
   console.log('🔐 /me endpoint called');
   console.log('🔐 Session ID:', req.sessionID);
   console.log('🔐 User:', req.user ? req.user.email : 'No user');
   console.log('🔐 Session exists:', !!req.session);
-  res.json(req.user || null);
+  
+  if (!req.user) {
+    return res.json(null);
+  }
+
+  try {
+    const User = require("../models/User");
+    const Company = require("../models/Company");
+    const userObj = await User.findById(req.user._id).populate("companyId");
+    if (!userObj) {
+      return res.json(null);
+    }
+
+    const company = userObj.companyId;
+    const needsSetup = company && !company.setupComplete;
+    
+    res.json({
+      _id: userObj._id,
+      googleId: userObj.googleId,
+      email: userObj.email,
+      name: userObj.name,
+      role: userObj.role || "user",
+      companyId: company ? company._id : null,
+      companyName: company ? company.name : null,
+      needsSetup: !!needsSetup,
+      createdAt: userObj.createdAt
+    });
+  } catch (error) {
+    console.error("Error fetching user profile:", error);
+    res.status(500).json({ error: "Failed to get user profile" });
+  }
 });
 
 module.exports = router;

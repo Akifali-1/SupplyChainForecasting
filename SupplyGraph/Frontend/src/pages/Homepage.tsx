@@ -148,6 +148,7 @@ export const Homepage: React.FC = () => {
   const robotContainerRef = useRef<HTMLDivElement>(null);
   const [isRobotVisible, setIsRobotVisible] = useState(false);
   const [iframeLoaded, setIframeLoaded] = useState(false);
+  const [showPrompt, setShowPrompt] = useState(false);
   const unmountTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const pipelineSectionRef = useRef<HTMLDivElement>(null);
@@ -202,6 +203,7 @@ export const Homepage: React.FC = () => {
             unmountTimeoutRef.current = setTimeout(() => {
               setIsRobotVisible(false);
               setIframeLoaded(false);
+              setShowPrompt(false);
               unmountTimeoutRef.current = null;
             }, 3000);
           }
@@ -221,6 +223,18 @@ export const Homepage: React.FC = () => {
       }
     };
   }, [isMobile]);
+
+  // Robust prompt display timer
+  useEffect(() => {
+    if (isRobotVisible) {
+      const t = setTimeout(() => {
+        setShowPrompt(true);
+      }, 1500);
+      return () => clearTimeout(t);
+    } else {
+      setShowPrompt(false);
+    }
+  }, [isRobotVisible]);
 
   // Set the document title as requested
   useEffect(() => {
@@ -536,7 +550,7 @@ export const Homepage: React.FC = () => {
             (2) Layer 2: Suspended WebGL iframe (mounts in viewport, crossfades on load, unmounts with 3s delay) */}
         <div 
           ref={robotContainerRef}
-          className="absolute bottom-[-40px] md:bottom-[-60px] right-0 md:right-[1vw] w-full md:w-[52vw] h-[55vh] md:h-[92vh] z-10 flex items-end justify-center overflow-hidden scale-100 md:scale-[1.05] origin-bottom"
+          className="absolute bottom-[-40px] md:bottom-[-60px] right-0 md:right-[1vw] w-full md:w-[75vw] h-[55vh] md:h-[92vh] z-10 flex items-end justify-center overflow-hidden scale-100 md:scale-[1.05] origin-bottom"
           onMouseLeave={() => setIsRobotInteractive(false)}
         >
           {isMobile ? (
@@ -567,7 +581,7 @@ export const Homepage: React.FC = () => {
                       className="w-full h-full object-cover scale-[1.09] -translate-y-[12px] opacity-75"
                     />
                   </div>
-
+ 
                   {/* Soft cyberpunk WebGL status pill */}
                   <div className="absolute bottom-8 left-1/2 -translate-x-1/2 bg-black/60 backdrop-blur-md border border-white/10 px-4 py-2 rounded-full flex items-center gap-2">
                     <div className="w-1.5 h-1.5 rounded-full bg-[#00B4D8] animate-ping" />
@@ -575,7 +589,7 @@ export const Homepage: React.FC = () => {
                   </div>
                 </div>
               </div>
-
+ 
               {/* Layer 2: WebGL Engine (Mounts only in viewport, fades in smoothly when fully loaded) */}
               {isRobotVisible && (
                 <>
@@ -585,13 +599,22 @@ export const Homepage: React.FC = () => {
                       className="absolute inset-0 z-20 cursor-pointer pointer-events-auto"
                     />
                   )}
+                  {!isRobotInteractive && (iframeLoaded || showPrompt) && (
+                    <div className="absolute bottom-24 left-1/2 -translate-x-1/2 z-30 bg-black/60 backdrop-blur-md border border-[#00B4D8]/30 px-4 py-2 rounded-full flex items-center gap-2 animate-bounce pointer-events-none shadow-lg shadow-cyan-500/10">
+                      <div className="w-1.5 h-1.5 rounded-full bg-[#00B4D8] animate-ping" />
+                      <span className="text-[10px] text-white/90 uppercase tracking-widest font-mono select-none">Click to interact with robo</span>
+                    </div>
+                  )}
                   <iframe
                     src="https://my.spline.design/nexbotrobotcharacterconceptforpersonaluse-v8tp6nPDwio23WZ3bXL8KlWY/"
                     frameBorder="0"
                     width="100%"
                     loading="eager"
                     title="Spline Nexbot 3D Robot Concept"
-                    onLoad={() => setIframeLoaded(true)}
+                    onLoad={() => {
+                      setIframeLoaded(true);
+                      setShowPrompt(true);
+                    }}
                     className={`absolute w-full h-[calc(100%+200px)] -top-[100px] transition-all duration-1000 ${
                       isRobotInteractive ? 'pointer-events-auto' : 'pointer-events-none'
                     } ${

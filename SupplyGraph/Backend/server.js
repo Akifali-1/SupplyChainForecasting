@@ -25,10 +25,10 @@ const app = express();
 app.set("trust proxy", 1);
 
 // ✅ Allow cookies/credentials for OAuth sessions
-const FRONTEND_URL = process.env.FRONTEND_URL || "http://localhost:3000";
+const FRONTEND_URL = (process.env.FRONTEND_URL || "http://localhost:3000").replace(/\/$/, "");
 const extraOrigins = (process.env.ALLOWED_ORIGINS || "")
   .split(",")
-  .map((o) => o.trim())
+  .map((o) => o.trim().replace(/\/$/, ""))
   .filter(Boolean);
 const allowedOrigins = [FRONTEND_URL, ...extraOrigins];
 
@@ -40,16 +40,27 @@ app.use(
         return callback(null, true);
       }
 
-      // Check if origin is in allowed list
-      if (allowedOrigins.includes(origin)) {
+      // Normalize incoming origin by removing trailing slashes
+      const normalizedOrigin = origin.replace(/\/$/, "");
+
+      // 1. Exact match check
+      if (allowedOrigins.includes(normalizedOrigin)) {
         return callback(null, true);
       }
 
-      // Log CORS rejections for debugging
-      if (process.env.NODE_ENV !== 'production' || process.env.ML_DEBUG === '1') {
-        console.log('⚠️  CORS blocked origin:', origin);
-        console.log('✅ Allowed origins:', allowedOrigins);
+      // 2. Safe dynamic wildcard check for local development & Render subdomains
+      if (
+        normalizedOrigin.startsWith("http://localhost:") ||
+        normalizedOrigin.startsWith("http://127.0.0.1:") ||
+        (normalizedOrigin.endsWith(".onrender.com") &&
+         (normalizedOrigin.includes("supplychain") || normalizedOrigin.includes("scm")))
+      ) {
+        return callback(null, true);
       }
+
+      // Log CORS rejections for troubleshooting
+      console.warn("⚠️  CORS blocked origin:", origin);
+      console.log("✅ Allowed origins:", allowedOrigins);
 
       return callback(new Error(`CORS: Origin ${origin} not allowed`));
     },
@@ -67,6 +78,20 @@ if (isProduction && (!process.env.SESSION_SECRET || process.env.SESSION_SECRET =
   process.exit(1);
 }
 
+// ✅ Set up connect-mongo session store separately
+const sessionStore = process.env.MONGO_URI ? MongoStore.create({
+  mongoUrl: process.env.MONGO_URI,
+  collectionName: "sessions",
+  ttl: 24 * 60 * 60 // 1 day
+}) : undefined;
+
+// ✅ Prevent unhandled connection error crashes from connect-mongo session store
+if (sessionStore) {
+  sessionStore.on("error", (error) => {
+    console.error("❌ MongoDB Session Store Error:", error.message || error);
+  });
+}
+
 // ✅ Session middleware (needed for passport)
 const sessionConfig = {
   name: "scm.sid",
@@ -74,11 +99,7 @@ const sessionConfig = {
   resave: false,
   saveUninitialized: false,
   proxy: true,
-  store: process.env.MONGO_URI ? MongoStore.create({
-    mongoUrl: process.env.MONGO_URI,
-    collectionName: "sessions",
-    ttl: 24 * 60 * 60 // 1 day
-  }) : undefined,
+  store: sessionStore,
   cookie: {
     secure: isProduction, // HTTPS required in production
     sameSite: isProduction ? 'none' : 'lax', // 'none' allows cross-origin cookies

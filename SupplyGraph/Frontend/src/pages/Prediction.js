@@ -58,37 +58,37 @@ const ProductSearch = ({ nodeList, value, onChange }) => {
         placeholder="Filter skus or search products..."
         onFocus={() => setOpen(true)}
         onChange={(e) => { setQuery(e.target.value); setOpen(true); onChange(''); }}
-        className="pl-10 h-12 w-full border border-white/[0.08] bg-white/[0.02] focus:border-[#00B4D8]/50 focus:ring-0 focus:outline-none transition-all duration-300 rounded-xl text-white placeholder-slate-500 font-mono text-sm"
+        className="pl-10 h-12 w-full border border-slate-250 dark:border-white/[0.08] bg-white dark:bg-white/[0.02] focus:border-[#00B4D8]/50 focus:ring-0 focus:outline-none transition-all duration-300 rounded-xl text-slate-800 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 font-mono text-sm"
       />
       {value && (
         <button
           type="button"
           onClick={() => { setQuery(''); onChange(''); }}
-          className="absolute right-4 top-3.5 text-slate-500 hover:text-white font-mono text-sm"
+          className="absolute right-4 top-3.5 text-slate-500 hover:text-slate-800 dark:hover:text-white font-mono text-sm"
         >
           ✕
         </button>
       )}
       {open && filtered.length > 0 && (
-        <ul className="absolute z-50 mt-1.5 w-full max-h-[220px] overflow-y-auto bg-black/95 border border-white/[0.08] backdrop-blur-2xl rounded-xl shadow-[0_8px_30px_rgb(0,0,0,0.85)] divide-y divide-white/[0.04]">
+        <ul className="absolute z-50 mt-1.5 w-full max-h-[220px] overflow-y-auto bg-white dark:bg-black/95 border border-slate-250 dark:border-white/[0.08] backdrop-blur-2xl rounded-xl shadow-[0_8px_30px_rgba(0,0,0,0.12)] dark:shadow-[0_8px_30px_rgb(0,0,0,0.85)] divide-y divide-slate-100 dark:divide-white/[0.04]">
           {filtered.slice(0, 50).map((node, i) => (
             <li key={node}>
               <button
                 type="button"
                 onClick={() => { onChange(node); setQuery(node); setOpen(false); }}
-                className={`w-full text-left px-4 py-3 text-xs font-mono hover:bg-white/[0.03] transition-colors flex items-center space-x-2 ${
+                className={`w-full text-left px-4 py-3 text-xs font-mono hover:bg-slate-100 dark:hover:bg-white/[0.03] transition-colors flex items-center space-x-2 ${
                   value === node
-                    ? 'bg-white/[0.04] text-[#00B4D8] font-bold'
-                    : 'text-slate-300'
+                    ? 'bg-slate-100/80 dark:bg-white/[0.04] text-[#00B4D8] font-bold'
+                    : 'text-slate-700 dark:text-slate-300'
                 }`}
               >
-                <Package className="h-4 w-4 text-slate-500 flex-shrink-0" />
+                <Package className="h-4 w-4 text-slate-400 dark:text-slate-500 flex-shrink-0" />
                 <span>{node}</span>
               </button>
             </li>
           ))}
           {filtered.length === 0 && (
-            <li className="px-4 py-3 text-xs font-mono text-slate-550 text-center">No matching nodes located</li>
+            <li className="px-4 py-3 text-xs font-mono text-slate-500 dark:text-slate-400 text-center">No matching nodes located</li>
           )}
         </ul>
       )}
@@ -303,7 +303,7 @@ const Prediction = () => {
   const [chartView, setChartView] = useState('analytics');
 
   return (
-    <div className="min-h-screen py-24 px-4 sm:px-6 lg:px-8 bg-[#000000] relative overflow-hidden text-white">
+    <div className="min-h-screen py-24 px-4 sm:px-6 lg:px-8 bg-slate-50 dark:bg-[#000000] relative overflow-hidden text-slate-900 dark:text-white">
       {/* Background Ambient Glow Orbs */}
       <div className="absolute top-[10%] left-[-10%] w-[450px] h-[450px] rounded-full bg-[#00B4D8]/8 blur-[130px] pointer-events-none" />
       <div className="absolute bottom-[20%] right-[-10%] w-[450px] h-[450px] rounded-full bg-[#7B2FBE]/6 blur-[130px] pointer-events-none" />
@@ -311,23 +311,23 @@ const Prediction = () => {
       <div className="max-w-4xl mx-auto relative z-10 animate-fade-in">
         {/* Header */}
         <div className="text-center mb-10">
-          <div className="inline-flex items-center space-x-2 bg-white/[0.02] border border-white/[0.08] backdrop-blur-xl px-4 py-1.5 rounded-full shadow-2xl mb-4">
+          <div className="inline-flex items-center space-x-2 bg-slate-200/50 dark:bg-white/[0.02] border border-slate-300 dark:border-white/[0.08] backdrop-blur-xl px-4 py-1.5 rounded-full shadow-sm dark:shadow-2xl mb-4 text-slate-800 dark:text-white">
             <Brain className="h-3.5 w-3.5 text-[#00B4D8]" />
             <span className="text-xs font-mono tracking-widest text-[#00B4D8] uppercase">Predictive Kernel v1.2</span>
             <Sparkles className="h-3.5 w-3.5 text-[#7B2FBE]" />
           </div>
-          <h1 className="text-3xl md:text-5xl font-extrabold tracking-tight bg-gradient-to-b from-white to-slate-400 bg-clip-text text-transparent">
+          <h1 className="text-3xl md:text-5xl font-extrabold tracking-tight bg-gradient-to-b from-slate-900 via-slate-800 to-slate-650 dark:from-white dark:to-slate-400 bg-clip-text text-transparent">
             Demand Prediction Engine
           </h1>
-          <p className="text-slate-450 mt-3 text-sm md:text-base max-w-xl mx-auto leading-relaxed">
+          <p className="text-slate-500 dark:text-slate-400 mt-3 text-sm md:text-base max-w-xl mx-auto leading-relaxed">
             Acquire deep, neural forecasting insights. Our GAT+LSTM hybrid layers predict safety capacity spikes and flow anomalies.
           </p>
         </div>
 
         {/* Prediction Input Form */}
-        <Card className="border border-white/[0.06] bg-white/[0.015] backdrop-blur-2xl overflow-hidden shadow-2xl mb-8">
-          <CardHeader className="border-b border-white/[0.05] bg-white/[0.01] px-6 py-4">
-            <CardTitle className="flex items-center space-x-2 text-white">
+        <Card className="border border-slate-200 dark:border-white/[0.06] bg-white dark:bg-white/[0.015] backdrop-blur-2xl overflow-hidden shadow-sm dark:shadow-2xl mb-8">
+          <CardHeader className="border-b border-slate-200 dark:border-white/[0.05] bg-slate-50/50 dark:bg-white/[0.01] px-6 py-4">
+            <CardTitle className="flex items-center space-x-2 text-slate-900 dark:text-white">
               <Target className="h-5 w-5 text-[#00B4D8]" />
               <span className="font-semibold text-sm uppercase tracking-wider font-mono">Prediction Matrix Selection</span>
             </CardTitle>
@@ -336,7 +336,7 @@ const Prediction = () => {
             <form onSubmit={handleSubmit} className="space-y-6">
               <div className="grid grid-cols-1 gap-6">
                 <div className="space-y-2">
-                  <label htmlFor="productSearch" className="text-xs font-mono uppercase tracking-wider text-slate-500 flex items-center space-x-2">
+                  <label htmlFor="productSearch" className="text-xs font-mono uppercase tracking-wider text-slate-500 dark:text-slate-400 flex items-center space-x-2">
                     <Package className="h-4 w-4 text-[#7B2FBE]" />
                     <span>Selected Product / SKU identifier</span>
                   </label>
@@ -371,11 +371,11 @@ const Prediction = () => {
             </form>
 
             {/* Quick Tips */}
-            <div className="mt-6 p-4 bg-white/[0.01] border border-white/[0.06] rounded-xl flex items-start gap-3">
+            <div className="mt-6 p-4 bg-slate-50 dark:bg-white/[0.01] border border-slate-200 dark:border-white/[0.06] rounded-xl flex items-start gap-3">
               <Lightbulb className="h-5 w-5 text-amber-400 shrink-0 mt-0.5" />
               <div>
-                <h4 className="font-semibold text-xs text-white uppercase font-mono tracking-wider mb-1">Forecast Directives</h4>
-                <ul className="text-[11px] font-mono text-slate-550 space-y-1">
+                <h4 className="font-semibold text-xs text-slate-900 dark:text-white uppercase font-mono tracking-wider mb-1">Forecast Directives</h4>
+                <ul className="text-[11px] font-mono text-slate-500 dark:text-slate-400 space-y-1">
                   <li>• GNN maps dependencies based on historical nodes.</li>
                   <li>• If anomalies are returned, check reorder directives.</li>
                 </ul>
@@ -388,14 +388,14 @@ const Prediction = () => {
         {prediction ? (
           <div className="space-y-6 animate-fade-in-up">
             {/* Main Prediction Card */}
-            <Card className="border border-white/[0.06] bg-white/[0.015] backdrop-blur-2xl overflow-hidden shadow-2xl">
-              <CardHeader className="border-b border-white/[0.05] bg-white/[0.01] px-6 py-4">
+            <Card className="border border-slate-200 dark:border-white/[0.06] bg-white dark:bg-white/[0.015] backdrop-blur-2xl overflow-hidden shadow-sm dark:shadow-2xl">
+              <CardHeader className="border-b border-slate-200 dark:border-white/[0.05] bg-slate-50/50 dark:bg-white/[0.01] px-6 py-4">
                 <CardTitle className="flex items-center justify-between">
-                  <div className="flex items-center space-x-2 text-white">
+                  <div className="flex items-center space-x-2 text-slate-900 dark:text-white">
                     <BarChart3 className="h-5 w-5 text-green-400" />
                     <span className="font-semibold text-sm uppercase tracking-wider font-mono font-bold">Demand Forecast Results</span>
                   </div>
-                  <Badge className="bg-[#00B4D8]/10 text-[#00B4D8] border border-[#00B4D8]/20 font-mono text-xs uppercase rounded-lg px-2.5 py-1">
+                  <Badge className="bg-[#00B4D8]/10 text-[#00B4D8] border border-[#00B4D8]/20 font-mono text-xs uppercase rounded-lg px-2.5 py-1 bg-transparent">
                     Confidence: {prediction.confidence}
                   </Badge>
                 </CardTitle>
@@ -404,8 +404,8 @@ const Prediction = () => {
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
                   
                   <div className="text-center group">
-                    <div className="bg-white/[0.01] border border-white/[0.05] rounded-2xl p-5 hover:bg-white/[0.03] transition-all duration-300">
-                      <div className="text-3xl font-extrabold text-white mb-1.5 tracking-tight">
+                    <div className="bg-slate-50 dark:bg-white/[0.01] border border-slate-200 dark:border-white/[0.05] rounded-2xl p-5 hover:bg-slate-100 dark:hover:bg-white/[0.03] transition-all duration-300">
+                      <div className="text-3xl font-extrabold text-slate-900 dark:text-white mb-1.5 tracking-tight">
                         {(() => {
                           const nextDay = Number.isFinite(prediction?.next_day_prediction)
                             ? prediction.next_day_prediction
@@ -413,9 +413,9 @@ const Prediction = () => {
                           return Math.round(nextDay).toLocaleString();
                         })()}
                       </div>
-                      <p className="text-[10px] font-mono uppercase tracking-wider text-slate-500">Predicted Units (Next Day)</p>
+                      <p className="text-[10px] font-mono uppercase tracking-wider text-slate-550 dark:text-slate-500">Predicted Units (Next Day)</p>
                       {Number.isFinite(prediction?.total_30_days) && (
-                        <p className="text-[9px] font-mono text-slate-400 mt-1">
+                        <p className="text-[9px] font-mono text-slate-500 dark:text-slate-400 mt-1">
                           30D Total: {Math.round(prediction.total_30_days).toLocaleString()}
                         </p>
                       )}
@@ -424,31 +424,31 @@ const Prediction = () => {
                   </div>
 
                   <div className="text-center group">
-                    <div className="bg-white/[0.01] border border-white/[0.05] rounded-2xl p-5 hover:bg-white/[0.03] transition-all duration-300">
+                    <div className="bg-slate-50 dark:bg-white/[0.01] border border-slate-200 dark:border-white/[0.05] rounded-2xl p-5 hover:bg-slate-100 dark:hover:bg-white/[0.03] transition-all duration-300">
                       <div className="flex items-center justify-center space-x-2 mb-2">
                         {getTrendIcon(prediction.trend)}
-                        <Badge className={`${getTrendColor(prediction.trend)} font-mono text-[10px] uppercase rounded-lg`}>
+                        <Badge className={`${getTrendColor(prediction.trend)} font-mono text-[10px] uppercase rounded-lg bg-transparent`}>
                           {prediction.trend}
                         </Badge>
                       </div>
-                      <p className="text-[10px] font-mono uppercase tracking-wider text-slate-500">Market Trend</p>
-                      <div className="mt-3.5 h-1 bg-gradient-to-r from-slate-650 to-slate-800 rounded-full"></div>
+                      <p className="text-[10px] font-mono uppercase tracking-wider text-slate-550 dark:text-slate-500">Market Trend</p>
+                      <div className="mt-3.5 h-1 bg-gradient-to-r from-slate-400 to-slate-600 rounded-full"></div>
                     </div>
                   </div>
 
                   <div className="text-center group">
-                    <div className="bg-white/[0.01] border border-white/[0.05] rounded-2xl p-5 hover:bg-white/[0.03] transition-all duration-300">
-                      <div className="text-3xl font-extrabold text-green-400 mb-1.5 tracking-tight">
+                    <div className="bg-slate-50 dark:bg-white/[0.01] border border-slate-200 dark:border-white/[0.05] rounded-2xl p-5 hover:bg-slate-100 dark:hover:bg-white/[0.03] transition-all duration-300">
+                      <div className="text-3xl font-extrabold text-green-500 dark:text-green-400 mb-1.5 tracking-tight">
                         {prediction.confidence}
                       </div>
-                      <p className="text-[10px] font-mono uppercase tracking-wider text-slate-500">GNN Stability Confidence</p>
+                      <p className="text-[10px] font-mono uppercase tracking-wider text-slate-550 dark:text-slate-500">GNN Stability Confidence</p>
                       <div className="mt-3.5 h-1 bg-gradient-to-r from-green-500 to-emerald-500 rounded-full"></div>
                     </div>
                   </div>
 
                 </div>
 
-                <div className="bg-white/[0.01] border border-white/[0.05] rounded-xl p-5 font-mono text-xs">
+                <div className="bg-slate-50 dark:bg-white/[0.01] border border-slate-200 dark:border-white/[0.05] rounded-xl p-5 font-mono text-xs">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="flex items-center space-x-3">
                       <div className="w-8.5 h-8.5 bg-[#00B4D8]/10 rounded-lg flex items-center justify-center">
@@ -456,7 +456,7 @@ const Prediction = () => {
                       </div>
                       <div>
                         <span className="text-slate-500 uppercase text-[10px] block">Facility Node</span>
-                        <span className="text-white font-bold text-sm">{prediction.storeName || 'Primary hub'}</span>
+                        <span className="text-slate-850 dark:text-white font-bold text-sm">{prediction.storeName || 'Primary hub'}</span>
                       </div>
                     </div>
                     <div className="flex items-center space-x-3">
@@ -465,7 +465,7 @@ const Prediction = () => {
                       </div>
                       <div>
                         <span className="text-slate-500 uppercase text-[10px] block">Product Identifier</span>
-                        <span className="text-white font-bold text-sm">{prediction.productName}</span>
+                        <span className="text-slate-850 dark:text-white font-bold text-sm">{prediction.productName}</span>
                       </div>
                     </div>
                   </div>

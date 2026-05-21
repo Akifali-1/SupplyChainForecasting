@@ -432,7 +432,7 @@ const Upload = () => {
   };
 
   const FileUploadCard = ({ title, description, fileType, accept = ".csv" }) => (
-    <Card className="border-dashed border-2 border-white/[0.08] hover:border-[#00B4D8]/50 transition-all duration-300 group hover:shadow-[0_0_25px_rgba(0,180,216,0.15)] bg-white/[0.01] hover:bg-white/[0.02] backdrop-blur-xl rounded-2xl relative overflow-hidden">
+    <Card className="border-dashed border-2 border-slate-200 dark:border-white/[0.08] hover:border-[#00B4D8]/50 transition-all duration-300 group hover:shadow-md dark:hover:shadow-[0_0_25px_rgba(0,180,216,0.15)] bg-slate-50 dark:bg-white/[0.01] hover:bg-slate-100/70 dark:hover:bg-white/[0.02] backdrop-blur-xl rounded-2xl relative overflow-hidden">
       <CardContent className="p-6">
         <div className="text-center">
           {convertedPaths && uploadType === 'single' ? (
@@ -442,10 +442,10 @@ const Upload = () => {
                 <div className="absolute -top-1 -right-1 w-4 h-4 bg-emerald-400 rounded-full animate-ping"></div>
               </div>
               <div>
-                <p className="font-semibold text-white">File generated</p>
-                <p className="text-xs text-slate-400">Open Separate Files tab to view paths</p>
+                <p className="font-semibold text-slate-800 dark:text-white">File generated</p>
+                <p className="text-xs text-slate-500 dark:text-slate-400">Open Separate Files tab to view paths</p>
               </div>
-              <div className="w-full bg-white/[0.04] rounded-full h-1.5 mt-2">
+              <div className="w-full bg-slate-200/50 dark:bg-white/[0.04] rounded-full h-1.5 mt-2">
                 <div className="bg-gradient-to-r from-emerald-400 to-[#00B4D8] h-1.5 rounded-full w-full"></div>
               </div>
             </div>
@@ -456,10 +456,10 @@ const Upload = () => {
                 <div className="absolute -top-1 -right-1 w-4 h-4 bg-emerald-400 rounded-full animate-ping"></div>
               </div>
               <div>
-                <p className="font-semibold text-white">Files uploaded</p>
-                <p className="text-xs text-slate-400">{fileType === 'nodes' ? 'nodes.csv' : fileType === 'edges' ? 'edges.csv' : 'demand.csv'} ready</p>
+                <p className="font-semibold text-slate-800 dark:text-white">Files uploaded</p>
+                <p className="text-xs text-slate-500 dark:text-slate-400">{fileType === 'nodes' ? 'nodes.csv' : fileType === 'edges' ? 'edges.csv' : 'demand.csv'} ready</p>
               </div>
-              <div className="w-full bg-white/[0.04] rounded-full h-1.5 mt-2">
+              <div className="w-full bg-slate-200/50 dark:bg-white/[0.04] rounded-full h-1.5 mt-2">
                 <div className="bg-gradient-to-r from-emerald-400 to-[#00B4D8] h-1.5 rounded-full w-full"></div>
               </div>
             </div>
@@ -470,24 +470,24 @@ const Upload = () => {
                 <div className="absolute -top-1 -right-1 w-4 h-4 bg-emerald-400 rounded-full animate-ping"></div>
               </div>
               <div>
-                <p className="font-semibold text-white truncate max-w-[200px] mx-auto">{files[fileType].name}</p>
-                <p className="text-xs text-slate-450">
+                <p className="font-semibold text-slate-800 dark:text-white truncate max-w-[200px] mx-auto">{files[fileType].name}</p>
+                <p className="text-xs text-slate-500 dark:text-slate-400">
                   {(files[fileType].size / 1024).toFixed(1)} KB
                 </p>
               </div>
-              <div className="w-full bg-white/[0.04] rounded-full h-1.5 mt-2">
+              <div className="w-full bg-slate-200/50 dark:bg-white/[0.04] rounded-full h-1.5 mt-2">
                 <div className="bg-gradient-to-r from-[#00B4D8] to-[#7B2FBE] h-1.5 rounded-full w-full animate-pulse"></div>
               </div>
             </div>
           ) : (
             <div className="space-y-3">
               <div className="relative group-hover:scale-110 transition-transform duration-300">
-                <UploadIcon className="h-12 w-12 text-slate-500 mx-auto group-hover:text-[#00B4D8] transition-colors" />
+                <UploadIcon className="h-12 w-12 text-slate-500 dark:text-slate-400 mx-auto group-hover:text-[#00B4D8] transition-colors" />
                 <div className="absolute inset-0 bg-[#00B4D8]/20 rounded-full blur-xl opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
               </div>
               <div>
-                <p className="font-semibold text-white group-hover:text-[#00B4D8] transition-colors">{title}</p>
-                <p className="text-xs text-slate-400 mt-1">{description}</p>
+                <p className="font-semibold text-slate-800 dark:text-white group-hover:text-[#00B4D8] transition-colors">{title}</p>
+                <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">{description}</p>
               </div>
             </div>
           )}
@@ -496,12 +496,12 @@ const Upload = () => {
               type="file"
               accept={accept}
               onChange={(e) => handleFileChange(fileType, e.target.files[0])}
-              className="mt-4 block w-full text-xs text-slate-450
+              className="mt-4 block w-full text-xs text-slate-500 dark:text-slate-400
                 file:mr-4 file:py-1.5 file:px-3
-                file:rounded-lg file:border file:border-white/[0.08]
+                file:rounded-lg file:border file:border-slate-200 dark:file:border-white/[0.08]
                 file:text-xs file:font-semibold
-                file:bg-white/[0.03] file:text-white
-                hover:file:bg-white/[0.08] hover:file:border-white/[0.12]
+                file:bg-slate-100 dark:file:bg-white/[0.03] file:text-slate-700 dark:file:text-white
+                hover:file:bg-slate-200 dark:hover:file:bg-white/[0.08] hover:file:border-slate-350 dark:hover:file:border-white/[0.12]
                 file:cursor-pointer file:transition-all file:duration-300
                 cursor-pointer transition-colors"
             />
@@ -513,33 +513,33 @@ const Upload = () => {
 
   if (checkingState) {
     return (
-      <div className="min-h-screen py-12 px-4 flex justify-center items-center bg-[#000000] text-white">
+      <div className="min-h-screen py-12 px-4 flex justify-center items-center bg-slate-50 dark:bg-[#000000] text-slate-900 dark:text-white">
         <div className="text-center animate-pulse">
           <Brain className="h-12 w-12 text-[#00B4D8] mx-auto mb-4" />
-          <p className="text-slate-400 font-mono text-sm">Synchronizing neural node workspace...</p>
+          <p className="text-slate-500 dark:text-slate-400 font-mono text-sm">Synchronizing neural node workspace...</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen py-12 px-4 sm:px-6 lg:px-8 bg-[#000000] relative overflow-hidden text-white">
+    <div className="min-h-screen py-12 px-4 sm:px-6 lg:px-8 bg-slate-50 dark:bg-[#000000] relative overflow-hidden text-slate-900 dark:text-white">
       {/* Background radial glow */}
-      <div className="absolute top-1/4 left-1/4 w-[500px] h-[500px] bg-[#00B4D8]/5 rounded-full blur-[140px] pointer-events-none" />
-      <div className="absolute bottom-1/3 right-1/4 w-[600px] h-[600px] bg-[#7B2FBE]/5 rounded-full blur-[160px] pointer-events-none" />
+      <div className="absolute top-1/4 left-1/4 w-[500px] h-[500px] bg-[#00B4D8]/4 dark:bg-[#00B4D8]/5 rounded-full blur-[140px] pointer-events-none" />
+      <div className="absolute bottom-1/3 right-1/4 w-[600px] h-[600px] bg-[#7B2FBE]/3 dark:bg-[#7B2FBE]/5 rounded-full blur-[160px] pointer-events-none" />
 
       <div className="max-w-4xl mx-auto relative z-10">
         {/* Header */}
         <div className="text-center mb-10 animate-fade-in-up">
-          <div className="inline-flex items-center space-x-2 bg-white/[0.02] backdrop-blur-md px-4 py-2 rounded-full border border-white/[0.08] shadow-[0_0_15px_rgba(0,0,0,0.5)] mb-4">
+          <div className="inline-flex items-center space-x-2 bg-slate-200/50 dark:bg-white/[0.02] backdrop-blur-md px-4 py-2 rounded-full border border-slate-350 dark:border-white/[0.08] shadow-sm dark:shadow-[0_0_15px_rgba(0,0,0,0.5)] mb-4">
             <Database className="h-4 w-4 text-[#00B4D8]" />
-            <span className="text-xs font-semibold tracking-wider text-slate-300 uppercase">Data Upload Center</span>
+            <span className="text-xs font-semibold tracking-wider text-slate-600 dark:text-slate-300 uppercase">Data Upload Center</span>
             <Sparkles className="h-4 w-4 text-[#7B2FBE]" />
           </div>
-          <h1 className="text-3xl md:text-5xl font-extrabold bg-gradient-to-b from-white via-white to-slate-400 bg-clip-text text-transparent tracking-tight mb-4">
+          <h1 className="text-3xl md:text-5xl font-extrabold bg-gradient-to-b from-slate-900 via-slate-800 to-slate-650 dark:from-white dark:to-slate-400 bg-clip-text text-transparent tracking-tight mb-4">
             Supply Chain Dataset ingestion
           </h1>
-          <p className="text-base md:text-lg text-slate-400 max-w-2xl mx-auto leading-relaxed">
+          <p className="text-base md:text-lg text-slate-500 dark:text-slate-400 max-w-2xl mx-auto leading-relaxed">
             Feed nodes, edges, and transactional sales demand into the deep forecasting GNN
           </p>
         </div>
@@ -547,33 +547,33 @@ const Upload = () => {
         {/* Main Upload Card */}
         {!(fineTuning || fineTuningComplete) && (
           <div className="space-y-8 animate-fade-in-up">
-            <Card className="border border-white/[0.07] bg-white/[0.015] backdrop-blur-2xl rounded-2xl shadow-[0_8px_32px_0_rgba(0,0,0,0.8)] overflow-hidden">
-              <CardHeader className="border-b border-white/[0.06] bg-white/[0.01] p-6">
-                <CardTitle className="flex items-center space-x-3 text-white text-lg font-semibold">
+            <Card className="border border-slate-200 dark:border-white/[0.07] bg-white dark:bg-white/[0.015] backdrop-blur-2xl rounded-2xl shadow-sm dark:shadow-[0_8px_32px_0_rgba(0,0,0,0.8)] overflow-hidden">
+              <CardHeader className="border-b border-slate-200 dark:border-white/[0.06] bg-slate-50/50 dark:bg-white/[0.01] p-6">
+                <CardTitle className="flex items-center space-x-3 text-slate-800 dark:text-white text-lg font-semibold">
                   <Database className="h-5 w-5 text-[#00B4D8]" />
                   <span>Staging Area</span>
                 </CardTitle>
               </CardHeader>
               <CardContent className="p-6">
                 <Tabs value={uploadType} onValueChange={setUploadType} className="w-full">
-                  <TabsList className="flex space-x-1 bg-white/[0.02] border border-white/[0.06] p-1.5 rounded-xl mb-8">
-                    <TabsTrigger value="single" className="flex-1 flex items-center justify-center space-x-2 py-2.5 rounded-lg text-xs font-semibold transition-all duration-300 data-[state=active]:bg-white/[0.06] data-[state=active]:text-[#00B4D8] data-[state=active]:border-white/[0.08] text-slate-450 hover:text-white">
+                  <TabsList className="flex space-x-1 bg-slate-200/50 dark:bg-white/[0.02] border border-slate-300 dark:border-white/[0.06] p-1.5 rounded-xl mb-8">
+                    <TabsTrigger value="single" className="flex-1 flex items-center justify-center space-x-2 py-2.5 rounded-lg text-xs font-semibold transition-all duration-300 data-[state=active]:bg-white dark:data-[state=active]:bg-white/[0.06] data-[state=active]:text-[#00B4D8] data-[state=active]:border-slate-200 dark:data-[state=active]:border-white/[0.08] text-slate-500 dark:text-slate-400 hover:text-slate-900 hover:dark:text-white">
                       <FileText className="h-4 w-4" />
                       <span>Single Dataset Ingestion</span>
                     </TabsTrigger>
-                    <TabsTrigger value="multiple" className="flex-1 flex items-center justify-center space-x-2 py-2.5 rounded-lg text-xs font-semibold transition-all duration-300 data-[state=active]:bg-white/[0.06] data-[state=active]:text-[#00B4D8] data-[state=active]:border-white/[0.08] text-slate-450 hover:text-white">
+                    <TabsTrigger value="multiple" className="flex-1 flex items-center justify-center space-x-2 py-2.5 rounded-lg text-xs font-semibold transition-all duration-300 data-[state=active]:bg-white dark:data-[state=active]:bg-white/[0.06] data-[state=active]:text-[#00B4D8] data-[state=active]:border-slate-200 dark:data-[state=active]:border-white/[0.08] text-slate-500 dark:text-slate-400 hover:text-slate-900 hover:dark:text-white">
                       <Database className="h-4 w-4" />
                       <span>Unified Pipeline Nodes</span>
                     </TabsTrigger>
                   </TabsList>
 
                   <TabsContent value="single" className="space-y-4 outline-none">
-                    <div className="mb-6 p-4 bg-white/[0.01] border border-white/[0.06] rounded-xl hover:bg-white/[0.02] transition-colors">
-                      <p className="text-white text-sm font-semibold mb-1 flex items-center gap-1.5">
+                    <div className="mb-6 p-4 bg-slate-50 dark:bg-white/[0.01] border border-slate-200 dark:border-white/[0.06] rounded-xl hover:bg-slate-100/50 dark:hover:bg-white/[0.02] transition-colors">
+                      <p className="text-slate-800 dark:text-white text-sm font-semibold mb-1 flex items-center gap-1.5">
                         <span className="w-1.5 h-1.5 rounded-full bg-[#00B4D8]" />
                         Structured Raw Aggregator
                       </p>
-                      <p className="text-slate-400 text-xs">
+                      <p className="text-slate-500 dark:text-slate-400 text-xs">
                         Ingest a singular CSV containing comprehensive network history; our background worker splits nodes, edges, and orders on the fly.
                       </p>
                     </div>
@@ -606,29 +606,29 @@ const Upload = () => {
                   </TabsContent>
 
                   <TabsContent value="multiple" className="space-y-4 outline-none">
-                    <div className="mb-6 p-4 bg-white/[0.01] border border-white/[0.06] rounded-xl hover:bg-white/[0.02] transition-colors">
-                      <p className="text-white text-sm font-semibold mb-1 flex items-center gap-1.5">
+                    <div className="mb-6 p-4 bg-slate-50 dark:bg-white/[0.01] border border-slate-200 dark:border-white/[0.06] rounded-xl hover:bg-slate-100/50 dark:hover:bg-white/[0.02] transition-colors">
+                      <p className="text-slate-800 dark:text-white text-sm font-semibold mb-1 flex items-center gap-1.5">
                         <span className="w-1.5 h-1.5 rounded-full bg-[#7B2FBE]" />
                         Custom Multi-File Pipeline
                       </p>
-                      <p className="text-slate-400 text-xs">
+                      <p className="text-slate-500 dark:text-slate-400 text-xs">
                         Stage specialized individual CSVs explicitly defining company nodes, network topology edges, and timestamped transaction counts.
                       </p>
                     </div>
 
                     {/* Sample Creation */}
-                    <div className="mb-6 p-4 bg-white/[0.02] border border-[#00B4D8]/20 rounded-xl">
+                    <div className="mb-6 p-4 bg-slate-50 dark:bg-white/[0.02] border border-[#00B4D8]/20 rounded-xl">
                       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                         <div>
-                          <p className="text-white text-sm font-semibold flex items-center gap-1.5">
+                          <p className="text-slate-800 dark:text-white text-sm font-semibold flex items-center gap-1.5">
                             <Sparkles className="h-4 w-4 text-[#00B4D8]" />
                             Pre-compiled Mock Topology
                           </p>
-                          <p className="text-slate-400 text-xs mt-0.5">Spin up a sample graph network to preview prediction models instantly.</p>
+                          <p className="text-slate-500 dark:text-slate-400 text-xs mt-0.5">Spin up a sample graph network to preview prediction models instantly.</p>
                         </div>
                         <Button
                           onClick={handleCreateSample}
-                          className="bg-white/[0.04] hover:bg-white/[0.08] text-white border border-white/[0.08] text-xs font-semibold rounded-lg py-1 px-4 transition-all"
+                          className="bg-slate-100 hover:bg-slate-200 dark:bg-white/[0.04] dark:hover:bg-white/[0.08] text-slate-800 dark:text-white border border-slate-300 dark:border-white/[0.08] text-xs font-semibold rounded-lg py-1 px-4 transition-all shadow-sm"
                         >
                           Generate Sample Data
                         </Button>
@@ -636,37 +636,37 @@ const Upload = () => {
                     </div>
 
                     {/* Manual Path Entry */}
-                    <div className="mb-6 p-5 bg-white/[0.01] border border-white/[0.06] rounded-2xl">
-                      <h4 className="font-semibold text-white text-xs tracking-wider uppercase mb-4 flex items-center gap-2">
+                    <div className="mb-6 p-5 bg-slate-50 dark:bg-white/[0.01] border border-slate-200 dark:border-white/[0.06] rounded-2xl">
+                      <h4 className="font-semibold text-slate-800 dark:text-white text-xs tracking-wider uppercase mb-4 flex items-center gap-2">
                         <Zap className="h-3.5 w-3.5 text-[#7B2FBE]" />
                         Staged File Target Paths
                       </h4>
                       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                         <div>
-                          <Label className="text-slate-400 font-medium text-xs">Nodes Path</Label>
+                          <Label className="text-slate-500 dark:text-slate-400 font-medium text-xs">Nodes Path</Label>
                           <Input
                             value={manualPaths.nodes}
                             onChange={(e) => setManualPaths(prev => ({ ...prev, nodes: e.target.value }))}
                             placeholder="uploads/companyId/nodes.csv"
-                            className="mt-1.5 bg-white/[0.02] border border-white/[0.08] text-white focus:border-[#00B4D8]/50 focus:ring-0 focus:outline-none placeholder-slate-650 rounded-xl px-4 py-2 font-mono text-xs w-full"
+                            className="mt-1.5 bg-white dark:bg-white/[0.02] border border-slate-200 dark:border-white/[0.08] text-slate-800 dark:text-white focus:border-[#00B4D8]/50 focus:ring-0 focus:outline-none placeholder-slate-400 dark:placeholder-slate-650 rounded-xl px-4 py-2 font-mono text-xs w-full"
                           />
                         </div>
                         <div>
-                          <Label className="text-slate-400 font-medium text-xs">Edges Path</Label>
+                          <Label className="text-slate-500 dark:text-slate-400 font-medium text-xs">Edges Path</Label>
                           <Input
                             value={manualPaths.edges}
                             onChange={(e) => setManualPaths(prev => ({ ...prev, edges: e.target.value }))}
                             placeholder="uploads/companyId/edges.csv"
-                            className="mt-1.5 bg-white/[0.02] border border-white/[0.08] text-white focus:border-[#00B4D8]/50 focus:ring-0 focus:outline-none placeholder-slate-650 rounded-xl px-4 py-2 font-mono text-xs w-full"
+                            className="mt-1.5 bg-white dark:bg-white/[0.02] border border-slate-200 dark:border-white/[0.08] text-slate-800 dark:text-white focus:border-[#00B4D8]/50 focus:ring-0 focus:outline-none placeholder-slate-400 dark:placeholder-slate-650 rounded-xl px-4 py-2 font-mono text-xs w-full"
                           />
                         </div>
                         <div>
-                          <Label className="text-slate-400 font-medium text-xs">Demand Path</Label>
+                          <Label className="text-slate-500 dark:text-slate-400 font-medium text-xs">Demand Path</Label>
                           <Input
                             value={manualPaths.demand}
                             onChange={(e) => setManualPaths(prev => ({ ...prev, demand: e.target.value }))}
                             placeholder="uploads/companyId/demand.csv"
-                            className="mt-1.5 bg-white/[0.02] border border-white/[0.08] text-white focus:border-[#00B4D8]/50 focus:ring-0 focus:outline-none placeholder-slate-650 rounded-xl px-4 py-2 font-mono text-xs w-full"
+                            className="mt-1.5 bg-white dark:bg-white/[0.02] border border-slate-200 dark:border-white/[0.08] text-slate-800 dark:text-white focus:border-[#00B4D8]/50 focus:ring-0 focus:outline-none placeholder-slate-400 dark:placeholder-slate-650 rounded-xl px-4 py-2 font-mono text-xs w-full"
                           />
                         </div>
                       </div>
@@ -741,9 +741,9 @@ const Upload = () => {
             </Card>
 
             {/* File Requirements Section */}
-            <Card className="border border-white/[0.07] bg-white/[0.01] backdrop-blur-xl rounded-2xl shadow-[0_8px_32px_0_rgba(0,0,0,0.6)] overflow-hidden">
-              <CardHeader className="border-b border-white/[0.06] bg-white/[0.005] p-6">
-                <CardTitle className="flex items-center space-x-2.5 text-white text-base font-semibold">
+            <Card className="border border-slate-200 dark:border-white/[0.07] bg-white dark:bg-white/[0.01] backdrop-blur-xl rounded-2xl shadow-sm dark:shadow-[0_8px_32px_0_rgba(0,0,0,0.6)] overflow-hidden">
+              <CardHeader className="border-b border-slate-200 dark:border-white/[0.06] bg-slate-50/50 dark:bg-white/[0.005] p-6">
+                <CardTitle className="flex items-center space-x-2.5 text-slate-850 dark:text-white text-base font-semibold">
                   <Info className="h-4.5 w-4.5 text-[#00B4D8]" />
                   <span>Network Topology Constraints</span>
                 </CardTitle>
@@ -751,39 +751,39 @@ const Upload = () => {
               <CardContent className="p-6">
                 {uploadType === 'single' ? (
                   <div className="space-y-4">
-                    <h4 className="font-semibold text-slate-200 text-sm">Single Dataset Guidelines:</h4>
-                    <div className="bg-white/[0.01] p-5 rounded-2xl border border-white/[0.06] space-y-4">
-                      <p className="text-xs text-slate-400 leading-relaxed">
+                    <h4 className="font-semibold text-slate-800 dark:text-slate-200 text-sm">Single Dataset Guidelines:</h4>
+                    <div className="bg-slate-50 dark:bg-white/[0.01] p-5 rounded-2xl border border-slate-200 dark:border-white/[0.06] space-y-4">
+                      <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
                         Ensure your consolidated CSV has chronological demand patterns along with topological routing mappings.
                       </p>
                       <div className="space-y-3 text-xs">
                         <div className="flex items-center space-x-2.5">
                           <div className="w-1.5 h-1.5 bg-[#00B4D8] rounded-full shrink-0"></div>
-                          <span><strong>Date</strong> column (YYYY-MM-DD format) - mandatory timestamp reference.</span>
+                          <span className="text-slate-700 dark:text-slate-300"><strong>Date</strong> column (YYYY-MM-DD format) - mandatory timestamp reference.</span>
                         </div>
                         <div className="flex items-center space-x-2.5">
                           <div className="w-1.5 h-1.5 bg-[#7B2FBE] rounded-full shrink-0"></div>
-                          <span><strong>SKU Columns</strong> (must contain numerical demand units). These headers automatically construct product nodes.</span>
+                          <span className="text-slate-700 dark:text-slate-300"><strong>SKU Columns</strong> (must contain numerical demand units). These headers automatically construct product nodes.</span>
                         </div>
                         <div className="flex items-center space-x-2.5">
                           <div className="w-1.5 h-1.5 bg-pink-500 rounded-full shrink-0"></div>
-                          <span><strong>Optional routing attributes</strong> (e.g. <code>Plant</code>, <code>node1</code>, <code>node2</code>) map spatial edge vectors dynamically.</span>
+                          <span className="text-slate-700 dark:text-slate-300"><strong>Optional routing attributes</strong> (e.g. <code>Plant</code>, <code>node1</code>, <code>node2</code>) map spatial edge vectors dynamically.</span>
                         </div>
                       </div>
-                      <div className="text-[11px] font-mono text-[#00B4D8] bg-black/40 p-2.5 rounded-lg border border-white/[0.04]">
+                      <div className="text-[11px] font-mono text-[#00B4D8] bg-slate-100 dark:bg-black/40 p-2.5 rounded-lg border border-slate-200 dark:border-white/[0.04]">
                         Example Header: Date, Plant, node1, node2, SKU_A, SKU_B, SKU_C
                       </div>
                     </div>
                   </div>
                 ) : (
                   <div className="space-y-6">
-                    <h4 className="font-semibold text-slate-200 text-sm">Multi-File Specification:</h4>
+                    <h4 className="font-semibold text-slate-800 dark:text-slate-200 text-sm">Multi-File Specification:</h4>
 
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                       {/* nodes */}
-                      <div className="border-l-2 border-l-[#00B4D8]/70 border-t border-r border-b border-white/[0.05] bg-[#00B4D8]/[0.01] p-5 rounded-2xl hover:bg-[#00B4D8]/[0.02] transition-all">
+                      <div className="border-l-2 border-l-[#00B4D8]/70 border-t border-r border-b border-slate-250 dark:border-white/[0.05] bg-[#00B4D8]/[0.01] p-5 rounded-2xl hover:bg-[#00B4D8]/[0.02] transition-all">
                         <h5 className="font-semibold text-[#00B4D8] text-sm mb-2">nodes.csv</h5>
-                        <ul className="text-xs text-slate-400 space-y-1.5">
+                        <ul className="text-xs text-slate-500 dark:text-slate-400 space-y-1.5">
                           <li className="flex items-start gap-1">
                             <span className="text-[#00B4D8]">•</span>
                             <span><strong>Node</strong> - SKU identifier (must map to column headers in orders)</span>
@@ -796,9 +796,9 @@ const Upload = () => {
                       </div>
 
                       {/* edges */}
-                      <div className="border-l-2 border-l-[#7B2FBE]/70 border-t border-r border-b border-white/[0.05] bg-[#7B2FBE]/[0.01] p-5 rounded-2xl hover:bg-[#7B2FBE]/[0.02] transition-all">
+                      <div className="border-l-2 border-l-[#7B2FBE]/70 border-t border-r border-b border-slate-250 dark:border-white/[0.05] bg-[#7B2FBE]/[0.01] p-5 rounded-2xl hover:bg-[#7B2FBE]/[0.02] transition-all">
                         <h5 className="font-semibold text-[#7B2FBE] text-sm mb-2">Edges (Plant).csv</h5>
-                        <ul className="text-xs text-slate-400 space-y-1.5">
+                        <ul className="text-xs text-slate-500 dark:text-slate-400 space-y-1.5">
                           <li className="flex items-start gap-1">
                             <span className="text-[#7B2FBE]">•</span>
                             <span><strong>Plant</strong> - Sourcing node hub</span>
@@ -811,15 +811,15 @@ const Upload = () => {
                       </div>
 
                       {/* demand */}
-                      <div className="border-l-2 border-l-pink-500/70 border-t border-r border-b border-white/[0.05] bg-pink-500/[0.01] p-5 rounded-2xl hover:bg-pink-500/[0.02] transition-all">
-                        <h5 className="font-semibold text-pink-400 text-sm mb-2">Sales Order.csv</h5>
-                        <ul className="text-xs text-slate-400 space-y-1.5">
+                      <div className="border-l-2 border-l-pink-500/70 border-t border-r border-b border-slate-250 dark:border-white/[0.05] bg-pink-500/[0.01] p-5 rounded-2xl hover:bg-pink-500/[0.02] transition-all">
+                        <h5 className="font-semibold text-pink-500 dark:text-pink-400 text-sm mb-2">Sales Order.csv</h5>
+                        <ul className="text-xs text-slate-500 dark:text-slate-400 space-y-1.5">
                           <li className="flex items-start gap-1">
-                            <span className="text-pink-400">•</span>
+                            <span className="text-pink-500 dark:text-pink-400">•</span>
                             <span><strong>Date</strong> - Aggregated daily stamp</span>
                           </li>
                           <li className="flex items-start gap-1">
-                            <span className="text-pink-400">•</span>
+                            <span className="text-pink-500 dark:text-pink-400">•</span>
                             <span><strong>SKUs</strong> - Column per SKU with daily volumes</span>
                           </li>
                         </ul>
@@ -834,9 +834,9 @@ const Upload = () => {
 
         {/* Fine-tuning Section */}
         {(uploadComplete || fineTuning) && (
-          <Card className="border border-white/[0.07] bg-white/[0.015] backdrop-blur-2xl rounded-2xl shadow-[0_8px_32px_0_rgba(0,0,0,0.8)] overflow-hidden animate-fade-in-up">
-            <CardHeader className="border-b border-white/[0.06] bg-gradient-to-r from-[#00B4D8]/10 to-[#7B2FBE]/10 p-6">
-              <CardTitle className="flex items-center space-x-3 text-white text-lg font-semibold">
+          <Card className="border border-slate-200 dark:border-white/[0.07] bg-white dark:bg-white/[0.015] backdrop-blur-2xl rounded-2xl shadow-sm dark:shadow-[0_8px_32px_0_rgba(0,0,0,0.8)] overflow-hidden animate-fade-in-up">
+            <CardHeader className="border-b border-slate-200 dark:border-white/[0.06] bg-gradient-to-r from-[#00B4D8]/10 to-[#7B2FBE]/10 p-6">
+              <CardTitle className="flex items-center space-x-3 text-slate-800 dark:text-white text-lg font-semibold">
                 <Brain className="h-5 w-5 text-[#7B2FBE]" />
                 <span>Neural Net Engine Optimization</span>
                 {fineTuning && <Zap className="h-4.5 w-4.5 text-yellow-400 animate-pulse" />}
@@ -846,27 +846,27 @@ const Upload = () => {
               <div className="text-center space-y-6">
                 <div className="inline-flex items-center space-x-2 bg-emerald-500/10 px-4 py-1.5 rounded-full border border-emerald-500/20">
                   <CheckCircle className="h-4 w-4 text-emerald-400" />
-                  <span className="text-xs font-semibold tracking-wider text-emerald-400 uppercase">Snapshot Staged</span>
+                  <span className="text-xs font-semibold tracking-wider text-emerald-600 dark:text-emerald-400 uppercase">Snapshot Staged</span>
                 </div>
 
                 <div className="max-w-md mx-auto">
-                  <p className="text-slate-350 text-sm leading-relaxed mb-4">
+                  <p className="text-slate-600 dark:text-slate-350 text-sm leading-relaxed mb-4">
                     Ready to initiate localized GNN weights adjustment. This runs a spatial convolution backprop tailored to your network topology configuration.
                   </p>
 
                   {fineTuning && (
                     <div className="space-y-4 animate-fade-in pt-2">
                       <div className="flex items-center justify-between">
-                        <span className="text-xs font-semibold text-slate-300">GNN Fine-Tuning Calibration...</span>
+                        <span className="text-xs font-semibold text-slate-700 dark:text-slate-300">GNN Fine-Tuning Calibration...</span>
                         <span className="text-xs font-bold text-[#7B2FBE] font-mono">{Math.round(fineTuningProgress)}%</span>
                       </div>
-                      <div className="relative w-full h-2 bg-white/[0.04] rounded-full overflow-hidden border border-white/[0.06]">
+                      <div className="relative w-full h-2 bg-slate-200/50 dark:bg-white/[0.04] rounded-full overflow-hidden border border-slate-300 dark:border-white/[0.06]">
                         <div 
                           className="absolute top-0 left-0 h-full bg-gradient-to-r from-[#00B4D8] to-[#7B2FBE] rounded-full transition-all duration-300 shadow-[0_0_12px_rgba(123,47,190,0.5)]"
                           style={{ width: `${fineTuningProgress}%` }}
                         />
                       </div>
-                      <div className="flex items-center justify-center space-x-2 text-xs text-slate-400 font-mono">
+                      <div className="flex items-center justify-center space-x-2 text-xs text-slate-500 dark:text-slate-400 font-mono">
                         <Brain className="h-3.5 w-3.5 animate-pulse text-[#7B2FBE]" />
                         <span>
                           {trainingStatusMessage ||
@@ -893,7 +893,7 @@ const Upload = () => {
                         setUploadComplete(false);
                         setFineTuning(false);
                       }}
-                      className="px-6 py-3.5 border border-white/[0.08] bg-white/[0.02] hover:bg-white/[0.06] text-white font-semibold rounded-xl text-xs tracking-wider uppercase transition-all"
+                      className="px-6 py-3.5 border border-slate-200 dark:border-white/[0.08] bg-slate-100 hover:bg-slate-200 dark:bg-white/[0.02] dark:hover:bg-white/[0.06] text-slate-800 dark:text-white font-semibold rounded-xl text-xs tracking-wider uppercase transition-all"
                     >
                       <Database className="mr-2 h-4 w-4" />
                       Upload New Topology

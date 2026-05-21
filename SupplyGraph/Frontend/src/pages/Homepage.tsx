@@ -569,12 +569,10 @@ export const Homepage: React.FC = () => {
                   iframeLoaded ? 'opacity-0 scale-95' : 'opacity-100 scale-100'
                 }`}
               >
-                <div className="w-[380px] h-[580px] rounded-[40px] bg-gradient-to-b from-[#00B4D8]/12 via-[#7B2FBE]/6 to-transparent border border-white/[0.08] flex items-center justify-center relative overflow-hidden shadow-2xl shadow-cyan-500/5">
-                  {/* Neon backlight orbs */}
-                  <div className="absolute top-[15%] w-[240px] h-[240px] rounded-full bg-gradient-to-tr from-[#00B4D8]/20 to-[#7B2FBE]/20 blur-3xl animate-pulse" />
-                  
-                  {/* Clean preview crop: m-[1px] creates spacing, scale-[1.08] + negative translate shifts corners to clip out any watermark */}
-                  <div className="absolute inset-0 overflow-hidden rounded-[39px] m-[1.5px] flex items-center justify-center bg-black/40">
+                {/* Frameless container — no background, no borders, no shadow */}
+                <div className="w-[380px] h-[580px] flex items-center justify-center relative overflow-hidden">
+                  {/* Clean preview crop: shifts and scales to clip out any watermark without showing any borders */}
+                  <div className="absolute inset-0 overflow-hidden flex items-center justify-center">
                     <img 
                       src="/models/spline robo model.png" 
                       alt="Nexbot Concept Preview" 

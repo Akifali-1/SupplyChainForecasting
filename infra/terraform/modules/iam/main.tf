@@ -34,9 +34,6 @@ variable "sqs_queue_arn" {
   type = string
 }
 
-variable "cf_distribution_arn" {
-  type = string
-}
 
 # ── EC2 Host IAM Role ──────────────────────────────────────────────────────────
 resource "aws_iam_role" "ec2" {
@@ -138,7 +135,7 @@ resource "aws_iam_role_policy" "github_actions_policy" {
       {
         Effect   = "Allow"
         Action   = "cloudfront:CreateInvalidation"
-        Resource = var.cf_distribution_arn
+        Resource = "arn:aws:cloudfront::${var.aws_account_id}:distribution/*"
       }
     ]
   })

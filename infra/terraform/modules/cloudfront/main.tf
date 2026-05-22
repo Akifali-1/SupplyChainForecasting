@@ -10,6 +10,10 @@ variable "frontend_bucket_arn" {
   type = string
 }
 
+variable "ec2_public_dns" {
+  type = string
+}
+
 resource "aws_cloudfront_origin_access_control" "frontend" {
   name                              = "${var.app_name}-oac"
   origin_access_control_origin_type = "s3"
@@ -27,6 +31,42 @@ resource "aws_cloudfront_distribution" "frontend" {
     domain_name              = "${var.frontend_bucket_id}.s3.amazonaws.com"
     origin_id                = "S3-${var.frontend_bucket_id}"
     origin_access_control_id = aws_cloudfront_origin_access_control.frontend.id
+  }
+
+  origin {
+    domain_name = var.ec2_public_dns
+    origin_id   = "EC2-backend"
+
+    custom_origin_config {
+      http_port              = 80
+      https_port             = 443
+      origin_protocol_policy = "http-only"
+      origin_ssl_protocols   = ["TLSv1.2"]
+    }
+  }
+
+  ordered_cache_behavior {
+    path_pattern     = "/api/*"
+    target_origin_id = "EC2-backend"
+
+    allowed_methods  = ["DELETE", "GET", "HEAD", "OPTIONS", "PATCH", "POST", "PUT"]
+    cached_methods   = ["GET", "HEAD"]
+    compress         = true
+
+    min_ttl          = 0
+    default_ttl      = 0
+    max_ttl          = 0
+
+    viewer_protocol_policy = "redirect-to-https"
+
+    forwarded_values {
+      query_string = true
+      headers      = ["*"]
+
+      cookies {
+        forward = "all"
+      }
+    }
   }
 
   default_cache_behavior {

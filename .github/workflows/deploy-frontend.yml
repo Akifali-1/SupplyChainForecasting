@@ -38,7 +38,7 @@ jobs:
       - name: Build Frontend
         working-directory: ./SupplyGraph/Frontend
         env:
-          REACT_APP_API_BASE: http://${{ secrets.EC2_HOST }}
+          REACT_APP_API_BASE: ""
           CI: false
         run: npm run build
 

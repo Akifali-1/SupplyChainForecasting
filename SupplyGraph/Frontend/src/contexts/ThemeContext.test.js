@@ -71,19 +71,7 @@ describe('ThemeContext', () => {
         }));
     });
 
-    it('provides default theme as light', () => {
-        const { getByTestId } = render(
-            <ThemeProvider>
-                <TestComponent />
-            </ThemeProvider>
-        );
-
-        expect(getByTestId('theme-value').textContent).toBe('light');
-    });
-
-    it('loads saved theme from localStorage', () => {
-        localStorage.setItem('theme', 'dark');
-
+    it('provides default theme as dark', () => {
         const { getByTestId } = render(
             <ThemeProvider>
                 <TestComponent />
@@ -91,6 +79,18 @@ describe('ThemeContext', () => {
         );
 
         expect(getByTestId('theme-value').textContent).toBe('dark');
+    });
+
+    it('loads saved theme from localStorage', () => {
+        localStorage.setItem('theme', 'light');
+
+        const { getByTestId } = render(
+            <ThemeProvider>
+                <TestComponent />
+            </ThemeProvider>
+        );
+
+        expect(getByTestId('theme-value').textContent).toBe('light');
     });
 
     it('toggles theme and saves to localStorage', () => {
@@ -100,24 +100,24 @@ describe('ThemeContext', () => {
             </ThemeProvider>
         );
 
-        // Initially light
-        expect(getByTestId('theme-value').textContent).toBe('light');
-
-        // Toggle to dark
-        act(() => {
-            getByTestId('toggle-button').click();
-        });
-
+        // Initially dark
         expect(getByTestId('theme-value').textContent).toBe('dark');
-        expect(localStorage.getItem('theme')).toBe('dark');
 
-        // Toggle back to light
+        // Toggle to light
         act(() => {
             getByTestId('toggle-button').click();
         });
 
         expect(getByTestId('theme-value').textContent).toBe('light');
         expect(localStorage.getItem('theme')).toBe('light');
+
+        // Toggle back to dark
+        act(() => {
+            getByTestId('toggle-button').click();
+        });
+
+        expect(getByTestId('theme-value').textContent).toBe('dark');
+        expect(localStorage.getItem('theme')).toBe('dark');
     });
 
     it('applies dark class to document when theme is dark', () => {
@@ -144,19 +144,7 @@ describe('ThemeContext', () => {
         expect(document.documentElement.classList.contains('dark')).toBe(false);
     });
 
-    it('uses system preference when no saved theme', () => {
-        // Mock system preference for dark mode
-        window.matchMedia.mockImplementation(query => ({
-            matches: query === '(prefers-color-scheme: dark)',
-            media: query,
-            onchange: null,
-            addListener: jest.fn(),
-            removeListener: jest.fn(),
-            addEventListener: jest.fn(),
-            removeEventListener: jest.fn(),
-            dispatchEvent: jest.fn(),
-        }));
-
+    it('defaults to dark when no saved theme exists', () => {
         const { getByTestId } = render(
             <ThemeProvider>
                 <TestComponent />

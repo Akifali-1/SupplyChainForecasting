@@ -25,7 +25,7 @@ services:
       options:
         awslogs-group: "/supplygraph/backend"
         awslogs-region: "${AWS_REGION}"
-        awslogs-stream-prefix: "backend"
+        tag: "backend-{{.ID}}"
     depends_on:
       - ml-service
 
@@ -45,4 +45,4 @@ services:
       options:
         awslogs-group: "/supplygraph/ml-service"
         awslogs-region: "${AWS_REGION}"
-        awslogs-stream-prefix: "ml-service"
+        tag: "ml-service-{{.ID}}"

@@ -1,0 +1,19 @@
+# Terraform local files
+**/.terraform/
+**/*.tfstate
+**/*.tfstate.*
+**/terraform.tfvars
+
+# Node dependencies
+**/node_modules/
+**/build/
+**/dist/
+
+# Python cache & env
+**/__pycache__/
+**/*.pyc
+**/.env
+**/.env.local
+**/.env.production
+**/.env.development
+**/.env.staging

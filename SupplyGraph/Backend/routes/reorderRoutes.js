@@ -15,7 +15,7 @@ const mongoose = require("mongoose");
 const { requireAuth, requireRole } = require("../utils/auth");
 const InventorySnapshot = require("../models/InventorySnapshot");
 
-const ML_SERVICE_URL = process.env.ML_SERVICE_URL || "http://127.0.0.1:5001";
+const ML_SERVICE_URL = process.env.ML_SERVICE_URL || "http://ml-service:5001";
 
 // ─── multer: memory storage for CSV ──────────────────────────────────────────
 const upload = multer({

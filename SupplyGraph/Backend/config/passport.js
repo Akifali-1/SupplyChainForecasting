@@ -6,17 +6,11 @@ const GoogleStrategy = require("passport-google-oauth20").Strategy;
 
 // Get callback URL from environment or use default
 const getCallbackURL = () => {
-  // In production, Render provides the full URL via BACKEND_URL or RENDER_EXTERNAL_URL
-  // For OAuth, we need the full URL including https://
-  const backendUrl = process.env.BACKEND_URL ||
-    process.env.RENDER_EXTERNAL_URL ||
-    (process.env.PORT ? `https://${process.env.RENDER_SERVICE_NAME || 'your-backend'}.onrender.com` : null) ||
-    "http://localhost:5000";
+  const backendUrl = process.env.BACKEND_URL || "http://localhost:5000";
 
   // Ensure we have the protocol
   let url = backendUrl;
   if (!url.startsWith('http://') && !url.startsWith('https://')) {
-    // If no protocol, assume https in production, http in development
     url = process.env.NODE_ENV === 'production' ? `https://${url}` : `http://${url}`;
   }
 

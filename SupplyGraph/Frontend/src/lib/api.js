@@ -46,12 +46,40 @@ export async function registerCompany(name) {
 }
 
 export async function convertRaw(companyId, file) {
-  logger.info('API', 'Converting raw file', { companyId, fileName: file.name, fileSize: file.size });
-  const formData = new FormData();
-  formData.append("file", file);
+  logger.info('API', 'Initiating S3 upload & conversion', { companyId, fileName: file.name, fileSize: file.size });
+  
+  // 1. Request presigned URL from backend
+  const uploadUrlRes = await apiFetch(`${API_BASE}/api/data/upload-url/${companyId}?filename=${encodeURIComponent(file.name)}`);
+  if (!uploadUrlRes.ok) {
+    const errorData = await uploadUrlRes.json().catch(() => ({}));
+    const errorMessage = errorData.details || errorData.error || `Failed to generate S3 upload URL`;
+    throw new Error(errorMessage);
+  }
+  const { uploadUrl, s3Key } = await uploadUrlRes.json();
+
+  // 2. Upload raw file directly to S3
+  logger.info('API', 'Uploading raw file directly to S3 bucket', { s3Key });
+  const s3PutRes = await fetch(uploadUrl, {
+    method: "PUT",
+    headers: {
+      "Content-Type": "text/csv"
+    },
+    body: file
+  });
+
+  if (!s3PutRes.ok) {
+    logger.error('API', 'Direct S3 upload failed', { status: s3PutRes.status });
+    throw new Error(`Direct S3 upload failed (HTTP ${s3PutRes.status})`);
+  }
+
+  // 3. Notify backend to process the file in S3
+  logger.info('API', 'Notifying backend to process S3 object', { s3Key });
   const res = await apiFetch(`${API_BASE}/api/data/convert/${companyId}`, {
     method: "POST",
-    body: formData
+    headers: {
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({ s3Key, filename: file.name, size: file.size })
   });
 
   if (!res.ok) {

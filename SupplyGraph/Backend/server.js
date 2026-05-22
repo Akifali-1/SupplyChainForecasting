@@ -231,7 +231,7 @@ app.post("/api/company/register", async (req, res) => {
 // Health check endpoint - No ETag (health status changes frequently)
 app.get("/api/health", async (req, res) => {
   try {
-    const ML_SERVICE_URL = process.env.ML_SERVICE_URL || "http://localhost:5001";
+    const ML_SERVICE_URL = process.env.ML_SERVICE_URL || "http://ml-service:5001";
     const mlResponse = await axios.get(`${ML_SERVICE_URL}/health`);
     res.json({
       backend: "healthy",
@@ -267,10 +267,7 @@ app.get("/api/auth/debug", (req, res) => {
   const isProduction = process.env.NODE_ENV === 'production';
 
   // Calculate callback URL the same way passport does
-  const backendUrl = process.env.BACKEND_URL ||
-    process.env.RENDER_EXTERNAL_URL ||
-    (process.env.PORT ? `https://${process.env.RENDER_SERVICE_NAME || 'your-backend'}.onrender.com` : null) ||
-    "http://localhost:5000";
+  const backendUrl = process.env.BACKEND_URL || "http://localhost:5000";
   let url = backendUrl;
   if (!url.startsWith('http://') && !url.startsWith('https://')) {
     url = isProduction ? `https://${url}` : `http://${url}`;

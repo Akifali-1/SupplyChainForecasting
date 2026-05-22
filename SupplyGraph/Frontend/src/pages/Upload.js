@@ -65,7 +65,8 @@ const Upload = () => {
         const progress = mlStatus.progress || 0;
         const message = mlStatus.message || '';
 
-        if (status === 'training' || status === 'saving') {
+        const activeStates = ['queued', 'starting', 'validating', 'loading_model', 'preparing_data', 'training', 'saving'];
+        if (activeStates.includes(status)) {
           // Resume training UI
           setUploadComplete(true);
           setFineTuning(true);
@@ -91,7 +92,7 @@ const Upload = () => {
                 setFineTuningComplete(true);
                 toast({ title: '🎉 Training Complete!', description: msg || 'Model trained successfully.' });
                 setTimeout(() => navigate('/prediction'), 2000);
-              } else if (st === 'failed') {
+              } else if (st === 'failed' || st === 'error') {
                 clearInterval(pollRef.current);
                 pollRef.current = null;
                 setFineTuning(false);
@@ -331,7 +332,7 @@ const Upload = () => {
               }
               return true;
             });
-          } else if (status === 'failed') {
+          } else if (status === 'failed' || status === 'error') {
             clearInterval(pollRef.current);
             pollRef.current = null;
             console.error('[Training] Training failed', error);
@@ -362,21 +363,8 @@ const Upload = () => {
       try {
         // Start fine-tuning
         const fineTuneResponse = await fineTune(companyId, nodesPath, edgesPath, demandPath, forceRetrain);
-        console.log('[Training] Fine-tuning completed', fineTuneResponse);
-        
-        clearInterval(pollRef.current);
-        pollRef.current = null;
-        setFineTuningComplete(prev => {
-          if (!prev) {
-            setFineTuningProgress(100);
-            toast({
-              title: 'Success!',
-              description: 'Fine-tuning completed successfully!'
-            });
-            setTimeout(() => navigate('/prediction'), 1500);
-          }
-          return true;
-        });
+        console.log('[Training] Fine-tuning initiated', fineTuneResponse);
+        // Do not clear pollRef or set completion here; let the polling interval handle it.
       } catch (fineTuneError) {
         clearInterval(pollRef.current);
         pollRef.current = null;

@@ -1,0 +1,48 @@
+version: '3.8'
+
+services:
+  backend:
+    image: ${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/supplygraph/backend:latest
+    container_name: backend
+    restart: always
+    environment:
+      - PORT=5000
+      - NODE_ENV=production
+      - MONGO_URI=${MONGO_URI}
+      - SESSION_SECRET=${SESSION_SECRET}
+      - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID}
+      - GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET}
+      - BACKEND_URL=${BACKEND_URL}
+      - FRONTEND_URL=${FRONTEND_URL}
+      - S3_UPLOADS_BUCKET=${S3_UPLOADS_BUCKET}
+      - SQS_QUEUE_URL=${SQS_QUEUE_URL}
+      - AWS_REGION=${AWS_REGION}
+      - ML_SERVICE_URL=http://ml-service:5001
+    ports:
+      - "5000:5000"
+    logging:
+      driver: "awslogs"
+      options:
+        awslogs-group: "/supplygraph/backend"
+        awslogs-region: "${AWS_REGION}"
+        awslogs-stream-prefix: "backend"
+    depends_on:
+      - ml-service
+
+  ml-service:
+    image: ${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/supplygraph/ml-service:latest
+    container_name: ml-service
+    restart: always
+    environment:
+      - MONGO_URI=${MONGO_URI}
+      - S3_UPLOADS_BUCKET=${S3_UPLOADS_BUCKET}
+      - SQS_QUEUE_URL=${SQS_QUEUE_URL}
+      - AWS_REGION=${AWS_REGION}
+    ports:
+      - "5001:5001"
+    logging:
+      driver: "awslogs"
+      options:
+        awslogs-group: "/supplygraph/ml-service"
+        awslogs-region: "${AWS_REGION}"
+        awslogs-stream-prefix: "ml-service"

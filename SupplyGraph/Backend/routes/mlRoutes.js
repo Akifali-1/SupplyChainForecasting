@@ -1,12 +1,17 @@
 const express = require("express");
 const router = express.Router();
 const axios = require("axios");
+const mongoose = require("mongoose");
+const { SQSClient, SendMessageCommand } = require("@aws-sdk/client-sqs");
 const { etagMiddleware } = require("../utils/etag");
 const { idempotencyMiddleware } = require("../utils/idempotency");
-const { requireAuth, requireRole } = require("../utils/auth"); // ✅ Import auth middlewares
+const { requireAuth, requireRole } = require("../utils/auth");
 
-// ML service runs in same container via supervisor, use localhost
-const ML_SERVICE_URL = process.env.ML_SERVICE_URL || "http://127.0.0.1:5001";
+// ML service runs in a separate docker container, use Docker network alias
+const ML_SERVICE_URL = process.env.ML_SERVICE_URL || "http://ml-service:5001";
+
+const sqsClient = new SQSClient({ region: process.env.AWS_REGION || "us-east-1" });
+const SQS_QUEUE_URL = process.env.SQS_QUEUE_URL;
 
 // Helper to log rich ML errors
 function logMlError(label, error) {
@@ -140,27 +145,76 @@ router.post("/fine-tune/:companyId", requireRole(["admin"]), idempotencyMiddlewa
     console.log(`Starting fine-tuning for company ${companyId}`);
     console.log(`File paths: nodes=${nodes}, edges=${edges}, demand=${demand}`);
 
-    const mlResponse = await axios.post(`${ML_SERVICE_URL}/fine-tune`, {
-      company_id: companyId,
-      nodes: nodes,
-      edges: edges,
-      demand: demand,
-      force_retrain: !!force_retrain
-    });
+    if (SQS_QUEUE_URL) {
+      console.log("SQS queue configured. Enqueuing training job...");
+      
+      // Update database status immediately to queued
+      if (mongoose.connection && mongoose.connection.db) {
+        try {
+          await mongoose.connection.db.collection("training_status").updateOne(
+            { company_id: companyId },
+            {
+              $set: {
+                status: "queued",
+                progress: 0,
+                message: "Job submitted to queue. Waiting for background worker...",
+                error: null,
+                timestamp: new Date().toISOString()
+              }
+            },
+            { upsert: true }
+          );
+          console.log(`Updated training status to queued in DB for company ${companyId}`);
+        } catch (dbErr) {
+          console.error("Warning: Failed to update training status in DB:", dbErr.message);
+        }
+      }
 
-    if (mlResponse.status === 200) {
-      res.json({
-        message: "Fine-tuning started successfully",
+      const sqsPayload = {
         company_id: companyId,
-        ml_response: mlResponse.data,
-        status: "training_started"
+        nodes: nodes.startsWith("processed/") ? nodes : `processed/${companyId}/nodes.csv`,
+        edges: edges.startsWith("processed/") ? edges : `processed/${companyId}/Edges (Plant).csv`,
+        demand: demand.startsWith("processed/") ? demand : `processed/${companyId}/Sales Order.csv`,
+        force_retrain: !!force_retrain
+      };
+
+      const command = new SendMessageCommand({
+        QueueUrl: SQS_QUEUE_URL,
+        MessageBody: JSON.stringify(sqsPayload)
+      });
+
+      await sqsClient.send(command);
+
+      res.json({
+        message: "Fine-tuning queued successfully via SQS",
+        company_id: companyId,
+        status: "training_started",
+        ml_response: { success: true, message: "Enqueued job in SQS" }
       });
     } else {
-      res.status(500).json({
-        error: "Fine-tuning failed to start",
-        details: mlResponse.data.error || "Unknown ML service error",
-        ml_response: mlResponse.data
+      console.log("SQS queue URL not configured. Falling back to synchronous HTTP call...");
+      const mlResponse = await axios.post(`${ML_SERVICE_URL}/fine-tune`, {
+        company_id: companyId,
+        nodes: nodes,
+        edges: edges,
+        demand: demand,
+        force_retrain: !!force_retrain
       });
+
+      if (mlResponse.status === 200) {
+        res.json({
+          message: "Fine-tuning started successfully",
+          company_id: companyId,
+          ml_response: mlResponse.data,
+          status: "training_started"
+        });
+      } else {
+        res.status(500).json({
+          error: "Fine-tuning failed to start",
+          details: mlResponse.data.error || "Unknown ML service error",
+          ml_response: mlResponse.data
+        });
+      }
     }
   } catch (error) {
     logMlError("Error starting fine-tuning", error);

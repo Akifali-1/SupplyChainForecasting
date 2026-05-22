@@ -25,7 +25,13 @@ router.get("/google", (req, res, next) => {
   let callbackURL;
   try {
     const originUrl = new URL(targetFrontendUrl);
-    callbackURL = `${originUrl.origin}/api/auth/google/callback`;
+    if (originUrl.hostname === 'localhost' || originUrl.hostname === '127.0.0.1') {
+      const protocol = req.headers['x-forwarded-proto'] || req.protocol;
+      const host = req.headers['x-forwarded-host'] || req.headers.host;
+      callbackURL = `${protocol}://${host}/api/auth/google/callback`;
+    } else {
+      callbackURL = `${originUrl.origin}/api/auth/google/callback`;
+    }
   } catch (e) {
     const protocol = req.headers['x-forwarded-proto'] || req.protocol;
     const host = req.headers['x-forwarded-host'] || req.headers.host;
@@ -59,7 +65,13 @@ router.get(
     let callbackURL;
     try {
       const originUrl = new URL(targetFrontendUrl);
-      callbackURL = `${originUrl.origin}/api/auth/google/callback`;
+      if (originUrl.hostname === 'localhost' || originUrl.hostname === '127.0.0.1') {
+        const protocol = req.headers['x-forwarded-proto'] || req.protocol;
+        const host = req.headers['x-forwarded-host'] || req.headers.host;
+        callbackURL = `${protocol}://${host}/api/auth/google/callback`;
+      } else {
+        callbackURL = `${originUrl.origin}/api/auth/google/callback`;
+      }
     } catch (e) {
       const protocol = req.headers['x-forwarded-proto'] || req.protocol;
       const host = req.headers['x-forwarded-host'] || req.headers.host;

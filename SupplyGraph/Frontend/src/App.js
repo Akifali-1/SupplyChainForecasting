@@ -73,7 +73,7 @@ const PageWrapper = ({ children }) => {
 
 function App() {
   return (
-    <div className="App min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 dark:from-neutral-950 dark:to-black">
+    <div className="App min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 dark:bg-black dark:from-black dark:to-black">
       <AuthProvider>
         <ThemeProvider>
           <BrowserRouter>

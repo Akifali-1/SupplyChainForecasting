@@ -89,7 +89,7 @@ const Registration = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 dark:from-neutral-950 dark:via-slate-950 dark:to-black flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 dark:bg-black dark:from-black dark:to-black flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
       <div className="max-w-md w-full space-y-8">
         {/* Header */}
         <div className="text-center">
@@ -107,7 +107,7 @@ const Registration = () => {
           <p className="text-slate-600 dark:text-slate-400">Start your supply chain forecasting journey</p>
         </div>
 
-        <Card className="shadow-2xl border-0 bg-white/90 dark:bg-neutral-900/95 backdrop-blur-sm">
+        <Card className="shadow-2xl border border-slate-200 dark:border-white/10 bg-white/90 dark:bg-black backdrop-blur-sm">
           <CardHeader className="pb-6">
             <CardTitle className="text-center text-slate-900 dark:text-white">Create Your Account</CardTitle>
           </CardHeader>
@@ -118,7 +118,7 @@ const Registration = () => {
                 type="button"
                 variant="outline"
                 onClick={registerWithGoogle}
-                className="w-full h-12 border-slate-300 dark:border-neutral-800 hover:bg-slate-50 dark:hover:bg-neutral-850 transition-colors rounded-lg flex items-center justify-center space-x-2"
+                className="w-full h-12 border-slate-300 dark:border-white/10 hover:bg-slate-50 dark:hover:bg-neutral-900 dark:bg-black dark:text-white transition-colors rounded-lg flex items-center justify-center space-x-2"
               >
                 <svg className="w-5 h-5" viewBox="0 0 24 24">
                   <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
@@ -133,10 +133,10 @@ const Registration = () => {
             {/* Divider */}
             <div className="relative mb-6">
               <div className="absolute inset-0 flex items-center">
-                <div className="w-full border-t border-slate-300 dark:border-neutral-800" />
+                <div className="w-full border-t border-slate-300 dark:border-white/10" />
               </div>
               <div className="relative flex justify-center text-sm">
-                <span className="px-2 bg-white dark:bg-neutral-900 text-slate-500 dark:text-slate-400">Or create account with email</span>
+                <span className="px-2 bg-white dark:bg-black text-slate-500 dark:text-slate-400">Or create account with email</span>
               </div>
             </div>
 
@@ -153,7 +153,7 @@ const Registration = () => {
                     required
                     value={formData.companyName}
                     onChange={handleChange}
-                    className="pl-12 h-12 border-slate-300 dark:border-neutral-800 focus:border-blue-500 focus:ring-blue-500 dark:focus:border-blue-400 dark:focus:ring-blue-400 transition-colors rounded-lg bg-white dark:bg-neutral-950 text-slate-900 dark:text-white"
+                    className="pl-12 h-12 border-slate-300 dark:border-white/10 focus:border-blue-500 focus:ring-blue-500 dark:focus:border-blue-400 dark:focus:ring-blue-400 transition-colors rounded-lg bg-white dark:bg-black text-slate-900 dark:text-white"
                     placeholder="Enter your company name"
                   />
                 </div>
@@ -171,7 +171,7 @@ const Registration = () => {
                     required
                     value={formData.email}
                     onChange={handleChange}
-                    className="pl-12 h-12 border-slate-300 dark:border-neutral-800 focus:border-blue-500 focus:ring-blue-500 dark:focus:border-blue-400 dark:focus:ring-blue-400 transition-colors rounded-lg bg-white dark:bg-neutral-950 text-slate-900 dark:text-white"
+                    className="pl-12 h-12 border-slate-300 dark:border-white/10 focus:border-blue-500 focus:ring-blue-500 dark:focus:border-blue-400 dark:focus:ring-blue-400 transition-colors rounded-lg bg-white dark:bg-black text-slate-900 dark:text-white"
                     placeholder="Enter your email"
                   />
                 </div>
@@ -189,7 +189,7 @@ const Registration = () => {
                     required
                     value={formData.password}
                     onChange={handleChange}
-                    className="pl-12 h-12 border-slate-300 dark:border-neutral-800 focus:border-blue-500 focus:ring-blue-500 dark:focus:border-blue-400 dark:focus:ring-blue-400 transition-colors rounded-lg bg-white dark:bg-neutral-950 text-slate-900 dark:text-white"
+                    className="pl-12 h-12 border-slate-300 dark:border-white/10 focus:border-blue-500 focus:ring-blue-500 dark:focus:border-blue-400 dark:focus:ring-blue-400 transition-colors rounded-lg bg-white dark:bg-black text-slate-900 dark:text-white"
                     placeholder="Create a password"
                   />
                 </div>
@@ -207,7 +207,7 @@ const Registration = () => {
                     required
                     value={formData.confirmPassword}
                     onChange={handleChange}
-                    className="pl-12 h-12 border-slate-300 dark:border-neutral-800 focus:border-blue-500 focus:ring-blue-500 dark:focus:border-blue-400 dark:focus:ring-blue-400 transition-colors rounded-lg bg-white dark:bg-neutral-950 text-slate-900 dark:text-white"
+                    className="pl-12 h-12 border-slate-300 dark:border-white/10 focus:border-blue-500 focus:ring-blue-500 dark:focus:border-blue-400 dark:focus:ring-blue-400 transition-colors rounded-lg bg-white dark:bg-black text-slate-900 dark:text-white"
                     placeholder="Confirm your password"
                   />
                 </div>

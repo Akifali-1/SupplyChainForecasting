@@ -13,6 +13,9 @@
   "license": "ISC",
   "description": "",
   "dependencies": {
+    "@aws-sdk/client-s3": "^3.1052.0",
+    "@aws-sdk/client-sqs": "^3.1052.0",
+    "@aws-sdk/s3-request-presigner": "^3.1052.0",
     "axios": "^1.6.0",
     "connect-mongo": "^6.0.0",
     "cors": "^2.8.5",
@@ -25,7 +28,8 @@
     "mongoose": "^8.18.0",
     "multer": "^2.0.2",
     "passport": "^0.7.0",
-    "passport-google-oauth20": "^2.0.0"
+    "passport-google-oauth20": "^2.0.0",
+    "tslib": "^2.8.1"
   },
   "devDependencies": {
     "jest": "^30.3.0",

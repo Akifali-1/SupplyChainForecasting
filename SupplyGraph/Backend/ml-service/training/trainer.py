@@ -680,15 +680,25 @@ class ModelTrainer:
         self._update_training_status(company_id, "failed", 0, "Training cancelled by user")
 
     def _update_training_status(self, company_id, status, progress=0, message="", error=None):
-        """Update training status"""
-        self.training_status[company_id] = {
+        """Update training status in memory and MongoDB"""
+        status_doc = {
             "status": status,
             "progress": progress,
             "message": message,
             "error": error,
             "timestamp": pd.Timestamp.now().isoformat()
         }
+        self.training_status[company_id] = status_doc
         print(f"Status [{company_id}]: {status} ({progress}%) - {message}")
+        if self.db is not None:
+            try:
+                self.db.training_status.update_one(
+                    {"company_id": company_id},
+                    {"$set": status_doc},
+                    upsert=True
+                )
+            except Exception as e:
+                print(f"Failed to save status to MongoDB: {e}")
 
     def get_training_status(self, company_id):
         """Get training status"""
@@ -698,6 +708,13 @@ class ModelTrainer:
             
             if self.db is None:
                 return {"status": "database_unavailable", "progress": 0}
+            
+            # Check MongoDB training_status collection first
+            db_status = self.db.training_status.find_one({'company_id': company_id})
+            if db_status:
+                db_status.pop('_id', None)
+                db_status.pop('company_id', None)
+                return db_status
             
             model_doc = self.db.company_models.find_one({'company_id': company_id})
             

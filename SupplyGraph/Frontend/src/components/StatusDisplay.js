@@ -63,10 +63,17 @@ const StatusDisplay = ({ companyId }) => {
       case 'completed':
         return <CheckCircle className="h-5 w-5 text-green-500" />;
       case 'training':
+      case 'starting':
+      case 'validating':
+      case 'loading_model':
+      case 'preparing_data':
+      case 'saving':
         return <Brain className="h-5 w-5 text-blue-500 animate-pulse" />;
       case 'pending':
+      case 'queued':
         return <Clock className="h-5 w-5 text-yellow-500" />;
       case 'error':
+      case 'failed':
         return <AlertCircle className="h-5 w-5 text-red-500" />;
       default:
         return <Zap className="h-5 w-5 text-neutral-500 dark:text-neutral-400" />;
@@ -78,10 +85,17 @@ const StatusDisplay = ({ companyId }) => {
       case 'completed':
         return 'bg-green-100 text-green-800 border-green-200 dark:bg-green-900/30 dark:text-green-300 dark:border-green-800';
       case 'training':
+      case 'starting':
+      case 'validating':
+      case 'loading_model':
+      case 'preparing_data':
+      case 'saving':
         return 'bg-blue-100 text-blue-800 border-blue-200 dark:bg-blue-900/30 dark:text-blue-300 dark:border-blue-800';
       case 'pending':
+      case 'queued':
         return 'bg-yellow-100 text-yellow-800 border-yellow-200 dark:bg-yellow-900/30 dark:text-yellow-300 dark:border-yellow-800';
       case 'error':
+      case 'failed':
         return 'bg-red-100 text-red-800 border-red-200 dark:bg-red-900/30 dark:text-red-300 dark:border-red-800';
       default:
         return 'bg-slate-100 text-slate-800 border-slate-200 dark:bg-neutral-800 dark:text-neutral-300 dark:border-neutral-700';
@@ -176,8 +190,9 @@ const StatusDisplay = ({ companyId }) => {
             <p className="text-slate-600 dark:text-slate-400 text-sm">
               {company.status === 'completed' && 'Model training completed successfully. Ready for predictions.'}
               {company.status === 'training' && 'AI model is being fine-tuned with your data. This may take a few minutes.'}
-              {company.status === 'pending' && 'Training is queued and will start shortly.'}
-              {company.status === 'error' && 'An error occurred during training. Please check your data and try again.'}
+              {['starting', 'validating', 'loading_model', 'preparing_data', 'saving'].includes(company.status) && `AI model training phase: ${company.status}. Please wait.`}
+              {(company.status === 'pending' || company.status === 'queued') && 'Training is queued and will start shortly.'}
+              {(company.status === 'error' || company.status === 'failed') && 'An error occurred during training. Please check your data and try again.'}
               {company.status === 'unknown' && 'Status unknown. Please refresh to get the latest information.'}
             </p>
           </div>

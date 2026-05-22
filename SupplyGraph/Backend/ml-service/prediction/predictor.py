@@ -93,10 +93,36 @@ class DemandPredictor:
             raise
     
     def _load_company_data(self, company_id):
-        """Load company's uploaded CSV files"""
+        """Load company's uploaded CSV files from S3 or local disk"""
         try:
-            backend_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-            uploads_dir = os.path.join(backend_dir, 'uploads', company_id)
+            s3_bucket = os.getenv('S3_UPLOADS_BUCKET')
+            if s3_bucket:
+                uploads_dir = os.path.join("/tmp", "uploads", company_id)
+                os.makedirs(uploads_dir, exist_ok=True)
+                
+                import boto3
+                from botocore.exceptions import ClientError
+                
+                s3_client = boto3.client('s3', region_name=os.getenv('AWS_REGION', 'us-east-1'))
+                
+                files_to_download = [
+                    (f"processed/{company_id}/nodes.csv", "nodes.csv"),
+                    (f"processed/{company_id}/Edges (Plant).csv", "Edges (Plant).csv"),
+                    (f"processed/{company_id}/Sales Order.csv", "Sales Order.csv")
+                ]
+                
+                for s3_key, local_name in files_to_download:
+                    local_path = os.path.join(uploads_dir, local_name)
+                    try:
+                        if self.debug:
+                            print(f"Downloading {s3_key} from S3 bucket {s3_bucket} to {local_path}...")
+                        s3_client.download_file(s3_bucket, s3_key, local_path)
+                    except ClientError as e:
+                        if self.debug:
+                            print(f"Error downloading {s3_key} from S3: {e}")
+            else:
+                backend_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+                uploads_dir = os.path.join(backend_dir, 'uploads', company_id)
             
             if self.debug:
                 print(f"Loading data from: {uploads_dir}")

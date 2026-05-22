@@ -34,11 +34,33 @@ predictor = DemandPredictor()
 # Simple data loader class
 class DataLoader:
     def load_company_data(self, company_id):
-        """Load company data from uploaded files"""
+        """Load company data from uploaded files (S3 or local)"""
         try:
-            # Look for company data in uploads directory
-            backend_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-            company_dir = os.path.join(backend_dir, "uploads", company_id)
+            s3_bucket = os.getenv('S3_UPLOADS_BUCKET')
+            if s3_bucket:
+                company_dir = os.path.join("/tmp", "uploads", company_id)
+                os.makedirs(company_dir, exist_ok=True)
+                
+                import boto3
+                from botocore.exceptions import ClientError
+                
+                s3_client = boto3.client('s3', region_name=os.getenv('AWS_REGION', 'us-east-1'))
+                
+                files_to_download = [
+                    (f"processed/{company_id}/nodes.csv", "nodes.csv"),
+                    (f"processed/{company_id}/Edges (Plant).csv", "Edges (Plant).csv"),
+                    (f"processed/{company_id}/Sales Order.csv", "Sales Order.csv")
+                ]
+                
+                for s3_key, local_name in files_to_download:
+                    local_path = os.path.join(company_dir, local_name)
+                    try:
+                        s3_client.download_file(s3_bucket, s3_key, local_path)
+                    except ClientError as e:
+                        print(f"Error downloading {s3_key} from S3: {e}")
+            else:
+                backend_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+                company_dir = os.path.join(backend_dir, "uploads", company_id)
             
             if not os.path.exists(company_dir):
                 return None
@@ -834,6 +856,87 @@ def get_prediction_cache(company_id):
         return jsonify({"error": str(e)}), 500
 
 
+def sqs_worker_loop():
+    """Background loop to process fine-tuning jobs from SQS"""
+    sqs_url = os.getenv('SQS_QUEUE_URL')
+    s3_bucket = os.getenv('S3_UPLOADS_BUCKET')
+    region = os.getenv('AWS_REGION', 'us-east-1')
+    
+    if not sqs_url or not s3_bucket:
+        print("SQS_QUEUE_URL or S3_UPLOADS_BUCKET not set. SQS worker disabled.")
+        return
+        
+    print(f"Starting SQS worker polling {sqs_url}...")
+    
+    import boto3
+    from botocore.exceptions import ClientError
+    
+    sqs = boto3.client('sqs', region_name=region)
+    s3 = boto3.client('s3', region_name=region)
+    
+    while True:
+        try:
+            response = sqs.receive_message(
+                QueueUrl=sqs_url,
+                MaxNumberOfMessages=1,
+                WaitTimeSeconds=20,
+                VisibilityTimeout=900
+            )
+            
+            messages = response.get('Messages', [])
+            if not messages:
+                continue
+                
+            for message in messages:
+                receipt_handle = message['ReceiptHandle']
+                body = json.loads(message['Body'])
+                
+                company_id = body.get('company_id')
+                s3_nodes = body.get('nodes')
+                s3_edges = body.get('edges')
+                s3_demand = body.get('demand')
+                force_retrain = body.get('force_retrain', False)
+                
+                print(f"Received SQS job for company: {company_id}")
+                
+                # Setup local paths
+                local_dir = f"/tmp/uploads/{company_id}"
+                os.makedirs(local_dir, exist_ok=True)
+                
+                local_nodes = os.path.join(local_dir, "nodes.csv")
+                local_edges = os.path.join(local_dir, "Edges (Plant).csv")
+                local_sales = os.path.join(local_dir, "Sales Order.csv")
+                
+                # Download files
+                s3.download_file(s3_bucket, s3_nodes, local_nodes)
+                s3.download_file(s3_bucket, s3_edges, local_edges)
+                s3.download_file(s3_bucket, s3_demand, local_sales)
+                
+                # Perform fine-tuning
+                success = trainer.fine_tune_company_model(
+                    company_id=company_id,
+                    nodes_path=local_nodes,
+                    edges_path=local_edges,
+                    sales_path=local_sales,
+                    force_retrain=force_retrain
+                )
+                
+                if success:
+                    print(f"Job completed successfully for company: {company_id}. Deleting SQS message.")
+                else:
+                    print(f"Job failed for company: {company_id}. Deleting SQS message to prevent infinite retries.")
+                
+                sqs.delete_message(QueueUrl=sqs_url, ReceiptHandle=receipt_handle)
+                
+        except Exception as e:
+            print(f"Error in SQS worker loop: {e}")
+            time.sleep(10)
+
+
 if __name__ == '__main__':
-    app.run(host='127.0.0.1', port=5001, debug=True, use_reloader=False)
+    import threading
+    worker_thread = threading.Thread(target=sqs_worker_loop, daemon=True)
+    worker_thread.start()
+    
+    app.run(host='0.0.0.0', port=5001, debug=False, use_reloader=False)
 

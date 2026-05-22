@@ -1,0 +1,87 @@
+name: Deploy Backend & ML Service
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'SupplyGraph/Backend/**'
+      - 'docker-compose.yml'
+      - 'nginx.conf'
+      - '.github/workflows/deploy-backend.yml'
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: us-east-1
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build, tag, and push Backend Image
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          ECR_REPOSITORY: supplygraph/backend
+          IMAGE_TAG: latest
+        run: |
+          docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG ./SupplyGraph/Backend
+          docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+
+      - name: Build, tag, and push ML Service Image
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          ECR_REPOSITORY: supplygraph/ml-service
+          IMAGE_TAG: latest
+        run: |
+          docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG ./SupplyGraph/Backend/ml-service
+          docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+
+      - name: Copy docker-compose.yml and nginx.conf to EC2
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ubuntu
+          key: ${{ secrets.EC2_SSH_KEY }}
+          source: "docker-compose.yml,nginx.conf"
+          target: "/home/ubuntu/supplygraph/"
+
+      - name: Deploy to EC2 via SSH
+        uses: appleboy/ssh-action@v1.0.3
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ubuntu
+          key: ${{ secrets.EC2_SSH_KEY }}
+          envs: ECR_REGISTRY
+          script: |
+            cd /home/ubuntu/supplygraph
+            # Fetch SSM parameters and create .env file
+            aws ssm get-parameters-by-path --path "/supplygraph/prod/" --with-decryption --region us-east-1 --query "Parameters[*].[Name,Value]" --output text | sed 's|^/supplygraph/prod/||' | awk '{print $1 "=" $2}' > .env
+            
+            # Append AWS context variables
+            echo "AWS_ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)" >> .env
+            echo "AWS_REGION=us-east-1" >> .env
+            
+            # Login to ECR
+            aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin $ECR_REGISTRY
+            
+            # Pull and restart docker compose
+            docker compose pull
+            docker compose up -d --remove-orphans
+            
+            # Setup Nginx config
+            sudo cp nginx.conf /etc/nginx/sites-available/default
+            sudo systemctl reload nginx

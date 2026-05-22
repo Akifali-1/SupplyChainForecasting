@@ -21,17 +21,27 @@ router.get("/google", (req, res, next) => {
     }
   }
 
-  if (frontendUrl) {
-    req.session.frontendUrl = frontendUrl;
-    console.log('🔐 OAuth: Cached frontendUrl in session:', frontendUrl);
-    req.session.save((err) => {
-      if (err) console.error('🔐 OAuth: Error saving session with frontendUrl:', err);
-      passport.authenticate("google", { scope: ["profile", "email"] })(req, res, next);
-    });
-  } else {
-    console.log('🔐 OAuth: Frontend URL (fallback):', FRONTEND_URL);
-    passport.authenticate("google", { scope: ["profile", "email"] })(req, res, next);
+  const targetFrontendUrl = frontendUrl || FRONTEND_URL;
+  let callbackURL;
+  try {
+    const originUrl = new URL(targetFrontendUrl);
+    callbackURL = `${originUrl.origin}/api/auth/google/callback`;
+  } catch (e) {
+    const protocol = req.headers['x-forwarded-proto'] || req.protocol;
+    const host = req.headers['x-forwarded-host'] || req.headers.host;
+    callbackURL = `${protocol}://${host}/api/auth/google/callback`;
   }
+
+  console.log('🔐 OAuth: Dynamic Callback URL being sent to Google:', callbackURL);
+
+  req.session.frontendUrl = targetFrontendUrl;
+  req.session.save((err) => {
+    if (err) console.error('🔐 OAuth: Error saving session with frontendUrl:', err);
+    passport.authenticate("google", { 
+      scope: ["profile", "email"],
+      callbackURL: callbackURL
+    })(req, res, next);
+  });
 });
 
 // Callback after Google OAuth
@@ -46,6 +56,18 @@ router.get(
     const targetFrontendUrl = req.session.frontendUrl || FRONTEND_URL;
     console.log('🔐 OAuth: Target Frontend URL for redirections:', targetFrontendUrl);
 
+    let callbackURL;
+    try {
+      const originUrl = new URL(targetFrontendUrl);
+      callbackURL = `${originUrl.origin}/api/auth/google/callback`;
+    } catch (e) {
+      const protocol = req.headers['x-forwarded-proto'] || req.protocol;
+      const host = req.headers['x-forwarded-host'] || req.headers.host;
+      callbackURL = `${protocol}://${host}/api/auth/google/callback`;
+    }
+
+    console.log('🔐 OAuth: Dynamic Callback URL for validation:', callbackURL);
+
     if (req.query.error) {
       console.error('❌ OAuth Error from Google:', req.query.error, req.query.error_description);
       return res.redirect(`${targetFrontendUrl}/login?error=oauth_failed&details=${encodeURIComponent(req.query.error_description || req.query.error)}`);
@@ -53,7 +75,8 @@ router.get(
     
     passport.authenticate("google", { 
       failureRedirect: `${targetFrontendUrl}/login?error=oauth_failed`,
-      session: true
+      session: true,
+      callbackURL: callbackURL
     }, (err, user, info) => {
       if (err) {
         console.error('❌ OAuth Passport Error:', err);

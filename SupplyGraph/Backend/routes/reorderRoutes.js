@@ -8,12 +8,11 @@ const express = require("express");
 const router = express.Router();
 const multer = require("multer");
 const csv = require("csv-parse/sync");
-const fs = require("fs");
 const axios = require("axios");
-const mongoose = require("mongoose");
 
 const { requireAuth, requireRole } = require("../utils/auth");
-const InventorySnapshot = require("../models/InventorySnapshot");
+const { docClient, TABLE_NAME } = require("../config/dynamodb");
+const { PutCommand, GetCommand } = require("@aws-sdk/lib-dynamodb");
 
 const ML_SERVICE_URL = process.env.ML_SERVICE_URL || "http://ml-service:5001";
 
@@ -32,13 +31,13 @@ function tenantGuard(req, res, next) {
   const { companyId } = req.params;
   if (!req.isAuthenticated || !req.isAuthenticated())
     return res.status(401).json({ error: "Unauthorized" });
-  if (!req.user.companyId || req.user.companyId.toString() !== companyId)
+  if (!req.user.companyId || req.user.companyId !== companyId)
     return res.status(403).json({ error: "Forbidden" });
   next();
 }
 
 // ─── POST /api/reorder/snapshot/:companyId ────────────────────────────────────
-// Admin uploads inventory_snapshot.csv → stored in MongoDB (upserted)
+// Admin uploads inventory_snapshot.csv → stored in DynamoDB
 router.post(
   "/snapshot/:companyId",
   requireAuth,
@@ -72,13 +71,19 @@ router.post(
         unit_cost:      parseFloat(r.unit_cost) || 0,
       }));
 
-      await InventorySnapshot.findOneAndUpdate(
-        { companyId: new mongoose.Types.ObjectId(req.params.companyId) },
-        { companyId: new mongoose.Types.ObjectId(req.params.companyId), items, uploadedAt: new Date() },
-        { upsert: true, new: true }
-      );
+      const now = new Date().toISOString();
+      await docClient.send(new PutCommand({
+        TableName: TABLE_NAME,
+        Item: {
+          PK: `COMPANY#${req.params.companyId}`,
+          SK: "INVENTORY",
+          companyId: req.params.companyId,
+          items,
+          uploadedAt: now
+        }
+      }));
 
-      return res.json({ success: true, itemCount: items.length, uploadedAt: new Date() });
+      return res.json({ success: true, itemCount: items.length, uploadedAt: now });
     } catch (err) {
       console.error("[reorderRoutes] snapshot upload error:", err);
       return res.status(500).json({ error: err.message });
@@ -94,9 +99,11 @@ router.get(
   tenantGuard,
   async (req, res) => {
     try {
-      const snap = await InventorySnapshot.findOne({
-        companyId: new mongoose.Types.ObjectId(req.params.companyId),
-      });
+      const result = await docClient.send(new GetCommand({
+        TableName: TABLE_NAME,
+        Key: { PK: `COMPANY#${req.params.companyId}`, SK: "INVENTORY" }
+      }));
+      const snap = result.Item;
       if (!snap) return res.status(404).json({ error: "No inventory snapshot found" });
       return res.json({ uploadedAt: snap.uploadedAt, items: snap.items });
     } catch (err) {
@@ -115,10 +122,12 @@ router.get(
     try {
       const companyId = req.params.companyId;
 
-      // 1. Load inventory snapshot from MongoDB (via Mongoose)
-      const snap = await InventorySnapshot.findOne({
-        companyId: new mongoose.Types.ObjectId(companyId),
-      });
+      // 1. Load inventory snapshot from DynamoDB
+      const result = await docClient.send(new GetCommand({
+        TableName: TABLE_NAME,
+        Key: { PK: `COMPANY#${companyId}`, SK: "INVENTORY" }
+      }));
+      const snap = result.Item;
       if (!snap)
         return res.status(404).json({
           error: "No inventory snapshot uploaded yet.",
@@ -275,9 +284,11 @@ router.post(
   async (req, res) => {
     try {
       const { companyId, productId } = req.params;
-      const snap = await InventorySnapshot.findOne({
-        companyId: new mongoose.Types.ObjectId(companyId),
-      });
+      const result = await docClient.send(new GetCommand({
+        TableName: TABLE_NAME,
+        Key: { PK: `COMPANY#${companyId}`, SK: "INVENTORY" }
+      }));
+      const snap = result.Item;
       if (!snap) return res.status(404).json({ error: "No inventory snapshot found" });
 
       const item = snap.items.find(
@@ -285,18 +296,19 @@ router.post(
       );
       if (!item) return res.status(404).json({ error: `Product ${productId} not in snapshot` });
 
-      // Store triggered timestamp on item (extend schema dynamically)
-      const idx = snap.items.indexOf(item);
-      snap.items[idx] = Object.assign(item.toObject(), {
-        last_ordered_at: new Date().toISOString(),
-      });
-      snap.markModified("items");
-      await snap.save();
+      // Store triggered timestamp on item
+      item.last_ordered_at = new Date().toISOString();
+
+      // Write updated document back
+      await docClient.send(new PutCommand({
+        TableName: TABLE_NAME,
+        Item: snap
+      }));
 
       return res.json({
         success: true,
         product_id: productId.toUpperCase(),
-        ordered_at: new Date().toISOString(),
+        ordered_at: item.last_ordered_at,
       });
     } catch (err) {
       console.error("[reorderRoutes] trigger error:", err);

@@ -112,8 +112,16 @@ router.get(
         // Success — redirect to setup-company if first-time admin, otherwise dashboard
         console.log('✅ OAuth: Success, redirecting to frontend');
         console.log('✅ OAuth: User:', user.email);
-        const Company = require('../models/Company');
-        const company = user.companyId ? await Company.findById(user.companyId) : null;
+        const { docClient, TABLE_NAME } = require("../config/dynamodb");
+        const { GetCommand } = require("@aws-sdk/lib-dynamodb");
+        let company = null;
+        if (user.companyId) {
+          const compResult = await docClient.send(new GetCommand({
+            TableName: TABLE_NAME,
+            Key: { PK: `COMPANY#${user.companyId}`, SK: "METADATA" }
+          }));
+          company = compResult.Item;
+        }
         const needsSetup = company && !company.setupComplete;
         
         // Clean up from session
@@ -145,26 +153,35 @@ router.get("/me", etagMiddleware, async (req, res) => {
   }
 
   try {
-    const User = require("../models/User");
-    const Company = require("../models/Company");
-    const userObj = await User.findById(req.user._id).populate("companyId");
-    if (!userObj) {
-      return res.json(null);
+    const { docClient, TABLE_NAME } = require("../config/dynamodb");
+    const { GetCommand } = require("@aws-sdk/lib-dynamodb");
+
+    const companyId = req.user.companyId;
+    let companyName = null;
+    let needsSetup = false;
+
+    if (companyId) {
+      const compResult = await docClient.send(new GetCommand({
+        TableName: TABLE_NAME,
+        Key: { PK: `COMPANY#${companyId}`, SK: "METADATA" }
+      }));
+      const company = compResult.Item;
+      if (company) {
+        companyName = company.name;
+        needsSetup = !company.setupComplete;
+      }
     }
 
-    const company = userObj.companyId;
-    const needsSetup = company && !company.setupComplete;
-    
     res.json({
-      _id: userObj._id,
-      googleId: userObj.googleId,
-      email: userObj.email,
-      name: userObj.name,
-      role: userObj.role || "user",
-      companyId: company ? company._id : null,
-      companyName: company ? company.name : null,
+      _id: req.user.userId,
+      googleId: req.user.googleId,
+      email: req.user.email,
+      name: req.user.name,
+      role: req.user.role || "user",
+      companyId: companyId,
+      companyName: companyName,
       needsSetup: !!needsSetup,
-      createdAt: userObj.createdAt
+      createdAt: req.user.createdAt
     });
   } catch (error) {
     console.error("Error fetching user profile:", error);

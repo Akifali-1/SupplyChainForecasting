@@ -1,8 +1,8 @@
 const express = require("express");
 const crypto = require("crypto");
 const router = express.Router();
-const Invite = require("../models/Invite");
-const Company = require("../models/Company");
+const { docClient, TABLE_NAME } = require("../config/dynamodb");
+const { PutCommand, QueryCommand, GetCommand } = require("@aws-sdk/lib-dynamodb");
 const { requireAuth, requireRole } = require("../utils/auth");
 
 // POST /api/invite/generate - Admin only, generates a new invite link
@@ -20,16 +20,23 @@ router.post("/generate", requireAuth, requireRole(["admin"]), async (req, res) =
     const expiresAt = new Date();
     expiresAt.setDate(expiresAt.getDate() + 7);
 
-    const invite = new Invite({
-      token,
-      companyId,
-      createdBy: req.user._id,
-      expiresAt
-    });
+    // Save invite to DynamoDB
+    await docClient.send(new PutCommand({
+      TableName: TABLE_NAME,
+      Item: {
+        PK: `COMPANY#${companyId}`,
+        SK: `INVITE#${token}`,
+        GSI1_PK: `INVITE#${token}`,
+        GSI1_SK: "METADATA",
+        token,
+        companyId,
+        createdBy: req.user.userId,
+        expiresAt: expiresAt.toISOString(),
+        used: false
+      }
+    }));
 
-    await invite.save();
-
-    res.json({ token, expiresAt });
+    res.json({ token, expiresAt: expiresAt.toISOString() });
   } catch (error) {
     res.status(500).json({ error: "Failed to generate invite token", details: error.message });
   }
@@ -40,7 +47,18 @@ router.get("/verify/:token", async (req, res) => {
   try {
     const { token } = req.params;
 
-    const invite = await Invite.findOne({ token });
+    // Retrieve invite via GSI1 query
+    const inviteResult = await docClient.send(new QueryCommand({
+      TableName: TABLE_NAME,
+      IndexName: "GSI1",
+      KeyConditionExpression: "GSI1_PK = :inv AND GSI1_SK = :meta",
+      ExpressionAttributeValues: {
+        ":inv": `INVITE#${token}`,
+        ":meta": "METADATA"
+      }
+    }));
+    const invite = inviteResult.Items && inviteResult.Items.length > 0 ? inviteResult.Items[0] : null;
+
     if (!invite) {
       return res.status(404).json({ error: "This invitation link has expired or is invalid. Please contact your administrator for a new link." });
     }
@@ -49,11 +67,16 @@ router.get("/verify/:token", async (req, res) => {
       return res.status(400).json({ error: "This invitation link has already been used. Please contact your administrator for a new link." });
     }
 
-    if (new Date() > invite.expiresAt) {
+    if (new Date() > new Date(invite.expiresAt)) {
       return res.status(400).json({ error: "This invitation link has expired. Please contact your administrator for a new link." });
     }
 
-    const company = await Company.findById(invite.companyId);
+    // Retrieve company
+    const companyResult = await docClient.send(new GetCommand({
+      TableName: TABLE_NAME,
+      Key: { PK: `COMPANY#${invite.companyId}`, SK: "METADATA" }
+    }));
+    const company = companyResult.Item;
     if (!company) {
       return res.status(404).json({ error: "Company associated with this invitation was not found." });
     }
@@ -66,7 +89,7 @@ router.get("/verify/:token", async (req, res) => {
       if (err) {
         return res.status(500).json({ error: "Session save failed" });
       }
-      res.json({ success: true, companyName: company.name, companyId: company._id });
+      res.json({ success: true, companyName: company.name, companyId: company.companyId });
     });
   } catch (error) {
     res.status(500).json({ error: "Token verification failed", details: error.message });

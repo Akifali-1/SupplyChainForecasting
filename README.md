@@ -4,39 +4,36 @@ A full-stack application that leverages **Graph Attention Networks (GAT) combine
 
 ## 🚀 Features
 
-- **GAT+LSTM Hybrid Model**: Combines Graph Attention Networks with LSTM for superior forecasting accuracy
-- **Flexible Data Input**: Supports multiple CSV formats
-- **Fine-Tuning**: Company-specific model fine-tuning on uploaded data
-- **Real-Time Predictions**: Get demand forecasts with confidence scores
-- **Historical Analytics**: Visualize historical demand data with product filtering and time aggregation
-- **Inventory Management**: Analyze and get a structured way to analyze your Inventory
-- **MongoDB Atlas Integration**: Cloud-based model storage and retrieval 
+- **GAT+LSTM Hybrid Model**: Combines Graph Attention Networks with LSTM for superior forecasting accuracy.
+- **Cognitive Command Center (Dashboard)**: Real-time tracking of neural engine status, forecast accuracies, products-at-risk, micro-trendlines, and interactive neural model diagnostic panels.
+- **Reorder Intelligence Engine**: Combines GNN predictions with live inventory snapshots to compute Reorder Points (ROP), daily average demands, coverage days, suggested order quantities, and demand anomalies (Spikes/Drops).
+- **Team & Workspace Management**: Cryptographically signed invite-only token generation (7-day TTL) for teammates to link to the company account, with access revocation controls.
+- **Role-Based Access Control (RBAC)**: Secure multi-tenant architecture with distinct User and Admin roles protecting data ingestion, GNN model retraining, and admin configuration endpoints.
+- **Flexible Data Input**: Automatically converts wide, long, and single-dataset CSV formats to graph nodes and edges.
+- **MongoDB Atlas Integration**: GridFS-backed model weight storage, logging analytics, and prediction cache synchronizations.
 
 ## 🏗️ Architecture
 
-The application consists of three main components:
-
+The application is structured as a multi-tenant cloud-native system:
 
 ### Components
 
 1. **Frontend** (React + Tailwind CSS)
-   - User authentication and registration
-   - Data upload interface
-   - Prediction dashboard with charts
-   - Historical data visualization
-   - Inventory Management
+   - Command Center Dashboard with live SVG telemetry and micro-animations.
+   - Interactive Reorder Control Center for inventory uploads and order triggering.
+   - Team space management UI (invite creation, active teammate rosters, revocation).
+   - Historical analytical filters and node-specific forecasting charts.
 
-2. **Backend** (Node.js + Express)
-   - RESTful API endpoints
-   - OAuth authentication handling
-   - File upload and processing
-   - ML service proxy
+2. **Backend** (Node.js + Express + Mongoose)
+   - RESTful API gateway with tenant isolation guards.
+   - Role authentication via Google OAuth (Passport.js) and session state tracking.
+   - Secure CSV ingestion, validation, and storage.
+   - AWS SQS messaging client for job dispatch and Flask orchestration.
 
-3. **ML Service** (Python + Flask)
-   - GAT+LSTM model training and fine-tuning
-   - Demand prediction
-   - Data preprocessing and validation
-   - Model storage/retrieval from MongoDB Atlas
+3. **ML Service** (Python + PyTorch + Flask)
+   - Graph Attention Network (GAT) + LSTM deep learning architectures.
+   - Company-specific model fine-tuning and state transition tracking.
+   - MongoDB-backed GridFS model weight synchronization and prediction caching.
 
 ## 📋 Prerequisites
 
@@ -161,9 +158,21 @@ The system automatically detects and converts data to the required format (nodes
 - `GET /api/auth/logout` - Logout
 - `GET /api/auth/me` - Get current user
 
+### Team & Invite Management
+- `POST /api/invite/generate` - **(Admin Only)** Generate a secure 7-day invite link token
+- `GET /api/invite/verify/:token` - Verify invitation token prior to registration
+- `GET /api/company/members` - Retrieve roster of company members
+- `DELETE /api/company/members/:id` - **(Admin Only)** Revoke teammate workspace access
+
 ### Data Processing
 - `POST /api/data/convert/:companyId` - Convert raw CSV to structured format
 - `POST /api/data/upload/:companyId` - Upload CSV file
+
+### Reorder Intelligence
+- `POST /api/reorder/snapshot/:companyId` - **(Admin Only)** Upload current inventory snapshot CSV
+- `GET /api/reorder/snapshot/:companyId` - Fetch the company's uploaded inventory snapshot
+- `GET /api/reorder/intelligence/:companyId` - Run telemetry engine combining snapshot & predictions
+- `POST /api/reorder/trigger/:companyId/:productId` - **(Admin Only)** Stamped mark-ordered trigger for catalog product
 
 ### ML Operations
 - `POST /api/ml/fine-tune/:companyId` - Fine-tune model on company data
@@ -264,9 +273,10 @@ Sample datasets are available in `Backend/test_data/`:
 
 ## 📚 Documentation
 
-- **Backend README**: `Backend/README.md` - Detailed backend architecture
-- **OAuth Setup**: `Backend/OAUTH_SETUP.md` - Google OAuth configuration guide
-- **Frontend README**: `Frontend/README.md` - Frontend setup and usage
+- **Deployment Guide**: [DEPLOYMENT_GUIDE.md](file:///c:/PROJECTS/SupplyChain/GNN_SupplyChainForecasting/DEPLOYMENT_GUIDE.md) - Deep-dive infrastructure, scale strategy, and DevOps interview concepts
+- **Backend README**: [Backend README.md](file:///c:/PROJECTS/SupplyChain/GNN_SupplyChainForecasting/SupplyGraph/Backend/README.md) - Detailed backend architecture
+- **OAuth Setup**: [OAuth Setup Guide](file:///c:/PROJECTS/SupplyChain/GNN_SupplyChainForecasting/SupplyGraph/Backend/OAUTH_SETUP.md) - Google OAuth configuration guide
+- **Frontend README**: [Frontend README.md](file:///c:/PROJECTS/SupplyChain/GNN_SupplyChainForecasting/SupplyGraph/Frontend/README.md) - Frontend setup and usage
 
 
 ## 📝 License

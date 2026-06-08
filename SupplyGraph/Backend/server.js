@@ -1,22 +1,20 @@
 const express = require("express");
 const cors = require("cors");
 const session = require("express-session");
-const { MongoStore } = require("connect-mongo"); // ✅ Mongo session store
-const passport = require("./config/passport");   // ✅ Google strategy
+const DynamoDBStore = require("connect-dynamodb")({ session });
+const passport = require("./config/passport");   // Google strategy
 const dataRoutes = require("./routes/dataRoutes");
 const mlRoutes = require("./routes/mlRoutes");
 const authRoutes = require("./routes/authRoutes");
-const inviteRoutes = require("./routes/inviteRoutes"); // ✅ Invite routes
-const companyRoutes = require("./routes/companyRoutes"); // ✅ Company management routes
-const reorderRoutes = require("./routes/reorderRoutes"); // ✅ Reorder Intelligence routes
+const inviteRoutes = require("./routes/inviteRoutes");
+const companyRoutes = require("./routes/companyRoutes");
+const reorderRoutes = require("./routes/reorderRoutes");
 require("dotenv").config();
 
-// Suppress MongoDB deprecation warnings
-process.env.NODE_OPTIONS = '--no-warnings';
-
 const axios = require("axios");
-const { MongoClient } = require("mongodb");
-const mongoose = require("mongoose"); // ✅ for User model
+const { DynamoDBClient: RawDynamoDBClient } = require("@aws-sdk/client-dynamodb");
+const { PutCommand, GetCommand, UpdateCommand } = require("@aws-sdk/lib-dynamodb");
+const { docClient, TABLE_NAME } = require("./config/dynamodb");
 
 const app = express();
 
@@ -78,19 +76,20 @@ if (isProduction && (!process.env.SESSION_SECRET || process.env.SESSION_SECRET =
   process.exit(1);
 }
 
-// ✅ Set up connect-mongo session store separately
-const sessionStore = process.env.MONGO_URI ? MongoStore.create({
-  mongoUrl: process.env.MONGO_URI,
-  collectionName: "sessions",
-  ttl: 24 * 60 * 60 // 1 day
-}) : undefined;
+// Set up DynamoDB session store
+const dynamoStoreOptions = {
+  table: (process.env.DYNAMODB_TABLE || "SupplyGraph-Prod") + "-Sessions",
+  AWSConfigJSON: {
+    region: process.env.AWS_REGION || "us-east-1"
+  },
+  reapInterval: 24 * 60 * 60 * 1000,  // Reap expired sessions daily
+  ttl: 24 * 60 * 60                    // 1-day TTL on session records
+};
 
-// ✅ Prevent unhandled connection error crashes from connect-mongo session store
-if (sessionStore) {
-  sessionStore.on("error", (error) => {
-    console.error("❌ MongoDB Session Store Error:", error.message || error);
-  });
-}
+const sessionStore = new DynamoDBStore(dynamoStoreOptions);
+sessionStore.on("error", (error) => {
+  console.error("❌ DynamoDB Session Store Error:", error.message || error);
+});
 
 // ✅ Session middleware (needed for passport)
 const sessionConfig = {
@@ -124,21 +123,7 @@ app.use(session(sessionConfig));
 app.use(passport.initialize());
 app.use(passport.session());
 
-// ✅ Mongoose connection for User model
-const mongooseUri = process.env.MONGO_URI;
-if (mongooseUri) {
-  mongoose.connect(mongooseUri)
-    .then(() => {
-      console.log("✅ Connected to MongoDB via Mongoose");
-    })
-    .catch((err) => {
-      console.error("❌ Mongoose connection failed:", err.message);
-    });
-} else {
-  console.warn("⚠️ MONGO_URI not set; MongoDB connection disabled");
-}
-
-// ✅ Routes
+// Routes
 app.use("/api/data", dataRoutes);
 app.use("/api/ml", mlRoutes);
 app.use("/api/auth", authRoutes); // Google login/logout/me
@@ -146,87 +131,52 @@ app.use("/api/invite", inviteRoutes); // ✅ Invite token routes
 app.use("/api/company", companyRoutes); // ✅ Company members routes
 app.use("/api/reorder", reorderRoutes); // ✅ Reorder Intelligence routes
 
-// Mongo (Atlas) minimal client - using same connection string as ML service
-const mongoUri = process.env.MONGO_URI;
-const mongoDbName = process.env.MONGO_DB || "supplychain";
-let mongoClient;
-let companiesCollection;
-let companiesDbName = null;
-
-async function initMongo() {
-  if (!mongoUri || !mongoUri.trim()) {
-    console.warn("⚠️ MONGO_URI not set; company registration disabled");
-    return;
-  }
-
-  try {
-    console.log("Attempting to connect to MongoDB Atlas...");
-    mongoClient = new MongoClient(mongoUri, {
-      tls: true,
-      tlsAllowInvalidCertificates: true,
-      serverSelectionTimeoutMS: 30000
-    });
-
-    await mongoClient.connect();
-    const db = mongoClient.db(mongoDbName);
-    companiesCollection = db.collection("companies");
-    companiesDbName = db.databaseName || mongoDbName;
-    console.log(`✅ Connected to MongoDB Atlas. Using DB: ${companiesDbName}, collection: companies`);
-  } catch (error) {
-    console.error("❌ MongoDB connection failed:", error.message);
-    console.warn("⚠️  Company registration will be disabled. Check your network connection and MongoDB Atlas settings.");
-    mongoClient = null;
-    companiesCollection = null;
-  }
-}
-
-initMongo().catch((e) => console.error("Mongo init failed", e));
 
 /* ------------------ Debug + Company APIs ------------------ */
 
-// Debug: show which DB is currently used
+// Debug: show which DB / table is currently used
 app.get("/api/debug/db", (req, res) => {
-  res.json({ db: companiesDbName || mongoDbName, collection: "companies" });
+  res.json({ table: TABLE_NAME, backend: "DynamoDB" });
 });
 
-// Company registration (name -> Atlas doc)
+// Company registration (name -> DynamoDB)
 app.post("/api/company/register", async (req, res) => {
   try {
-    if (!companiesCollection) {
-      console.warn("MongoDB not available, using local fallback for company registration");
-      const { name } = req.body || {};
-      if (!name) return res.status(400).json({ error: "name is required" });
-
-      // Local fallback - generate a simple ID
-      const localId = `local_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-      return res.json({
-        _id: localId,
-        name: name,
-        status: "local_fallback",
-        message: "MongoDB unavailable, using local storage"
-      });
-    }
-
     const { name } = req.body || {};
     if (!name) return res.status(400).json({ error: "name is required" });
 
-    const now = new Date();
-    const result = await companiesCollection.findOneAndUpdate(
-      { name },
-      {
-        $setOnInsert: { name, status: "new", createdAt: now },
-        $set: { updatedAt: now },
-      },
-      { upsert: true, returnDocument: "after" }
-    );
+    const companyId = `company_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    const now = new Date().toISOString();
 
-    const doc = result.value || (await companiesCollection.findOne({ name }));
-    return res.json({ _id: doc._id, name: doc.name, status: doc.status });
+    // Check if company name already exists would require a Scan (expensive) so
+    // we use a conditional put with a well-known name key as GSI1_PK instead.
+    await docClient.send(new PutCommand({
+      TableName: TABLE_NAME,
+      Item: {
+        PK: `COMPANY#${companyId}`,
+        SK: 'METADATA',
+        GSI1_PK: `COMPANY_NAME#${name.toLowerCase()}`,
+        GSI1_SK: 'METADATA',
+        companyId,
+        name,
+        status: 'new',
+        setupComplete: false,
+        createdAt: now,
+        updatedAt: now
+      },
+      ConditionExpression: 'attribute_not_exists(PK)'  // prevent duplicate writes
+    })).catch(err => {
+      // If condition fails the company key already exists — that's OK on idempotent calls
+      if (err.name !== 'ConditionalCheckFailedException') throw err;
+    });
+
+    return res.json({ _id: companyId, name, status: 'new' });
   } catch (err) {
     console.error("❌ Register company failed", err);
     return res.status(500).json({ error: "Failed to register company" });
   }
 });
+
 
 // Health check endpoint - No ETag (health status changes frequently)
 app.get("/api/health", async (req, res) => {
@@ -310,4 +260,4 @@ if (require.main === module) {
   );
 }
 
-module.exports = { app, getMongoClient: () => mongoClient };
+module.exports = { app };

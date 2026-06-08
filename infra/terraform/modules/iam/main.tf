@@ -34,6 +34,14 @@ variable "sqs_queue_arn" {
   type = string
 }
 
+variable "s3_models_arn" {
+  type = string
+}
+
+variable "dynamodb_table_arn" {
+  type = string
+}
+
 
 # ── EC2 Host IAM Role ──────────────────────────────────────────────────────────
 resource "aws_iam_role" "ec2" {
@@ -85,6 +93,28 @@ resource "aws_iam_role_policy" "ec2_policy" {
         Effect   = "Allow"
         Action   = ["logs:CreateLogGroup", "logs:CreateLogStream", "logs:PutLogEvents", "logs:DescribeLogStreams"]
         Resource = "arn:aws:logs:${var.aws_region}:${var.aws_account_id}:log-group:/${var.app_name}/*"
+      },
+      {
+        # DynamoDB single-table access (Users, Companies, Invites, Models, Status)
+        Effect   = "Allow"
+        Action   = [
+          "dynamodb:GetItem",
+          "dynamodb:PutItem",
+          "dynamodb:UpdateItem",
+          "dynamodb:DeleteItem",
+          "dynamodb:Query",
+          "dynamodb:Scan"
+        ]
+        Resource = [
+          var.dynamodb_table_arn,
+          "${var.dynamodb_table_arn}/index/*"
+        ]
+      },
+      {
+        # ML model weights bucket access
+        Effect   = "Allow"
+        Action   = ["s3:GetObject", "s3:PutObject", "s3:DeleteObject", "s3:ListBucket"]
+        Resource = ["${var.s3_models_arn}", "${var.s3_models_arn}/*"]
       }
     ]
   })

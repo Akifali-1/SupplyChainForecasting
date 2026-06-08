@@ -10,7 +10,7 @@ from torch_geometric.data import Data
 from sklearn.preprocessing import StandardScaler
 from sklearn.metrics import mean_absolute_percentage_error
 from torch.optim.lr_scheduler import ReduceLROnPlateau
-from pymongo import MongoClient
+from db.dynamodb_client import DynamoDBClient, S3ModelStore
 
 class HybridGATLSTM(nn.Module):
     def __init__(self, in_channels=1, max_timesteps=5, gat_hidden=4, gat_heads=6, lstm_hidden=64, dropout=0.5):
@@ -43,64 +43,57 @@ class HybridGATLSTM(nn.Module):
 
 class ModelTrainer:
     def __init__(self):
-        # Use environment variable - credentials should NEVER be hardcoded
-        self.mongo_uri = os.getenv('MONGO_URI')
-        self.client = None
-        self.db = None
+        self.dynamo = None
+        self.s3store = None
         self.training_status = {}
         self.cancel_flags = {}
-        self._connect_mongo()
+        self._init_aws()
     
-    def _connect_mongo(self):
+    def _init_aws(self):
+        """Initialise DynamoDB client and S3 model store."""
         try:
-            self.client = MongoClient(self.mongo_uri, 
-                                    tls=True,
-                                    serverSelectionTimeoutMS=30000)
-            self.db = self.client.supplychain
-            print("Connected to MongoDB Atlas")
+            self.dynamo = DynamoDBClient()
+            if not self.dynamo.is_connected:
+                print("DynamoDB not available — training metadata will be in-memory only")
+                self.dynamo = None
         except Exception as e:
-            print(f"Failed to connect to MongoDB: {e}")
-            self.client = None
-            self.db = None
+            print(f"Failed to init DynamoDB: {e}")
+            self.dynamo = None
+
+        try:
+            self.s3store = S3ModelStore()
+            if not self.s3store.is_configured:
+                print("S3ModelStore not configured — model persistence disabled")
+                self.s3store = None
+        except Exception as e:
+            print(f"Failed to init S3ModelStore: {e}")
+            self.s3store = None
     
     def _load_base_model(self):
-        """Load pre-trained GAT+LSTM base model from MongoDB Atlas"""
+        """Load pre-trained GAT+LSTM base model from S3 (metadata in DynamoDB)"""
         try:
-            print("Checking MongoDB connection...")
-            if self.db is None:
-                raise Exception("MongoDB connection not available")
+            print("Checking DynamoDB connection...")
+            if self.dynamo is None:
+                raise Exception("DynamoDB connection not available")
             
-            print("Searching for GAT+LSTM base model in database...")
-            base_model_doc = self.db.models.find_one({"_id": "base_gat_lstm_model"})
+            print("Searching for GAT+LSTM base model metadata in DynamoDB...")
+            base_model_doc = self.dynamo.get_item("COMPANY#base", "MODEL")
             
             if not base_model_doc:
-                print("No GAT+LSTM base model found in database, creating fallback model...")
-                raise Exception("GAT+LSTM base model not found in MongoDB Atlas")
+                print("No GAT+LSTM base model found in DynamoDB")
+                raise Exception("GAT+LSTM base model not found in DynamoDB")
             
-            print("Loading GAT+LSTM model data from database...")
-            
-            # Handle GridFS storage
-            if base_model_doc.get('model_storage', {}).get('type') == 'gridfs':
-                print("Loading model from GridFS...")
-                import gridfs
-                fs = gridfs.GridFS(self.db)
-                file_id = base_model_doc['model_storage']['file_id']
-                
-                try:
-                    from bson import ObjectId
-                    grid_file = fs.get(ObjectId(file_id))
-                    model_bytes = grid_file.read()
-                    model_state = pickle.loads(model_bytes)
-                    print(f"✓ Loaded model from GridFS: {len(model_bytes) / (1024*1024):.2f} MB")
-                except Exception as gridfs_error:
-                    print(f"GridFS loading failed: {gridfs_error}")
-                    raise Exception("Failed to load model from GridFS")
-            else:
-                # Handle embedded storage
-                if 'model_storage' in base_model_doc and 'model_bytes' in base_model_doc['model_storage']:
-                    model_state = pickle.loads(base_model_doc['model_storage']['model_bytes'])
-                else:
-                    model_state = pickle.loads(base_model_doc.get('model_data', b''))
+            print("Loading GAT+LSTM model weights from S3...")
+            if self.s3store is None:
+                raise Exception("S3ModelStore not configured")
+
+            s3_uri = base_model_doc.get("s3Uri")
+            if not s3_uri:
+                raise Exception("Base model has no s3Uri in DynamoDB record")
+
+            model_bytes = self.s3store.download(s3_uri)
+            model_state = pickle.loads(model_bytes)
+            print(f"Loaded base model from {s3_uri} ({len(model_bytes) / (1024*1024):.2f} MB)")
             
             # Load GAT+LSTM model
             print("Loading GAT+LSTM Hybrid model...")
@@ -117,8 +110,11 @@ class ModelTrainer:
             
             model.load_state_dict(model_state)
             
-            print(f"Loaded GAT+LSTM model with {len(base_model_doc['node_list'])} nodes")
-            return model, base_model_doc['node_list'], base_model_doc['scalers'], base_model_doc['node_to_idx']
+            node_list = base_model_doc.get('node_list', [])
+            scalers   = base_model_doc.get('scalers', {})
+            node_to_idx = base_model_doc.get('node_to_idx', {})
+            print(f"Loaded GAT+LSTM model with {len(node_list)} nodes")
+            return model, node_list, scalers, node_to_idx
             
         except Exception as e:
             print(f"Error loading base model: {e}")
@@ -465,11 +461,13 @@ class ModelTrainer:
             print(f"Error during fine-tuning: {e}")
             raise
     
-    def save_company_model_to_atlas(self, company_id, model, feature_columns, metrics, scalers=None, node_to_idx=None, last_x=None, max_timesteps=5):
-        """Save fine-tuned model to MongoDB Atlas"""
+    def save_company_model(self, company_id, model, feature_columns, metrics, scalers=None, node_to_idx=None, last_x=None, max_timesteps=5):
+        """Save fine-tuned model weights to S3 and metadata to DynamoDB"""
         try:
-            if self.db is None:
-                raise Exception("MongoDB connection not available")
+            if self.dynamo is None:
+                raise Exception("DynamoDB connection not available")
+            if self.s3store is None:
+                raise Exception("S3ModelStore not configured")
             
             if not isinstance(model, HybridGATLSTM):
                 raise Exception("Only GAT+LSTM models are supported")
@@ -488,7 +486,14 @@ class ModelTrainer:
             model_size_mb = len(model_bytes) / (1024 * 1024)
             print(f"Company model size: {model_size_mb:.2f} MB")
             
-            model_doc = {
+            # Upload weights to S3
+            s3_key = f"models/{company_id}/model_weights.pkl"
+            s3_uri = self.s3store.upload(model_bytes, s3_key)
+            
+            # Build DynamoDB item (metadata only — no binary blob)
+            item = {
+                'PK': f"COMPANY#{company_id}",
+                'SK': 'MODEL',
                 'company_id': company_id,
                 'model_type': 'GAT-LSTM Hybrid',
                 'base_model_id': 'base_gat_lstm_model',
@@ -497,56 +502,24 @@ class ModelTrainer:
                     'gat_hidden': 4,
                     'gat_heads': 6,
                     'lstm_hidden': 64,
-                    'dropout': getattr(model, 'dropout', 0.5)
+                    'dropout': str(getattr(model, 'dropout', 0.5))
                 },
                 'node_list': list((node_to_idx or {}).keys()),
                 'feature_columns': feature_columns,
                 'node_to_idx': node_to_idx or {},
                 'scalers': serializable_scalers,
-                'metrics': metrics,
-                'created_at': pd.Timestamp.now()
+                'metrics': {k: str(v) for k, v in metrics.items()},  # DynamoDB needs Decimal-safe values
+                's3Uri': s3_uri,
+                'size_mb': str(round(model_size_mb, 2)),
+                'created_at': pd.Timestamp.now().isoformat()
             }
             
             # Store last_x for prediction bootstrap
             if last_x is not None:
-                model_doc['last_x'] = last_x.numpy().tolist()
+                item['last_x'] = last_x.numpy().tolist()
             
-            # Use GridFS for large models
-            if model_size_mb > 15:
-                print("Using GridFS for large model...")
-                import gridfs
-                fs = gridfs.GridFS(self.db)
-                
-                old_files = list(fs.find({"filename": f"company_{company_id}_model"}))
-                for old_file in old_files:
-                    fs.delete(old_file._id)
-                
-                file_id = fs.put(
-                    model_bytes,
-                    filename=f"company_{company_id}_model",
-                    company_id=company_id,
-                    upload_date=pd.Timestamp.now()
-                )
-                
-                model_doc['model_storage'] = {
-                    'type': 'gridfs',
-                    'file_id': str(file_id),
-                    'size_mb': model_size_mb
-                }
-            else:
-                model_doc['model_storage'] = {
-                    'type': 'embedded',
-                    'model_bytes': model_bytes,
-                    'size_mb': model_size_mb
-                }
-            
-            self.db.company_models.update_one(
-                {'company_id': company_id},
-                {'$set': model_doc},
-                upsert=True
-            )
-            
-            print(f"Model saved to Atlas for company {company_id}")
+            self.dynamo.put_item(item)
+            print(f"Model metadata saved to DynamoDB for company {company_id}")
             return True
             
         except Exception as e:
@@ -653,7 +626,7 @@ class ModelTrainer:
             last_x = getattr(self, '_last_x', None)
             max_timesteps = getattr(self, '_training_max_timesteps', 5)
             
-            success = self.save_company_model_to_atlas(
+            success = self.save_company_model(
                 company_id, model, feature_columns, metrics,
                 scalers, node_to_idx, last_x, max_timesteps
             )
@@ -680,55 +653,57 @@ class ModelTrainer:
         self._update_training_status(company_id, "failed", 0, "Training cancelled by user")
 
     def _update_training_status(self, company_id, status, progress=0, message="", error=None):
-        """Update training status in memory and MongoDB"""
+        """Update training status in memory and DynamoDB"""
         status_doc = {
             "status": status,
-            "progress": progress,
+            "progress": str(progress),
             "message": message,
-            "error": error,
+            "error": error or "",
             "timestamp": pd.Timestamp.now().isoformat()
         }
         self.training_status[company_id] = status_doc
         print(f"Status [{company_id}]: {status} ({progress}%) - {message}")
-        if self.db is not None:
+        if self.dynamo is not None:
             try:
-                self.db.training_status.update_one(
-                    {"company_id": company_id},
-                    {"$set": status_doc},
-                    upsert=True
-                )
+                item = {
+                    'PK': f"COMPANY#{company_id}",
+                    'SK': 'TRAINING_STATUS',
+                    'company_id': company_id,
+                    **status_doc
+                }
+                self.dynamo.put_item(item)
             except Exception as e:
-                print(f"Failed to save status to MongoDB: {e}")
+                print(f"Failed to save status to DynamoDB: {e}")
 
     def get_training_status(self, company_id):
-        """Get training status"""
+        """Get training status — memory first, then DynamoDB"""
         try:
             if company_id in self.training_status:
                 return self.training_status[company_id]
             
-            if self.db is None:
+            if self.dynamo is None:
                 return {"status": "database_unavailable", "progress": 0}
             
-            # Check MongoDB training_status collection first
-            db_status = self.db.training_status.find_one({'company_id': company_id})
+            # Check DynamoDB TRAINING_STATUS record
+            db_status = self.dynamo.get_item(f"COMPANY#{company_id}", "TRAINING_STATUS")
             if db_status:
-                db_status.pop('_id', None)
+                db_status.pop('PK', None)
+                db_status.pop('SK', None)
                 db_status.pop('company_id', None)
                 return db_status
             
-            model_doc = self.db.company_models.find_one({'company_id': company_id})
-            
+            # Fall back to MODEL record
+            model_doc = self.dynamo.get_item(f"COMPANY#{company_id}", "MODEL")
             if model_doc:
                 return {
                     "status": "completed",
                     "progress": 100,
-                    "model_id": str(model_doc['_id']),
                     "created_at": model_doc.get('created_at', 'unknown'),
                     "message": "Model training completed"
                 }
             else:
                 return {
-                    "status": "not_found", 
+                    "status": "not_found",
                     "progress": 0,
                     "message": "No training found"
                 }
@@ -737,17 +712,16 @@ class ModelTrainer:
             return {"status": "error", "progress": 0, "message": str(e)}
     
     def check_company_model_exists(self, company_id):
-        """Check if model exists"""
+        """Check if model exists in DynamoDB"""
         try:
-            if self.db is None:
+            if self.dynamo is None:
                 return {"exists": False, "error": "Database unavailable"}
             
-            model_doc = self.db.company_models.find_one({'company_id': company_id})
+            model_doc = self.dynamo.get_item(f"COMPANY#{company_id}", "MODEL")
             
             if model_doc:
                 return {
                     "exists": True,
-                    "model_id": str(model_doc['_id']),
                     "model_type": model_doc.get('model_type', 'unknown'),
                     "created_at": model_doc.get('created_at', 'unknown'),
                     "metrics": model_doc.get('metrics', {}),
@@ -760,17 +734,16 @@ class ModelTrainer:
             return {"exists": False, "error": str(e)}
 
     def check_base_model_exists(self):
-        """Check if base model exists"""
+        """Check if base model exists in DynamoDB"""
         try:
-            if self.db is None:
+            if self.dynamo is None:
                 return {"exists": False, "error": "Database unavailable"}
             
-            base_model_doc = self.db.models.find_one({"_id": "base_gat_lstm_model"})
+            base_model_doc = self.dynamo.get_item("COMPANY#base", "MODEL")
             
             if base_model_doc:
                 return {
                     "exists": True,
-                    "model_id": str(base_model_doc['_id']),
                     "created_at": base_model_doc.get('created_at', 'unknown')
                 }
             else:

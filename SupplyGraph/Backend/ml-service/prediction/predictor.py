@@ -3,40 +3,47 @@ import pickle
 import pandas as pd
 import numpy as np
 import torch
-from pymongo import MongoClient
 from sklearn.preprocessing import StandardScaler
+from db.dynamodb_client import DynamoDBClient, S3ModelStore
 
 class DemandPredictor:
     def __init__(self):
-        self.mongo_uri = os.getenv('MONGO_URI')
-        self.client = None
-        self.db = None
+        self.dynamo = None
+        self.s3store = None
         self.debug = os.getenv('ML_DEBUG', '0').lower() == '1'
-        self._connect_mongo()
+        self._init_aws()
     
-    def _connect_mongo(self):
+    def _init_aws(self):
+        """Initialise DynamoDB client and S3 model store."""
         try:
-            if not self.mongo_uri:
-                raise ValueError("MONGO_URI environment variable not set")
-            self.client = MongoClient(self.mongo_uri, 
-                                    tls=True,
-                                    serverSelectionTimeoutMS=30000)
-            self.db = self.client.supplychain
-            if self.debug:
-                print("✓ Connected to MongoDB Atlas for prediction")
+            self.dynamo = DynamoDBClient()
+            if not self.dynamo.is_connected:
+                print("DynamoDB not available for prediction")
+                self.dynamo = None
+            elif self.debug:
+                print("✓ Connected to DynamoDB for prediction")
         except Exception as e:
             if self.debug:
-                print(f"✗ Failed to connect to MongoDB: {e}")
-            self.client = None
-            self.db = None
+                print(f"✗ Failed to init DynamoDB: {e}")
+            self.dynamo = None
+
+        try:
+            self.s3store = S3ModelStore()
+            if not self.s3store.is_configured:
+                print("⚠️  S3ModelStore not configured for prediction")
+                self.s3store = None
+        except Exception as e:
+            if self.debug:
+                print(f"✗ Failed to init S3ModelStore: {e}")
+            self.s3store = None
     
     def _load_company_model(self, company_id):
-        """Load fine-tuned GAT+LSTM company model from MongoDB Atlas"""
+        """Load fine-tuned GAT+LSTM company model from DynamoDB (metadata) + S3 (weights)"""
         try:
-            if self.db is None:
-                raise Exception("MongoDB connection not available")
+            if self.dynamo is None:
+                raise Exception("DynamoDB connection not available")
             
-            model_doc = self.db.company_models.find_one({'company_id': company_id})
+            model_doc = self.dynamo.get_item(f"COMPANY#{company_id}", "MODEL")
             if not model_doc:
                 raise Exception(f"Company model not found for company {company_id}")
             
@@ -44,27 +51,20 @@ class DemandPredictor:
             if model_doc.get('model_type') != 'GAT-LSTM Hybrid':
                 raise Exception(f"Unsupported model type: {model_doc.get('model_type')}. Only GAT+LSTM models are supported.")
             
-            # Handle GridFS storage
-            if model_doc.get('model_storage', {}).get('type') == 'gridfs':
-                if self.debug:
-                    print("Loading company model from GridFS...")
-                import gridfs
-                fs = gridfs.GridFS(self.db)
-                file_id = model_doc['model_storage']['file_id']
-                
-                try:
-                    from bson import ObjectId
-                    grid_file = fs.get(ObjectId(file_id))
-                    model_bytes = grid_file.read()
-                    model_state = pickle.loads(model_bytes)
-                    if self.debug:
-                        print(f"✓ Loaded company model from GridFS: {len(model_bytes) / (1024*1024):.2f} MB")
-                except Exception as gridfs_error:
-                    print(f"✗ GridFS loading failed: {gridfs_error}")
-                    raise Exception("Failed to load company model from GridFS")
-            else:
-                # Handle embedded storage
-                model_state = pickle.loads(model_doc['model_storage']['model_bytes'])
+            # Download weights from S3
+            if self.s3store is None:
+                raise Exception("S3ModelStore not configured")
+
+            s3_uri = model_doc.get('s3Uri')
+            if not s3_uri:
+                raise Exception("Company model record has no s3Uri")
+
+            if self.debug:
+                print(f"Downloading company model from {s3_uri}...")
+            model_bytes = self.s3store.download(s3_uri)
+            model_state = pickle.loads(model_bytes)
+            if self.debug:
+                print(f"✓ Loaded company model from S3: {len(model_bytes) / (1024*1024):.2f} MB")
             
             from training.trainer import HybridGATLSTM
             
@@ -78,7 +78,7 @@ class DemandPredictor:
                 gat_hidden=architecture['gat_hidden'],
                 gat_heads=architecture['gat_heads'],
                 lstm_hidden=architecture['lstm_hidden'],
-                dropout=architecture['dropout']
+                dropout=float(architecture['dropout'])
             )
             model.load_state_dict(model_state)
             model.eval()
@@ -548,23 +548,21 @@ class DemandPredictor:
                     'total_30_days': round(total_30_days, 2)
                 }
             
-            # 6. Cache to MongoDB
-            if self.db is not None:
+            # 6. Cache predictions to DynamoDB
+            if self.dynamo is not None:
                 try:
-                    cache_doc = {
+                    cache_item = {
+                        'PK': f"COMPANY#{company_id}",
+                        'SK': 'PREDICTION_CACHE',
                         'company_id': company_id,
                         'predictions': results,
                         'updated_at': pd.Timestamp.now().isoformat()
                     }
-                    self.db.prediction_caches.replace_one(
-                        {'company_id': company_id},
-                        cache_doc,
-                        upsert=True
-                    )
+                    self.dynamo.put_item(cache_item)
                     if self.debug:
-                        print("✓ Cached predictions to prediction_caches collection in MongoDB")
+                        print("✓ Cached predictions to PREDICTION_CACHE in DynamoDB")
                 except Exception as cache_err:
-                    print(f"⚠️ Failed to cache predictions to MongoDB: {cache_err}")
+                    print(f"⚠️ Failed to cache predictions to DynamoDB: {cache_err}")
             
             return results
             

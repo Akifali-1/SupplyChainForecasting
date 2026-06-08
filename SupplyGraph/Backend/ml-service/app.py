@@ -246,7 +246,7 @@ def system_status():
         base_model_status = trainer.check_base_model_exists()
         
         # Check database connection
-        db_status = "connected" if trainer.db is not None else "disconnected"
+        db_status = "connected" if trainer.dynamo is not None else "disconnected"
         
         return jsonify({
             "status": "healthy",
@@ -829,19 +829,19 @@ def get_recommendation(growth_rate, risk_level):
 
 @app.route('/prediction-cache/<company_id>', methods=['GET'])
 def get_prediction_cache(company_id):
-    """Return cached batch predictions from MongoDB for the Reorder Intelligence engine."""
+    """Return cached batch predictions from DynamoDB for the Reorder Intelligence engine."""
     try:
-        if predictor.db is None:
-            return jsonify({"error": "MongoDB not available"}), 503
+        if predictor.dynamo is None:
+            return jsonify({"error": "DynamoDB not available"}), 503
         
-        cache_doc = predictor.db.prediction_caches.find_one({'company_id': company_id})
+        cache_doc = predictor.dynamo.get_item(f"COMPANY#{company_id}", "PREDICTION_CACHE")
         if not cache_doc:
             try:
                 print(f"Prediction cache not found for company {company_id}. Generating automatically...")
                 predictor.predict_all(company_id, forecast_days=30)
-                cache_doc = predictor.db.prediction_caches.find_one({'company_id': company_id})
+                cache_doc = predictor.dynamo.get_item(f"COMPANY#{company_id}", "PREDICTION_CACHE")
             except Exception as auto_err:
-                print(f"⚠️ Failed to auto-generate predictions: {auto_err}")
+                print(f"\u26a0\ufe0f Failed to auto-generate predictions: {auto_err}")
                 return jsonify({"error": f"No prediction cache found and auto-generation failed: {str(auto_err)}"}), 404
         
         if not cache_doc:

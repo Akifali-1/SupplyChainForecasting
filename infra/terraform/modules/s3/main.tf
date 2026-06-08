@@ -61,3 +61,29 @@ output "uploads_bucket_id" {
 output "uploads_bucket_arn" {
   value = aws_s3_bucket.uploads.arn
 }
+
+# ── ML Model Weights Bucket ───────────────────────────────────────────────────
+# Stores serialized PyTorch GAT+LSTM model state dicts (base + per-company)
+# Layout:
+#   models/base/base_gat_lstm_model.pkl        ← base pre-trained model
+#   models/<companyId>/model_weights.pkl       ← fine-tuned company model
+resource "aws_s3_bucket" "models" {
+  bucket        = "${var.app_name}-models-${random_id.bucket_suffix.hex}"
+  force_destroy = true
+}
+
+resource "aws_s3_bucket_public_access_block" "models" {
+  bucket                  = aws_s3_bucket.models.id
+  block_public_acls       = true
+  block_public_policy     = true
+  ignore_public_acls      = true
+  restrict_public_buckets = true
+}
+
+output "models_bucket_id" {
+  value = aws_s3_bucket.models.id
+}
+
+output "models_bucket_arn" {
+  value = aws_s3_bucket.models.arn
+}

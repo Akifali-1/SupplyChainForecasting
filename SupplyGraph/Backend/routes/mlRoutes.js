@@ -1,7 +1,6 @@
 const express = require("express");
 const router = express.Router();
 const axios = require("axios");
-const mongoose = require("mongoose");
 const { SQSClient, SendMessageCommand } = require("@aws-sdk/client-sqs");
 const { etagMiddleware } = require("../utils/etag");
 const { idempotencyMiddleware } = require("../utils/idempotency");
@@ -41,7 +40,7 @@ router.param("companyId", (req, res, next, companyId) => {
   }
 
   // Multi-tenancy check
-  if (!req.user.companyId || req.user.companyId.toString() !== companyId) {
+  if (!req.user.companyId || req.user.companyId !== companyId) {
     return res.status(403).json({
       error: "Forbidden",
       details: "You do not have authorization to access data for this organization."
@@ -149,25 +148,25 @@ router.post("/fine-tune/:companyId", requireRole(["admin"]), idempotencyMiddlewa
       console.log("SQS queue configured. Enqueuing training job...");
       
       // Update database status immediately to queued
-      if (mongoose.connection && mongoose.connection.db) {
-        try {
-          await mongoose.connection.db.collection("training_status").updateOne(
-            { company_id: companyId },
-            {
-              $set: {
-                status: "queued",
-                progress: 0,
-                message: "Job submitted to queue. Waiting for background worker...",
-                error: null,
-                timestamp: new Date().toISOString()
-              }
-            },
-            { upsert: true }
-          );
-          console.log(`Updated training status to queued in DB for company ${companyId}`);
-        } catch (dbErr) {
-          console.error("Warning: Failed to update training status in DB:", dbErr.message);
-        }
+      try {
+        const { docClient, TABLE_NAME } = require("../config/dynamodb");
+        const { PutCommand } = require("@aws-sdk/lib-dynamodb");
+        await docClient.send(new PutCommand({
+          TableName: TABLE_NAME,
+          Item: {
+            PK: `COMPANY#${companyId}`,
+            SK: "TRAINING_STATUS",
+            companyId,
+            status: "queued",
+            progress: 0,
+            message: "Job submitted to queue. Waiting for background worker...",
+            error: null,
+            timestamp: new Date().toISOString()
+          }
+        }));
+        console.log(`Updated training status to queued in DB for company ${companyId}`);
+      } catch (dbErr) {
+        console.error("Warning: Failed to update training status in DB:", dbErr.message);
       }
 
       const sqsPayload = {

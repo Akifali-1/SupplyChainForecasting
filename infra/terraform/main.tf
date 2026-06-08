@@ -29,8 +29,10 @@ module "iam" {
   github_repo     = var.github_repo
   s3_uploads_arn  = module.s3.uploads_bucket_arn
   s3_frontend_arn = module.s3.frontend_bucket_arn
+  s3_models_arn   = module.s3.models_bucket_arn
   ecr_arns        = module.ecr.repository_arns
   sqs_queue_arn   = module.sqs.queue_arn
+  dynamodb_table_arn = module.dynamodb.table_arn
 }
 
 module "ec2" {
@@ -47,6 +49,11 @@ module "cloudfront" {
   frontend_bucket_id  = module.s3.frontend_bucket_id
   frontend_bucket_arn = module.s3.frontend_bucket_arn
   ec2_public_dns      = module.ec2.public_dns
+}
+
+module "dynamodb" {
+  source   = "./modules/dynamodb"
+  app_name = var.app_name
 }
 
 data "aws_caller_identity" "current" {}

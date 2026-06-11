@@ -6,6 +6,9 @@ import {
   getReorderIntelligence,
   uploadInventorySnapshot,
   triggerReorder,
+  triggerAgentAudit,
+  getAgentProposals,
+  handleProposalAction,
 } from '../lib/api';
 import {
   ShoppingCart, Upload, RefreshCw, AlertTriangle, CheckCircle2,
@@ -243,6 +246,14 @@ export default function ReorderIntelligence() {
   const [filterStatus, setFilterStatus] = useState('all');
   const [error, setError] = useState(null);
 
+  const [activeTab, setActiveTab] = useState('inventory'); // 'inventory' or 'agents'
+  const [proposalsDoc, setProposalsDoc] = useState(null);
+  const [proposalsLoading, setProposalsLoading] = useState(false);
+  const [auditRunning, setAuditRunning] = useState(false);
+  const [auditLogs, setAuditLogs] = useState([]);
+  const [actioningProposal, setActioningProposal] = useState(null); // product_id being actioned
+  const [expandedNegotiations, setExpandedNegotiations] = useState({});
+
   const companyId = getCompanyId(user);
   const isDark = theme === 'dark';
 
@@ -262,7 +273,91 @@ export default function ReorderIntelligence() {
     }
   }, [companyId]);
 
-  useEffect(() => { fetchIntelligence(); }, [fetchIntelligence]);
+  const fetchProposals = useCallback(async () => {
+    if (!companyId) return;
+    setProposalsLoading(true);
+    try {
+      const result = await getAgentProposals(companyId);
+      setProposalsDoc(result);
+    } catch (err) {
+      console.error("[ReorderIntelligence] Proposals fetch error:", err);
+    } finally {
+      setProposalsLoading(false);
+    }
+  }, [companyId]);
+
+  useEffect(() => { 
+    fetchIntelligence(); 
+    fetchProposals();
+  }, [fetchIntelligence, fetchProposals]);
+
+  const handleAgentAudit = async () => {
+    if (!companyId) return;
+    setAuditRunning(true);
+    setAuditLogs([]);
+    
+    const addLog = (msg) => setAuditLogs(prev => [...prev, { time: new Date().toLocaleTimeString(), msg }]);
+    
+    setTimeout(() => addLog("🔍 Procurement Auditor Agent: Initializing inventory audit scan..."), 200);
+    setTimeout(() => addLog("📊 Procurement Auditor Agent: Checking active product nodes against target margins..."), 1000);
+    setTimeout(() => addLog("🏷️ Vendor Negotiator Agent: Loading supplier catalogs, unit cost guidelines, and MOQ limits..."), 1800);
+    setTimeout(() => addLog("⚡ Vendor Negotiator Agent: Auto-optimizing bulk orders to unlock tiered discount rates..."), 2600);
+    setTimeout(() => addLog("✉️ Vendor Negotiator Agent: Formulating simulated vendor purchase order negotiations..."), 3400);
+    
+    setTimeout(async () => {
+      try {
+        addLog("🚀 Dispatched request to Agent Engine... running Gemini 2.5 Flash analysis...");
+        const res = await triggerAgentAudit(companyId);
+        addLog("✅ Multi-Agent collaboration complete! Savings calculated & proposals saved.");
+        toast({
+          title: "Audit Completed!",
+          description: `Generated ${res.proposals?.length || 0} replenishment proposals.`,
+        });
+        await fetchProposals();
+        await fetchIntelligence(true);
+      } catch (err) {
+        addLog(`❌ Agent execution error: ${err.message}`);
+        toast({
+          title: "Audit Failed",
+          description: err.message,
+          variant: "destructive"
+        });
+      } finally {
+        setTimeout(() => setAuditRunning(false), 800);
+      }
+    }, 4000);
+  };
+
+  const handleProposalActionSubmit = async (productId, action) => {
+    if (!companyId) return;
+    setActioningProposal(productId);
+    try {
+      await handleProposalAction(companyId, productId, action);
+      toast({
+        title: action === 'approve' ? 'Proposal Approved' : 'Proposal Rejected',
+        description: action === 'approve' 
+          ? `Replenishment ordered and snapshot stock level updated.`
+          : `Proposal removed from workspace.`,
+      });
+      await fetchProposals();
+      await fetchIntelligence(true);
+    } catch (err) {
+      toast({
+        title: "Action failed",
+        description: err.message,
+        variant: "destructive"
+      });
+    } finally {
+      setActioningProposal(null);
+    }
+  };
+
+  const toggleNegotiation = (pid) => {
+    setExpandedNegotiations(prev => ({
+      ...prev,
+      [pid]: !prev[pid]
+    }));
+  };
 
   const handleUpload = async (e) => {
     const file = e.target.files?.[0];
@@ -499,8 +594,45 @@ export default function ReorderIntelligence() {
           )
         )}
 
-        {/* ── Items table ── */}
+        {/* ── Tab Switcher ── */}
         {!loading && !error && data && (
+          <div className="flex border-b border-slate-200 dark:border-white/[0.08] mb-6">
+            <button
+              onClick={() => setActiveTab('inventory')}
+              className={`pb-4 px-6 text-sm font-bold uppercase tracking-wider transition-colors relative cursor-pointer bg-transparent border-0 flex items-center gap-2 ${
+                activeTab === 'inventory'
+                  ? 'text-[#00B4D8] font-bold'
+                  : 'text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+              }`}
+            >
+              <Package className="h-4 w-4" />
+              <span>📦 Manual Stock Audit</span>
+              {activeTab === 'inventory' && (
+                <div className="absolute bottom-0 left-0 right-0 h-[2px] bg-gradient-to-r from-[#00B4D8] to-[#7B2FBE]" />
+              )}
+            </button>
+            <button
+              onClick={() => setActiveTab('agents')}
+              className={`pb-4 px-6 text-sm font-bold uppercase tracking-wider transition-colors relative cursor-pointer bg-transparent border-0 flex items-center gap-2 ${
+                activeTab === 'agents'
+                  ? 'text-[#7B2FBE] font-bold'
+                  : 'text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+              }`}
+            >
+              <Zap className="h-4 w-4" />
+              <span>🤖 Autonomous Agent Proposals</span>
+              {proposalsDoc?.proposals?.length > 0 && (
+                <span className="h-2.5 w-2.5 rounded-full bg-rose-500 animate-pulse shrink-0" />
+              )}
+              {activeTab === 'agents' && (
+                <div className="absolute bottom-0 left-0 right-0 h-[2px] bg-gradient-to-r from-[#7B2FBE] to-[#00B4D8]" />
+              )}
+            </button>
+          </div>
+        )}
+
+        {/* ── Items table (manual view) ── */}
+        {!loading && !error && data && activeTab === 'inventory' && (
           <>
             {/* Filter bar */}
             <div className="flex items-center gap-3 flex-wrap bg-slate-100/80 dark:bg-white/[0.015] border border-slate-200 dark:border-white/[0.06] p-2 rounded-2xl">
@@ -574,6 +706,191 @@ export default function ReorderIntelligence() {
               Inventory Snapshot: {new Date(data.snapshotDate).toLocaleString()} · {data.totalItems} Active Nodes
             </p>
           </>
+        )}
+
+        {/* ── Multi-Agent Audit view ── */}
+        {!loading && !error && activeTab === 'agents' && (
+          <div className="space-y-6">
+            {auditRunning ? (
+              /* Loading Terminal */
+              <div className="rounded-3xl border border-slate-200 dark:border-white/[0.08] bg-slate-900/90 p-8 shadow-2xl max-w-2xl mx-auto space-y-4 animate-fade-in font-mono text-white">
+                <div className="flex items-center gap-3">
+                  <Loader2 className="h-5 w-5 text-[#7B2FBE] animate-spin" />
+                  <span className="font-bold text-sm tracking-wide uppercase">AI Multi-Agent Collaboration Active</span>
+                </div>
+                <div className="bg-black/55 rounded-2xl p-5 text-xs space-y-2.5 max-h-[300px] overflow-y-auto text-[#00FF66] border border-white/[0.04] scrollbar-none">
+                  {auditLogs.map((log, i) => (
+                    <div key={i} className="flex gap-3">
+                      <span className="text-slate-500 shrink-0">[{log.time}]</span>
+                      <span className="leading-relaxed">{log.msg}</span>
+                    </div>
+                  ))}
+                </div>
+                <p className="text-[10px] text-slate-500 uppercase tracking-widest text-center pt-2">Powered by Gemini 2.5 Flash Engine</p>
+              </div>
+            ) : (!proposalsDoc?.proposals?.length ? (
+              /* Onboarding Card */
+              <div className="max-w-2xl mx-auto text-center py-16 px-6 rounded-3xl border border-dashed border-slate-300 dark:border-white/[0.08] bg-white dark:bg-white/[0.01] backdrop-blur-2xl">
+                <Zap className="h-12 w-12 text-[#7B2FBE] mx-auto mb-4 animate-pulse" />
+                <h3 className="text-xl font-bold text-slate-900 dark:text-white mb-2">No active procurement proposals</h3>
+                <p className="text-xs text-slate-500 dark:text-slate-400 max-w-sm mx-auto leading-relaxed mb-6 font-mono">
+                  Trigger the multi-agent system to scan safety stock limits, evaluate supplier discounts, and draft optimized bulk purchasing requests.
+                </p>
+                <button
+                  onClick={handleAgentAudit}
+                  className="px-6 py-3 rounded-xl bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 text-white font-bold uppercase tracking-wider text-xs shadow-lg hover:scale-[1.03] transition-all border-0 cursor-pointer"
+                >
+                  Run AI Multi-Agent Audit
+                </button>
+              </div>
+            ) : (
+              /* Proposals Dashboard */
+              <div className="space-y-6 animate-fade-in">
+                {/* Audit summary banner */}
+                <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 bg-violet-600/5 dark:bg-violet-500/[0.03] border border-violet-500/20 rounded-2xl p-5 backdrop-blur-xl">
+                  <div className="flex items-start gap-3.5">
+                    <div className="p-3 bg-violet-500/10 border border-violet-500/20 text-[#7B2FBE] rounded-xl shrink-0">
+                      <Zap className="h-5 w-5" />
+                    </div>
+                    <div>
+                      <h4 className="font-bold text-slate-900 dark:text-white text-sm">Procurement Audit Summary</h4>
+                      <p className="text-xs text-slate-505 dark:text-slate-350 mt-1 leading-relaxed font-semibold">{proposalsDoc.summary}</p>
+                      <p className="text-[10px] text-slate-400 dark:text-slate-500 mt-1.5 font-mono uppercase">
+                        Auditor: {proposalsDoc.agent_metadata?.auditor_agent} · Negotiator: {proposalsDoc.agent_metadata?.negotiator_agent}
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={handleAgentAudit}
+                    className="shrink-0 flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold tracking-wider uppercase bg-white dark:bg-white/[0.03] border border-slate-200 dark:border-white/[0.08] text-slate-800 dark:text-white hover:bg-slate-100 dark:hover:bg-white/[0.06] hover:border-[#7B2FBE]/50 hover:shadow-[0_0_15px_rgba(123,47,190,0.15)] dark:hover:shadow-[0_0_15px_rgba(123,47,190,0.2)] transition-all duration-300 shadow-sm cursor-pointer"
+                  >
+                    <RefreshCw className="h-4 w-4 text-[#7B2FBE]" />
+                    <span>Re-Run Audit</span>
+                  </button>
+                </div>
+
+                {/* Proposals list */}
+                <div className="space-y-6">
+                  {proposalsDoc.proposals.map((proposal) => {
+                    const expanded = expandedNegotiations[proposal.product_id] || false;
+                    return (
+                      <div
+                        key={proposal.product_id}
+                        className="rounded-3xl border border-slate-200 dark:border-white/[0.06] bg-white dark:bg-white/[0.015] backdrop-blur-2xl shadow-sm dark:shadow-[0_4px_25px_rgba(0,0,0,0.3)] relative overflow-hidden group transition-all duration-300 hover:border-[#7B2FBE]/40"
+                      >
+                        {/* Glow highlight stripe on left */}
+                        <div className="absolute left-0 top-0 bottom-0 w-[4px] bg-gradient-to-b from-[#7B2FBE] to-[#00B4D8]" />
+
+                        <div className="px-6 py-5 space-y-4">
+                          {/* Header of proposal card */}
+                          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 border-b border-dashed border-slate-200 dark:border-white/[0.06] pb-4">
+                            <div>
+                              <span className="text-[10px] text-slate-500 font-mono uppercase tracking-wider font-semibold">Replenishment Proposal</span>
+                              <h3 className="text-lg font-bold text-slate-900 dark:text-white tracking-wide mt-0.5">
+                                {proposal.product_id.replace(/_/g, ' ')}
+                              </h3>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <span className="text-xs font-mono text-slate-500">Supplier:</span>
+                              <span className="text-xs font-bold text-slate-700 dark:text-slate-350">{proposal.supplier_name}</span>
+                            </div>
+                          </div>
+
+                          {/* Quantities & cost breakdown */}
+                          <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+                            <div>
+                              <p className="text-[10px] text-slate-500 dark:text-slate-400 uppercase tracking-wider font-semibold">Recommended Qty</p>
+                              <div className="flex items-center gap-2 mt-1">
+                                <span className="font-bold text-slate-500 font-mono line-through text-xs">{proposal.base_qty}</span>
+                                <span className="font-bold text-violet-600 dark:text-violet-400 font-mono text-sm">{proposal.optimized_qty}</span>
+                                <span className="text-[10px] bg-violet-500/10 text-violet-600 dark:text-violet-400 px-1.5 py-0.5 rounded font-mono font-bold">Optimized</span>
+                              </div>
+                            </div>
+                            <div>
+                              <p className="text-[10px] text-slate-500 dark:text-slate-400 uppercase tracking-wider font-semibold">Unit Cost</p>
+                              <div className="flex items-center gap-2 mt-1">
+                                <span className="font-bold text-slate-500 font-mono line-through text-xs">${proposal.base_unit_cost.toFixed(2)}</span>
+                                <span className="font-bold text-emerald-600 dark:text-emerald-400 font-mono text-sm">${proposal.negotiated_unit_cost.toFixed(2)}</span>
+                              </div>
+                            </div>
+                            <div>
+                              <p className="text-[10px] text-slate-500 dark:text-slate-400 uppercase tracking-wider font-semibold">Total Order Cost</p>
+                              <p className="font-bold text-slate-800 dark:text-white mt-1 font-mono text-sm">${proposal.total_cost.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+                            </div>
+                            <div>
+                              <p className="text-[10px] text-slate-500 dark:text-slate-400 uppercase tracking-wider font-semibold">Estimated Savings</p>
+                              <div className="flex items-center gap-2 mt-1">
+                                <span className="font-bold text-emerald-600 dark:text-emerald-400 font-mono text-sm">${proposal.estimated_savings.toFixed(2)}</span>
+                                {proposal.discount_percentage > 0 && (
+                                  <span className="text-[10px] bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 px-1.5 py-0.5 rounded font-mono font-bold">-{proposal.discount_percentage}% Off</span>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Agent Actions logs */}
+                          <div className="bg-slate-50 dark:bg-white/[0.01] border border-slate-200 dark:border-white/[0.04] rounded-2xl p-4 space-y-2">
+                            <p className="text-[10px] text-slate-500 uppercase tracking-wider font-semibold flex items-center gap-1.5">
+                              <Info className="h-3.5 w-3.5 text-[#7B2FBE]" />
+                              Agent Optimization Logs
+                            </p>
+                            <ul className="list-disc list-inside text-xs text-slate-655 dark:text-slate-350 pl-1 space-y-1">
+                              {proposal.agent_actions?.map((act, i) => (
+                                <li key={i}>{act}</li>
+                              ))}
+                            </ul>
+                          </div>
+
+                          {/* Negotiation dialogue toggler */}
+                          <div className="border border-slate-200 dark:border-white/[0.06] rounded-2xl overflow-hidden bg-slate-50/50 dark:bg-white/[0.005]">
+                            <button
+                              onClick={() => toggleNegotiation(proposal.product_id)}
+                              className="w-full flex items-center justify-between px-5 py-3 text-xs font-bold uppercase tracking-wider text-slate-650 dark:text-slate-450 hover:text-slate-900 dark:hover:text-white bg-slate-105 dark:bg-white/[0.015] border-0 cursor-pointer"
+                            >
+                              <span className="flex items-center gap-2">
+                                <Clock className="h-3.5 w-3.5 text-[#7B2FBE]" />
+                                Simulated Supplier Dialogue Log
+                              </span>
+                              {expanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                            </button>
+                            {expanded && (
+                              <div className="p-5 border-t border-slate-200 dark:border-white/[0.06] bg-slate-950 text-xs font-mono leading-relaxed text-[#00FF66] max-h-[250px] overflow-y-auto whitespace-pre-line">
+                                {proposal.negotiation_transcript}
+                              </div>
+                            )}
+                          </div>
+
+                          {/* Actions */}
+                          <div className="flex justify-end items-center gap-3 pt-2">
+                            <button
+                              disabled={actioningProposal === proposal.product_id}
+                              onClick={() => handleProposalActionSubmit(proposal.product_id, 'reject')}
+                              className="px-4 py-2.5 rounded-xl border border-slate-205 dark:border-white/[0.08] text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 hover:bg-slate-105 dark:hover:bg-white/[0.03] hover:text-rose-500 dark:hover:text-rose-450 transition-colors disabled:opacity-50 cursor-pointer bg-transparent"
+                            >
+                              Reject
+                            </button>
+                            <button
+                              disabled={actioningProposal === proposal.product_id}
+                              onClick={() => handleProposalActionSubmit(proposal.product_id, 'approve')}
+                              className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs font-bold uppercase tracking-wider bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 text-white transition-all duration-300 hover:scale-[1.04] disabled:opacity-50 disabled:scale-100 shadow-[0_0_15px_rgba(124,58,237,0.15)] dark:shadow-[0_0_15px_rgba(124,58,237,0.3)] border-0 cursor-pointer"
+                            >
+                              {actioningProposal === proposal.product_id ? (
+                                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                              ) : (
+                                <ShoppingCart className="h-3.5 w-3.5" />
+                              )}
+                              <span>Approve & Order</span>
+                            </button>
+                          </div>
+
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            ))}
+          </div>
         )}
       </div>
     </div>

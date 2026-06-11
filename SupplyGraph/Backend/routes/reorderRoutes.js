@@ -112,8 +112,139 @@ router.get(
   }
 );
 
+// ─── Helper: Compute Reorder Intelligence Internal ───────────────────────────
+async function getReorderIntelligenceInternal(companyId) {
+  // 1. Load inventory snapshot from DynamoDB
+  const result = await docClient.send(new GetCommand({
+    TableName: TABLE_NAME,
+    Key: { PK: `COMPANY#${companyId}`, SK: "INVENTORY" }
+  }));
+  const snap = result.Item;
+  if (!snap) return null;
+
+  // 2. Ask Flask for cached predictions
+  let predictionCache = null;
+  try {
+    const flaskResp = await axios.get(
+      `${ML_SERVICE_URL}/prediction-cache/${companyId}`
+    );
+    predictionCache = flaskResp.data?.predictions || null;
+  } catch (_) {
+    // Prediction cache optional — compute without forecasts if unavailable
+  }
+
+  // 3. Compute reorder intelligence for each item
+  const DEFAULT_LEAD_TIME = 5;
+  const results = snap.items.map((item) => {
+    const pid = item.product_id.toUpperCase();
+
+    // Get forecast data — try exact match, then case-insensitive with underscore/space normalization
+    let forecastData = predictionCache ? predictionCache[pid] : null;
+    if (!forecastData && predictionCache) {
+      const key = Object.keys(predictionCache).find(
+        (k) => k.toUpperCase().replace(/_/g, ' ') === pid.replace(/_/g, ' ')
+      );
+      if (key) forecastData = predictionCache[key];
+    }
+
+    const avgDailyForecast = forecastData?.average_daily || 0;
+    const forecastArray = forecastData?.prediction || [];
+    const total30Days = forecastData?.total_30_days || 0;
+
+    const currentStock  = item.current_stock;
+    const leadTime      = item.lead_time_days || DEFAULT_LEAD_TIME;
+    const safetyStock   = item.safety_stock || 0;
+
+    // ── ROP formula ──────────────────────────────────────────────────────
+    const rop = avgDailyForecast > 0
+      ? Math.round(avgDailyForecast * leadTime + safetyStock)
+      : null;
+
+    // ── Coverage days ────────────────────────────────────────────────────
+    const coverageDays = avgDailyForecast > 0
+      ? Math.round(currentStock / avgDailyForecast)
+      : null;
+
+    // ── Stock status ─────────────────────────────────────────────────────
+    let stockStatus = "ok";
+    if (rop !== null && currentStock <= rop) stockStatus = "reorder_needed";
+    if (coverageDays !== null && coverageDays <= leadTime) stockStatus = "critical";
+    if (avgDailyForecast === 0 || !forecastData) stockStatus = "no_forecast";
+
+    // ── Overstock check ──────────────────────────────────────────────────
+    const overstockThreshold = total30Days * 3;
+    if (
+      stockStatus === "ok" &&
+      total30Days > 0 &&
+      currentStock > overstockThreshold
+    ) {
+      stockStatus = "overstock";
+    }
+
+    // ── Anomaly detection ─────────────────────────────────────────────────
+    let anomaly = null;
+    if (forecastArray.length >= 7) {
+      const first7 = forecastArray.slice(0, 7);
+      const last7  = forecastArray.slice(-7);
+      const f7avg  = first7.reduce((s, v) => s + v, 0) / 7;
+      const l7avg  = last7.reduce((s, v) => s + v, 0) / 7;
+      if (f7avg > 0 && l7avg / f7avg > 1.5) {
+        anomaly = { type: "demand_spike", ratio: +(l7avg / f7avg).toFixed(2) };
+      } else if (f7avg > 0 && l7avg / f7avg < 0.5 && currentStock > safetyStock * 2) {
+        anomaly = { type: "demand_drop", ratio: +(l7avg / f7avg).toFixed(2) };
+      }
+    }
+
+    // ── Order-by date ────────────────────────────────────────────────────
+    let orderByDate = null;
+    if (coverageDays !== null && coverageDays > leadTime) {
+      const d = new Date();
+      d.setDate(d.getDate() + coverageDays - leadTime);
+      orderByDate = d.toISOString().split("T")[0];
+    }
+
+    // ── Order quantity ───────────────────────────────────────────────────
+    const orderQty = avgDailyForecast > 0
+      ? Math.round(avgDailyForecast * (leadTime + 14) + safetyStock - currentStock)
+      : null;
+    const suggestedOrderQty = orderQty !== null ? Math.max(0, orderQty) : null;
+
+    return {
+      product_id:           pid,
+      current_stock:        currentStock,
+      lead_time_days:       leadTime,
+      safety_stock:         safetyStock,
+      unit_cost:            item.unit_cost,
+      avg_daily_forecast:   Math.round(avgDailyForecast * 100) / 100,
+      total_30_day_forecast: Math.round(total30Days),
+      rop,
+      coverage_days:        coverageDays,
+      stock_status:         stockStatus,
+      order_by_date:        orderByDate,
+      suggested_order_qty:  suggestedOrderQty,
+      anomaly,
+      has_forecast:         !!forecastData,
+    };
+  });
+
+  const sortOrder = { critical: 0, reorder_needed: 1, ok: 2, overstock: 3, no_forecast: 4 };
+  results.sort((a, b) => (sortOrder[a.stock_status] ?? 5) - (sortOrder[b.stock_status] ?? 5));
+
+  return {
+    snapshotDate: snap.uploadedAt,
+    totalItems: results.length,
+    summary: {
+      critical:       results.filter((r) => r.stock_status === "critical").length,
+      reorder_needed: results.filter((r) => r.stock_status === "reorder_needed").length,
+      ok:             results.filter((r) => r.stock_status === "ok").length,
+      overstock:      results.filter((r) => r.stock_status === "overstock").length,
+      no_forecast:    results.filter((r) => r.stock_status === "no_forecast").length,
+    },
+    items: results,
+  };
+}
+
 // ─── GET /api/reorder/intelligence/:companyId ────────────────────────────────
-// Core engine: joins snapshot with prediction cache → ROP, coverage, anomaly
 router.get(
   "/intelligence/:companyId",
   requireAuth,
@@ -121,151 +252,31 @@ router.get(
   async (req, res) => {
     try {
       const companyId = req.params.companyId;
-
-      // 1. Load inventory snapshot from DynamoDB
-      const result = await docClient.send(new GetCommand({
-        TableName: TABLE_NAME,
-        Key: { PK: `COMPANY#${companyId}`, SK: "INVENTORY" }
-      }));
-      const snap = result.Item;
-      if (!snap)
+      const intelligence = await getReorderIntelligenceInternal(companyId);
+      if (!intelligence) {
         return res.status(404).json({
           error: "No inventory snapshot uploaded yet.",
           hint: "Upload an inventory_snapshot.csv first.",
         });
-
-      // 2. Ask Flask for cached predictions (prediction_caches collection)
-      let predictionCache = null;
-      try {
-        const flaskResp = await axios.get(
-          `${ML_SERVICE_URL}/prediction-cache/${companyId}`
-        );
-        predictionCache = flaskResp.data?.predictions || null;
-      } catch (_) {
-        // Prediction cache optional — compute without forecasts if unavailable
       }
 
-      // 3. Compute reorder intelligence for each item
-      const DEFAULT_LEAD_TIME = 5;
-      const results = snap.items.map((item) => {
-        const pid = item.product_id.toUpperCase();
-
-        // Get forecast data — try exact match, then case-insensitive with underscore/space normalization
-        let forecastData = predictionCache ? predictionCache[pid] : null;
-        if (!forecastData && predictionCache) {
-          const key = Object.keys(predictionCache).find(
-            (k) => k.toUpperCase().replace(/_/g, ' ') === pid.replace(/_/g, ' ')
-          );
-          if (key) forecastData = predictionCache[key];
-        }
-
-        const avgDailyForecast = forecastData?.average_daily || 0;
-        const forecastArray = forecastData?.prediction || [];
-        const total30Days = forecastData?.total_30_days || 0;
-
-        const currentStock  = item.current_stock;
-        const leadTime      = item.lead_time_days || DEFAULT_LEAD_TIME;
-        const safetyStock   = item.safety_stock || 0;
-
-        // ── ROP formula ──────────────────────────────────────────────────────
-        // ROP = (avg_daily_forecast × lead_time) + safety_stock
-        const rop = avgDailyForecast > 0
-          ? Math.round(avgDailyForecast * leadTime + safetyStock)
-          : null;
-
-        // ── Coverage days ────────────────────────────────────────────────────
-        const coverageDays = avgDailyForecast > 0
-          ? Math.round(currentStock / avgDailyForecast)
-          : null;
-
-        // ── Stock status ─────────────────────────────────────────────────────
-        let stockStatus = "ok";
-        if (rop !== null && currentStock <= rop) stockStatus = "reorder_needed";
-        if (coverageDays !== null && coverageDays <= leadTime) stockStatus = "critical";
-        if (avgDailyForecast === 0 || !forecastData) stockStatus = "no_forecast";
-
-        // ── Overstock check ──────────────────────────────────────────────────
-        const overstockThreshold = total30Days * 3;
-        if (
-          stockStatus === "ok" &&
-          total30Days > 0 &&
-          currentStock > overstockThreshold
-        ) {
-          stockStatus = "overstock";
-        }
-
-        // ── Anomaly detection ─────────────────────────────────────────────────
-        // Sudden forecast spike vs rolling avg
-        let anomaly = null;
-        if (forecastArray.length >= 7) {
-          const first7 = forecastArray.slice(0, 7);
-          const last7  = forecastArray.slice(-7);
-          const f7avg  = first7.reduce((s, v) => s + v, 0) / 7;
-          const l7avg  = last7.reduce((s, v) => s + v, 0) / 7;
-          if (f7avg > 0 && l7avg / f7avg > 1.5) {
-            anomaly = { type: "demand_spike", ratio: +(l7avg / f7avg).toFixed(2) };
-          } else if (f7avg > 0 && l7avg / f7avg < 0.5 && currentStock > safetyStock * 2) {
-            anomaly = { type: "demand_drop", ratio: +(l7avg / f7avg).toFixed(2) };
-          }
-        }
-
-        // ── Order-by date ────────────────────────────────────────────────────
-        let orderByDate = null;
-        if (coverageDays !== null && coverageDays > leadTime) {
-          const d = new Date();
-          d.setDate(d.getDate() + coverageDays - leadTime);
-          orderByDate = d.toISOString().split("T")[0];
-        }
-
-        // ── Order quantity ───────────────────────────────────────────────────
-        const orderQty = avgDailyForecast > 0
-          ? Math.round(avgDailyForecast * (leadTime + 14) + safetyStock - currentStock)
-          : null;
-        const suggestedOrderQty = orderQty !== null ? Math.max(0, orderQty) : null;
-
-        return {
-          product_id:           pid,
-          current_stock:        currentStock,
-          lead_time_days:       leadTime,
-          safety_stock:         safetyStock,
-          unit_cost:            item.unit_cost,
-          avg_daily_forecast:   Math.round(avgDailyForecast * 100) / 100,
-          total_30_day_forecast: Math.round(total30Days),
-          rop,
-          coverage_days:        coverageDays,
-          stock_status:         stockStatus,
-          order_by_date:        orderByDate,
-          suggested_order_qty:  suggestedOrderQty,
-          anomaly,
-          has_forecast:         !!forecastData,
-        };
-      });
-
-      // Sort: critical → reorder_needed → ok → overstock → no_forecast
-      const sortOrder = { critical: 0, reorder_needed: 1, ok: 2, overstock: 3, no_forecast: 4 };
-      results.sort((a, b) => (sortOrder[a.stock_status] ?? 5) - (sortOrder[b.stock_status] ?? 5));
-
-      const predCacheUpdatedAt = predictionCache
-        ? (await axios.get(`${ML_SERVICE_URL}/prediction-cache/${companyId}`).catch(() => ({
-            data: {},
-          }))
-          ).data?.updated_at || null
-        : null;
+      // Check cache age from Flask
+      let predCacheUpdatedAt = null;
+      try {
+        const flaskResp = await axios.get(`${ML_SERVICE_URL}/prediction-cache/${companyId}`);
+        predCacheUpdatedAt = flaskResp.data?.updated_at || null;
+      } catch (_) {
+        // ignore
+      }
 
       return res.json({
         companyId,
-        snapshotDate: snap.uploadedAt,
+        snapshotDate: intelligence.snapshotDate,
         predictionCacheAge: predCacheUpdatedAt,
-        hasForecast: !!predictionCache,
-        totalItems: results.length,
-        summary: {
-          critical:       results.filter((r) => r.stock_status === "critical").length,
-          reorder_needed: results.filter((r) => r.stock_status === "reorder_needed").length,
-          ok:             results.filter((r) => r.stock_status === "ok").length,
-          overstock:      results.filter((r) => r.stock_status === "overstock").length,
-          no_forecast:    results.filter((r) => r.stock_status === "no_forecast").length,
-        },
-        items: results,
+        hasForecast: intelligence.items.some(i => i.has_forecast),
+        totalItems: intelligence.totalItems,
+        summary: intelligence.summary,
+        items: intelligence.items,
       });
     } catch (err) {
       console.error("[reorderRoutes] intelligence error:", err);
@@ -275,7 +286,6 @@ router.get(
 );
 
 // ─── POST /api/reorder/trigger/:companyId/:productId ─────────────────────────
-// "Order Now" — stamps a reorder timestamp in the snapshot doc
 router.post(
   "/trigger/:companyId/:productId",
   requireAuth,
@@ -296,10 +306,8 @@ router.post(
       );
       if (!item) return res.status(404).json({ error: `Product ${productId} not in snapshot` });
 
-      // Store triggered timestamp on item
       item.last_ordered_at = new Date().toISOString();
 
-      // Write updated document back
       await docClient.send(new PutCommand({
         TableName: TABLE_NAME,
         Item: snap
@@ -312,6 +320,139 @@ router.post(
       });
     } catch (err) {
       console.error("[reorderRoutes] trigger error:", err);
+      return res.status(500).json({ error: err.message });
+    }
+  }
+);
+
+// ─── POST /api/reorder/proposals/:companyId/trigger ──────────────────────────
+router.post(
+  "/proposals/:companyId/trigger",
+  requireAuth,
+  requireRole(["admin"]),
+  tenantGuard,
+  async (req, res) => {
+    try {
+      const companyId = req.params.companyId;
+      const intelligence = await getReorderIntelligenceInternal(companyId);
+      if (!intelligence) {
+        return res.status(404).json({ error: "No inventory snapshot uploaded yet." });
+      }
+
+      // Call Python agentic audit route in Flask
+      const agenticResponse = await axios.post(`${ML_SERVICE_URL}/agentic-audit`, {
+        company_id: companyId,
+        items: intelligence.items
+      });
+
+      const auditResult = agenticResponse.data;
+
+      // Save to DynamoDB
+      await docClient.send(new PutCommand({
+        TableName: TABLE_NAME,
+        Item: {
+          PK: `COMPANY#${companyId}`,
+          SK: "AGENT_PROPOSALS",
+          companyId,
+          summary: auditResult.summary,
+          proposals: auditResult.proposals,
+          agent_metadata: auditResult.agent_metadata,
+          generatedAt: new Date().toISOString()
+        }
+      }));
+
+      return res.json(auditResult);
+    } catch (err) {
+      console.error("[reorderRoutes] trigger-proposals error:", err);
+      return res.status(500).json({ error: err.message });
+    }
+  }
+);
+
+// ─── GET /api/reorder/proposals/:companyId ───────────────────────────────────
+router.get(
+  "/proposals/:companyId",
+  requireAuth,
+  tenantGuard,
+  async (req, res) => {
+    try {
+      const result = await docClient.send(new GetCommand({
+        TableName: TABLE_NAME,
+        Key: { PK: `COMPANY#${req.params.companyId}`, SK: "AGENT_PROPOSALS" }
+      }));
+      const proposals = result.Item;
+      if (!proposals) return res.json({ proposals: [], summary: "No active proposals." });
+      return res.json(proposals);
+    } catch (err) {
+      return res.status(500).json({ error: err.message });
+    }
+  }
+);
+
+// ─── POST /api/reorder/proposals/:companyId/:productId/action ──────────────────
+router.post(
+  "/proposals/:companyId/:productId/action",
+  requireAuth,
+  requireRole(["admin"]),
+  tenantGuard,
+  async (req, res) => {
+    try {
+      const { companyId, productId } = req.params;
+      const { action } = req.body; // "approve" or "reject"
+      
+      const propResult = await docClient.send(new GetCommand({
+        TableName: TABLE_NAME,
+        Key: { PK: `COMPANY#${companyId}`, SK: "AGENT_PROPOSALS" }
+      }));
+      const propDoc = propResult.Item;
+      if (!propDoc || !propDoc.proposals) {
+        return res.status(404).json({ error: "No active proposals found" });
+      }
+
+      const proposalIdx = propDoc.proposals.findIndex(
+        (p) => p.product_id.toUpperCase() === productId.toUpperCase()
+      );
+      if (proposalIdx === -1) {
+        return res.status(404).json({ error: `Proposal for product ${productId} not found` });
+      }
+
+      const proposal = propDoc.proposals[proposalIdx];
+
+      // Remove from proposals document
+      propDoc.proposals.splice(proposalIdx, 1);
+
+      // Save proposals back
+      await docClient.send(new PutCommand({
+        TableName: TABLE_NAME,
+        Item: propDoc
+      }));
+
+      if (action === "approve") {
+        const invResult = await docClient.send(new GetCommand({
+          TableName: TABLE_NAME,
+          Key: { PK: `COMPANY#${companyId}`, SK: "INVENTORY" }
+        }));
+        const snap = invResult.Item;
+        if (snap) {
+          const item = snap.items.find(
+            (i) => i.product_id.toUpperCase() === productId.toUpperCase()
+          );
+          if (item) {
+            item.last_ordered_at = new Date().toISOString();
+            // Update current stock level in snapshots
+            item.current_stock += (proposal.optimized_qty || 0);
+            
+            await docClient.send(new PutCommand({
+              TableName: TABLE_NAME,
+              Item: snap
+            }));
+          }
+        }
+      }
+
+      return res.json({ success: true, action, product_id: productId.toUpperCase() });
+    } catch (err) {
+      console.error("[reorderRoutes] proposal action error:", err);
       return res.status(500).json({ error: err.message });
     }
   }

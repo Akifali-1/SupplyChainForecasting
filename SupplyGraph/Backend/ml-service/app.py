@@ -402,6 +402,23 @@ def generate_prediction():
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
+@app.route('/agentic-audit', methods=['POST'])
+def run_agentic_audit():
+    try:
+        data = request.json
+        company_id = data.get('company_id')
+        items = data.get('items', [])
+        
+        if not company_id:
+            return jsonify({"error": "company_id is required"}), 400
+            
+        from prediction.agents import MultiAgentOrchestrator
+        orchestrator = MultiAgentOrchestrator(use_llm=True)
+        result = orchestrator.run_procurement_audit(items)
+        return jsonify(result)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
 @app.route('/diagnose-data', methods=['POST'])
 def diagnose_training_data():
     try:

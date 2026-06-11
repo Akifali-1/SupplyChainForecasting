@@ -42,6 +42,10 @@ variable "dynamodb_table_arn" {
   type = string
 }
 
+variable "dynamodb_sessions_table_arn" {
+  type = string
+}
+
 
 # ── EC2 Host IAM Role ──────────────────────────────────────────────────────────
 resource "aws_iam_role" "ec2" {
@@ -103,11 +107,26 @@ resource "aws_iam_role_policy" "ec2_policy" {
           "dynamodb:UpdateItem",
           "dynamodb:DeleteItem",
           "dynamodb:Query",
-          "dynamodb:Scan"
+          "dynamodb:Scan",
+          "dynamodb:DescribeTable"
         ]
         Resource = [
           var.dynamodb_table_arn,
           "${var.dynamodb_table_arn}/index/*"
+        ]
+      },
+      {
+        # DynamoDB Session Table access (needed by connect-dynamodb store)
+        Effect   = "Allow"
+        Action   = [
+          "dynamodb:DescribeTable",
+          "dynamodb:GetItem",
+          "dynamodb:PutItem",
+          "dynamodb:UpdateItem",
+          "dynamodb:DeleteItem"
+        ]
+        Resource = [
+          var.dynamodb_sessions_table_arn
         ]
       },
       {

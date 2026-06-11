@@ -60,7 +60,7 @@ SupplyGraph is deployed on **Amazon Web Services (AWS)** using a decoupled front
 3. **Backend Host**: An **Amazon EC2 (t3.small)** instance runs Docker Compose, housing:
    - **Nginx Reverse Proxy**: Receives HTTP traffic on port 80 and routes `/api/*` queries to port 5000.
    - **Node.js Express App**: Handles business logic, authentication, uploads, and dispatches heavy operations.
-   - **Flask ML Service**: Manages GAT+LSTM configurations, prediction caching, and GNN retraining steps.
+   - **Flask ML Service**: Manages STGT configurations, prediction caching, and GNN retraining steps.
 4. **Asynchronous Queues**: **Amazon SQS** queues long-running ML jobs to protect backend processes from timeouts.
 5. **Database**: **Amazon DynamoDB** serves as the central serverless database using a single-table design (`SupplyGraph-Prod`). Large ML model weights are stored in **Amazon S3** under the models folder.
 6. **Log Audits**: Docker streams container output directly to **AWS CloudWatch** via the native `awslogs` driver.

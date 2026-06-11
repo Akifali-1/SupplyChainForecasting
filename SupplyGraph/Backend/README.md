@@ -100,7 +100,7 @@ python app.py
 - `POST /api/data/upload/:companyId` - Upload CSV file (multipart/form-data)
 
 ### ML Operations
-- `POST /api/ml/fine-tune/:companyId` - Fine-tune GAT+LSTM model on company data
+- `POST /api/ml/fine-tune/:companyId` - Fine-tune STGT model on company data
 - `POST /api/ml/predict/:companyId` - Generate demand predictions
 - `GET /api/ml/training-status/:companyId` - Check model training status
 - `GET /api/ml/model-info/:companyId` - Get model metadata and information
@@ -153,10 +153,10 @@ Always produces three files:
 
 The ML service runs as a separate Flask application on port 5001.
 
-### Model Architecture: GAT+LSTM Hybrid
+### Model Architecture: STGT (Spatio-Temporal Graph Transformer)
 
-1. **LSTM Layer**: Processes temporal sequences
-2. **GAT Layers**: Graph attention over supply chain structure
+1. **Temporal Attention**: Captures temporal trends using self-attention over sequence windows
+2. **Graph Transformer**: Performs spatial message passing over the supply chain topology
 3. **Output**: Demand predictions per node
 
 ### Training Process:
@@ -231,8 +231,8 @@ ML_SERVICE_URL=http://localhost:5001
 
 ## 📝 Notes
 
-- The backend uses **GAT+LSTM** exclusively (SimpleGCN removed)
-- Base model ID is standardized: `"base_gat_lstm_model"`
+- The backend uses **STGT** exclusively (SimpleGCN/GAT-LSTM removed)
+- Base model ID is standardized: `"base_stgt_model"`
 - All model storage uses MongoDB GridFS for large files
 - CSV processing handles multiple formats automatically
 - ML service logging controlled by `ML_DEBUG` environment variable

@@ -15,6 +15,8 @@ services:
       - BACKEND_URL=${BACKEND_URL}
       - FRONTEND_URL=${FRONTEND_URL}
       - S3_UPLOADS_BUCKET=${S3_UPLOADS_BUCKET}
+      - S3_MODELS_BUCKET=${S3_MODELS_BUCKET}
+      - DYNAMODB_TABLE=${DYNAMODB_TABLE}
       - SQS_QUEUE_URL=${SQS_QUEUE_URL}
       - AWS_REGION=${AWS_REGION}
       - ML_SERVICE_URL=http://ml-service:5001
@@ -36,6 +38,8 @@ services:
     environment:
       - MONGO_URI=${MONGO_URI}
       - S3_UPLOADS_BUCKET=${S3_UPLOADS_BUCKET}
+      - S3_MODELS_BUCKET=${S3_MODELS_BUCKET}
+      - DYNAMODB_TABLE=${DYNAMODB_TABLE}
       - SQS_QUEUE_URL=${SQS_QUEUE_URL}
       - AWS_REGION=${AWS_REGION}
     ports:
@@ -46,3 +50,4 @@ services:
         awslogs-group: "/supplygraph/ml-service"
         awslogs-region: "${AWS_REGION}"
         tag: "ml-service-{{.ID}}"
+

@@ -314,7 +314,7 @@ const Dashboard = () => {
                 <div className="lg:col-span-3 grid grid-cols-2 md:grid-cols-4 gap-6">
                   <div>
                     <p className="text-[10px] text-slate-500 font-mono uppercase tracking-wider">Topology Model Type</p>
-                    <p className="font-semibold text-slate-800 dark:text-white mt-1 text-sm md:text-base">{modelInfo.model_type || 'GAT-LSTM Hybrid'}</p>
+                    <p className="font-semibold text-slate-800 dark:text-white mt-1 text-sm md:text-base">{modelInfo.model_type || 'STGT'}</p>
                   </div>
                   <div>
                     <p className="text-[10px] text-slate-500 font-mono uppercase tracking-wider">Active Graph Nodes</p>

@@ -5,41 +5,14 @@ import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from torch_geometric.nn import GATConv
+from models.stgt import STGTModel
 from torch_geometric.data import Data
 from sklearn.preprocessing import StandardScaler
 from sklearn.metrics import mean_absolute_percentage_error
 from torch.optim.lr_scheduler import ReduceLROnPlateau
 from db.dynamodb_client import DynamoDBClient, S3ModelStore
 
-class HybridGATLSTM(nn.Module):
-    def __init__(self, in_channels=1, max_timesteps=5, gat_hidden=4, gat_heads=6, lstm_hidden=64, dropout=0.5):
-        super(HybridGATLSTM, self).__init__()
-        self.max_timesteps = max_timesteps
-        self.lstm = nn.LSTM(in_channels, lstm_hidden, num_layers=2, bidirectional=True, batch_first=True, dropout=dropout)
-        lstm_out_dim = lstm_hidden * 2
-        self.conv1 = GATConv(lstm_out_dim, gat_hidden, heads=gat_heads, dropout=dropout)
-        self.conv2 = GATConv(gat_hidden * gat_heads, gat_hidden, heads=gat_heads, dropout=dropout)
-        self.lin = nn.Linear(gat_hidden * gat_heads, 1)
-        self.dropout = dropout
 
-    def forward(self, x, edge_index):
-        # x: (num_nodes, max_timesteps, in_channels)
-        if self.training and hasattr(self, 'noise_enabled') and self.noise_enabled():
-            x = x + torch.randn_like(x) * 0.1
-        x, _ = self.lstm(x)
-        x = x[:, -1, :]  # Take last timestep output
-        x = F.dropout(x, p=self.dropout, training=self.training)
-        x = self.conv1(x, edge_index)
-        x = F.elu(x)
-        x = F.dropout(x, p=self.dropout, training=self.training)
-        x = self.conv2(x, edge_index)
-        x = F.elu(x)
-        x = self.lin(x)
-        return x
-
-    def noise_enabled(self):
-        return True
 
 class ModelTrainer:
     def __init__(self):
@@ -70,20 +43,20 @@ class ModelTrainer:
             self.s3store = None
     
     def _load_base_model(self):
-        """Load pre-trained GAT+LSTM base model from S3 (metadata in DynamoDB)"""
+        """Load pre-trained STGT base model from S3 (metadata in DynamoDB)."""
         try:
             print("Checking DynamoDB connection...")
             if self.dynamo is None:
                 raise Exception("DynamoDB connection not available")
             
-            print("Searching for GAT+LSTM base model metadata in DynamoDB...")
+            print("Searching for STGT base model metadata in DynamoDB...")
             base_model_doc = self.dynamo.get_item("COMPANY#base", "MODEL")
             
             if not base_model_doc:
-                print("No GAT+LSTM base model found in DynamoDB")
-                raise Exception("GAT+LSTM base model not found in DynamoDB")
+                print("No STGT base model found in DynamoDB")
+                raise Exception("STGT base model not found in DynamoDB")
             
-            print("Loading GAT+LSTM model weights from S3...")
+            print("Loading STGT model weights from S3...")
             if self.s3store is None:
                 raise Exception("S3ModelStore not configured")
 
@@ -95,17 +68,15 @@ class ModelTrainer:
             model_state = pickle.loads(model_bytes)
             print(f"Loaded base model from {s3_uri} ({len(model_bytes) / (1024*1024):.2f} MB)")
             
-            # Load GAT+LSTM model
-            print("Loading GAT+LSTM Hybrid model...")
-            architecture = base_model_doc['architecture']
+            # Load STGT model
+            print("Loading STGT base model...")
+            architecture = base_model_doc.get('architecture', {})
             
-            model = HybridGATLSTM(
-                in_channels=1,
-                max_timesteps=architecture['max_timesteps'],
-                gat_hidden=architecture['gat_hidden'],
-                gat_heads=architecture['gat_heads'],
-                lstm_hidden=architecture['lstm_hidden'],
-                dropout=architecture['dropout']
+            model = STGTModel(
+                max_timesteps=int(architecture.get('max_timesteps', 14)),
+                d_model=int(architecture.get('d_model', 64)),
+                spatial_heads=int(architecture.get('spatial_heads', 4)),
+                dropout=float(architecture.get('dropout', 0.3))
             )
             
             model.load_state_dict(model_state)
@@ -113,21 +84,19 @@ class ModelTrainer:
             node_list = base_model_doc.get('node_list', [])
             scalers   = base_model_doc.get('scalers', {})
             node_to_idx = base_model_doc.get('node_to_idx', {})
-            print(f"Loaded GAT+LSTM model with {len(node_list)} nodes")
+            print(f"Loaded STGT base model with {len(node_list)} nodes")
             return model, node_list, scalers, node_to_idx
             
         except Exception as e:
             print(f"Error loading base model: {e}")
-            print("Creating new GAT+LSTM model from scratch as fallback")
-            fallback_model = HybridGATLSTM(
-                in_channels=1,
-                max_timesteps=5,
-                gat_hidden=4,
-                gat_heads=6,
-                lstm_hidden=64,
-                dropout=0.5
+            print("Creating new STGT model from scratch as fallback")
+            fallback_model = STGTModel(
+                max_timesteps=14,
+                d_model=64,
+                spatial_heads=4,
+                dropout=0.3
             )
-            print(f"Created fallback GAT+LSTM model")
+            print("Created fallback STGT model")
             return fallback_model, [], {}, {}
     
     def _validate_csv_data(self, nodes, edges, sales):
@@ -179,7 +148,7 @@ class ModelTrainer:
         
         return errors
 
-    def _prepare_training_data(self, nodes_path, edges_path, sales_path):
+    def _prepare_training_data(self, nodes_path, edges_path, sales_path, max_timesteps=14):
         """Prepare training data using sliding-window approach (matches base model).
         
         Returns:
@@ -296,14 +265,39 @@ class ModelTrainer:
                         edge_list.append([node_to_idx[plant], node_to_idx[node]])
             
             if not edge_list:
-                print("WARNING: No valid edges found, GAT will behave like LSTM")
+                print("WARNING: No valid edges found, STGT will behave like temporal attention model")
                 edge_list = [[0, 0]]
             
             edge_index = torch.tensor(edge_list, dtype=torch.long).t().contiguous()
             print(f"Created {len(edge_list)} edges")
             
-            # Sliding window max_timesteps (use model default of 5)
-            max_timesteps = min(5, train_end - 1)
+            # Reconstruct node types for GNN spatial attention
+            node_types_list = []
+            if 'Plant' in nodes_df.columns:
+                plants = set(str(n).strip() for n in nodes_df['Plant'].dropna().unique())
+                for node in node_list:
+                    if node in plants:
+                        node_types_list.append(2)  # Store / Plant type
+                    else:
+                        node_types_list.append(3)  # Product / Family type
+            else:
+                for node in node_list:
+                    if node.startswith("REG_"):
+                        node_types_list.append(0)
+                    elif node.startswith("CITY_"):
+                        node_types_list.append(1)
+                    elif node.startswith("STORE_"):
+                        node_types_list.append(2)
+                    elif node.startswith("FAM_"):
+                        node_types_list.append(3)
+                    else:
+                        node_types_list.append(3)
+            
+            node_types_tensor = torch.tensor(node_types_list, dtype=torch.long)
+            self._training_node_types = node_types_tensor
+
+            # Sliding window max_timesteps
+            max_timesteps = min(max_timesteps, train_end - 1)
             
             # Create sliding-window Data objects
             # For each timestep t: x = scaled_series[:, t-max_timesteps:t], y = scaled_series[:, t]
@@ -316,7 +310,7 @@ class ModelTrainer:
                     y = torch.tensor(
                         scaled_series[:, t], dtype=torch.float
                     ).view(-1, 1)    # (num_nodes, 1)
-                    datas.append(Data(x=x, edge_index=edge_index, y=y))
+                    datas.append(Data(x=x, edge_index=edge_index, y=y, node_types=node_types_tensor))
                 return datas
             
             train_datas = create_datas(max_timesteps, train_end)
@@ -381,7 +375,7 @@ class ModelTrainer:
                         return [], best_val_loss, val_mape
                         
                     optimizer.zero_grad()
-                    out = model(data.x, data.edge_index)
+                    out = model(data.x, data.edge_index, data.node_types.to(data.x.device))
                     loss = F.huber_loss(out, data.y, delta=1.0)
                     loss.backward()
                     torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
@@ -404,7 +398,7 @@ class ModelTrainer:
                     model.eval()
                     with torch.no_grad():
                         for data in val_datas:
-                            out = model(data.x, data.edge_index)
+                            out = model(data.x, data.edge_index, data.node_types.to(data.x.device))
                             loss = F.huber_loss(out, data.y, delta=1.0)
                             val_loss += loss.item()
                             y_true_real = np.zeros(len(self._training_node_list))
@@ -461,7 +455,7 @@ class ModelTrainer:
             print(f"Error during fine-tuning: {e}")
             raise
     
-    def save_company_model(self, company_id, model, feature_columns, metrics, scalers=None, node_to_idx=None, last_x=None, max_timesteps=5):
+    def save_company_model(self, company_id, model, feature_columns, metrics, scalers=None, node_to_idx=None, last_x=None, max_timesteps=14):
         """Save fine-tuned model weights to S3 and metadata to DynamoDB"""
         try:
             if self.dynamo is None:
@@ -469,17 +463,28 @@ class ModelTrainer:
             if self.s3store is None:
                 raise Exception("S3ModelStore not configured")
             
-            if not isinstance(model, HybridGATLSTM):
-                raise Exception("Only GAT+LSTM models are supported")
+            from models.stgt import STGTModel
+            if not isinstance(model, STGTModel):
+                raise Exception("Only STGT models are supported")
             
             model_state = {k: v.cpu() for k, v in model.state_dict().items()}
             
+            from decimal import Decimal
+            def float_to_decimal(v):
+                if isinstance(v, float):
+                    return Decimal(str(v))
+                elif isinstance(v, list):
+                    return [float_to_decimal(x) for x in v]
+                return v
+
             serializable_scalers = {}
             if scalers:
                 for node, scaler in scalers.items():
+                    mean_val = scaler.mean_.tolist() if hasattr(scaler, 'mean_') and scaler.mean_ is not None else None
+                    scale_val = scaler.scale_.tolist() if hasattr(scaler, 'scale_') and scaler.scale_ is not None else None
                     serializable_scalers[node] = {
-                        'mean_': scaler.mean_.tolist() if hasattr(scaler, 'mean_') else None,
-                        'scale_': scaler.scale_.tolist() if hasattr(scaler, 'scale_') else None
+                        'mean_': float_to_decimal(mean_val),
+                        'scale_': float_to_decimal(scale_val)
                     }
             
             model_bytes = pickle.dumps(model_state)
@@ -495,16 +500,16 @@ class ModelTrainer:
                 'PK': f"COMPANY#{company_id}",
                 'SK': 'MODEL',
                 'company_id': company_id,
-                'model_type': 'GAT-LSTM Hybrid',
-                'base_model_id': 'base_gat_lstm_model',
+                'model_type': 'STGT',
+                'base_model_id': 'base_stgt_model',
                 'architecture': {
-                    'max_timesteps': max_timesteps,
-                    'gat_hidden': 4,
-                    'gat_heads': 6,
-                    'lstm_hidden': 64,
-                    'dropout': str(getattr(model, 'dropout', 0.5))
+                    'max_timesteps': str(max_timesteps),
+                    'd_model': str(getattr(model, 'd_model', 64)),
+                    'spatial_heads': str(getattr(model, 'spatial_heads', 4)),
+                    'dropout': str(getattr(model, 'dropout', 0.3))
                 },
                 'node_list': list((node_to_idx or {}).keys()),
+                'node_types': self._training_node_types.tolist() if hasattr(self, '_training_node_types') else [],
                 'feature_columns': feature_columns,
                 'node_to_idx': node_to_idx or {},
                 'scalers': serializable_scalers,
@@ -565,14 +570,15 @@ class ModelTrainer:
             # stale biases that produce 100k+ outputs on new data.
             if force_retrain:
                 import torch.nn as nn
-                nn.init.xavier_uniform_(model.lin.weight)
-                nn.init.zeros_(model.lin.bias)
+                nn.init.xavier_uniform_(model.fc.weight)
+                nn.init.zeros_(model.fc.bias)
                 print("Output head re-initialized for fresh fine-tuning")
             
             # Prepare data (sliding-window approach)
             self._update_training_status(company_id, "preparing_data", 30, "Preparing training data...")
+            max_timesteps = int(getattr(model, 'max_timesteps', 14))
             train_datas, val_datas, test_datas, feature_columns = self._prepare_training_data(
-                nodes_path, edges_path, sales_path
+                nodes_path, edges_path, sales_path, max_timesteps=max_timesteps
             )
             
             # Fine-tune with proper training loop
@@ -588,7 +594,7 @@ class ModelTrainer:
                 model.eval()
                 with torch.no_grad():
                     for data in test_datas:
-                        out = model(data.x, data.edge_index)
+                        out = model(data.x, data.edge_index, data.node_types.to(data.x.device))
                         loss = F.huber_loss(out, data.y, delta=1.0)
                         test_loss += loss.item()
                         y_true_real = np.zeros(len(self._training_node_list))
@@ -853,12 +859,12 @@ class ModelTrainer:
             return {"error": f"Error reading training data: {str(e)}"}
 
     def get_model_info(self, company_id):
-        """Get model information for a company"""
+        """Get model information for a company from DynamoDB."""
         try:
-            if self.db is None:
+            if self.dynamo is None:
                 return {"error": "Database connection unavailable"}
             
-            model_doc = self.db.company_models.find_one({'company_id': company_id})
+            model_doc = self.dynamo.get_item(f"COMPANY#{company_id}", "MODEL")
             
             if model_doc:
                 return {
@@ -867,6 +873,7 @@ class ModelTrainer:
                     "base_model_id": model_doc.get('base_model_id', 'unknown'),
                     "metrics": model_doc.get('metrics', {}),
                     "feature_columns": model_doc.get('feature_columns', []),
+                    "node_list": model_doc.get('node_list', []),
                     "node_count": len(model_doc.get('node_list', [])),
                     "architecture": model_doc.get('architecture', {}),
                     "created_at": model_doc.get('created_at', 'unknown')

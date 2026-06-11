@@ -103,6 +103,7 @@ const Prediction = () => {
   });
   const [loading, setLoading] = useState(false);
   const [prediction, setPrediction] = useState(null);
+  const [legacyUpgradeRequired, setLegacyUpgradeRequired] = useState(false);
   const { toast } = useToast();
   const [nodeList, setNodeList] = useState([]);
   const [loadingNodes, setLoadingNodes] = useState(false);
@@ -121,6 +122,10 @@ const Prediction = () => {
         const modelInfo = await getModelInfo(companyId);
         const nodes = modelInfo?.feature_columns || modelInfo?.node_list || [];
         setNodeList(nodes);
+        // Surface legacy upgrade banner immediately if model needs retraining
+        if (modelInfo?.legacy_upgrade_required) {
+          setLegacyUpgradeRequired(true);
+        }
       } catch (err) {
         console.log('[Prediction] Could not load node list:', err.message);
       } finally {
@@ -268,11 +273,16 @@ const Prediction = () => {
       toast({ title: 'Success!', description: 'Demand prediction generated successfully' });
     } catch (error) {
       console.error('[Prediction] Error during prediction process', error);
-      toast({
-        title: "Error",
-        description: error.message || "Prediction failed. Please try again.",
-        variant: "destructive"
-      });
+      // 409 = legacy model that needs retraining
+      if (error.message?.toLowerCase().includes('retrain') || error.message?.toLowerCase().includes('legacy')) {
+        setLegacyUpgradeRequired(true);
+      } else {
+        toast({
+          title: "Error",
+          description: error.message || "Prediction failed. Please try again.",
+          variant: "destructive"
+        });
+      }
     } finally {
       setLoading(false);
     }
@@ -309,7 +319,29 @@ const Prediction = () => {
       <div className="absolute bottom-[20%] right-[-10%] w-[450px] h-[450px] rounded-full bg-[#7B2FBE]/6 blur-[130px] pointer-events-none" />
 
       <div className="max-w-4xl mx-auto relative z-10 animate-fade-in">
-        {/* Header */}
+
+        {/* Legacy Model Upgrade Banner */}
+        {legacyUpgradeRequired && (
+          <div className="mb-8 p-4 rounded-2xl border border-amber-500/30 bg-amber-500/10 backdrop-blur-xl flex items-start gap-4">
+            <div className="w-9 h-9 bg-amber-500/20 border border-amber-500/30 rounded-xl flex items-center justify-center shrink-0 mt-0.5">
+              <Zap className="h-4.5 w-4.5 text-amber-400" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-semibold text-amber-400 font-mono uppercase tracking-wider">Model Upgrade Required</p>
+              <p className="text-xs text-amber-300/80 mt-1 leading-relaxed">
+                Your model was trained on an older architecture and is no longer compatible with the STGT engine.
+                Please retrain your data to unlock predictions.
+              </p>
+            </div>
+            <a
+              href="/upload"
+              className="shrink-0 px-4 py-2 bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/30 text-amber-300 font-mono text-xs uppercase tracking-wider rounded-xl transition-colors"
+            >
+              Retrain Now
+            </a>
+          </div>
+        )}
+
         <div className="text-center mb-10">
           <div className="inline-flex items-center space-x-2 bg-slate-200/50 dark:bg-white/[0.02] border border-slate-300 dark:border-white/[0.08] backdrop-blur-xl px-4 py-1.5 rounded-full shadow-sm dark:shadow-2xl mb-4 text-slate-800 dark:text-white">
             <Brain className="h-3.5 w-3.5 text-[#00B4D8]" />
@@ -320,7 +352,7 @@ const Prediction = () => {
             Demand Prediction Engine
           </h1>
           <p className="text-slate-500 dark:text-slate-400 mt-3 text-sm md:text-base max-w-xl mx-auto leading-relaxed">
-            Acquire deep, neural forecasting insights. Our GAT+LSTM hybrid layers predict safety capacity spikes and flow anomalies.
+            Acquire deep, neural forecasting insights. Our STGT (Spatio-Temporal Graph Transformer) layers predict safety capacity spikes and flow anomalies.
           </p>
         </div>
 
@@ -610,7 +642,7 @@ const Prediction = () => {
               </div>
               <h3 className="text-xl font-bold text-white mb-3">Ready to Analyze Product Nodes</h3>
               <p className="text-slate-500 font-mono text-xs max-w-sm mx-auto leading-relaxed mb-6">
-                Input a valid product node in the selection matrix. Our GAT+LSTM layers will compute 30D flow trends instantly.
+                Input a valid product node in the selection matrix. Our STGT Graph Transformer layers will compute 30D flow trends instantly.
               </p>
               <div className="flex justify-center space-x-6 text-[10px] font-mono text-slate-500 uppercase tracking-widest">
                 <span className="flex items-center gap-1"><Brain className="h-3 w-3 text-[#7B2FBE]" /> AI Forecast</span>

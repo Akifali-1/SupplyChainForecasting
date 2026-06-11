@@ -63,9 +63,9 @@ output "uploads_bucket_arn" {
 }
 
 # ── ML Model Weights Bucket ───────────────────────────────────────────────────
-# Stores serialized PyTorch GAT+LSTM model state dicts (base + per-company)
+# Stores serialized PyTorch STGT model state dicts (base + per-company)
 # Layout:
-#   models/base/base_gat_lstm_model.pkl        ← base pre-trained model
+#   models/base/base_stgt_model.pkl            ← base pre-trained STGT model
 #   models/<companyId>/model_weights.pkl       ← fine-tuned company model
 resource "aws_s3_bucket" "models" {
   bucket        = "${var.app_name}-models-${random_id.bucket_suffix.hex}"

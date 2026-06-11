@@ -6,6 +6,12 @@ import torch
 from sklearn.preprocessing import StandardScaler
 from db.dynamodb_client import DynamoDBClient, S3ModelStore
 
+
+class LegacyModelError(Exception):
+    """Raised when a company's saved model was trained on the legacy GAT-LSTM architecture.
+    The model cannot be used for inference and must be retrained with STGT."""
+    pass
+
 class DemandPredictor:
     def __init__(self):
         self.dynamo = None
@@ -38,7 +44,7 @@ class DemandPredictor:
             self.s3store = None
     
     def _load_company_model(self, company_id):
-        """Load fine-tuned GAT+LSTM company model from DynamoDB (metadata) + S3 (weights)"""
+        """Load fine-tuned STGT company model from DynamoDB (metadata) + S3 (weights)."""
         try:
             if self.dynamo is None:
                 raise Exception("DynamoDB connection not available")
@@ -47,9 +53,12 @@ class DemandPredictor:
             if not model_doc:
                 raise Exception(f"Company model not found for company {company_id}")
             
-            # Only GAT+LSTM models supported
-            if model_doc.get('model_type') != 'GAT-LSTM Hybrid':
-                raise Exception(f"Unsupported model type: {model_doc.get('model_type')}. Only GAT+LSTM models are supported.")
+            # Only STGT models are supported; legacy GAT-LSTM needs retrain
+            if model_doc.get('model_type') != 'STGT':
+                raise LegacyModelError(
+                    f"Your model was trained on the legacy GAT-LSTM architecture and is no longer "
+                    f"compatible. Please retrain your model to upgrade to STGT."
+                )
             
             # Download weights from S3
             if self.s3store is None:
@@ -66,19 +75,17 @@ class DemandPredictor:
             if self.debug:
                 print(f"✓ Loaded company model from S3: {len(model_bytes) / (1024*1024):.2f} MB")
             
-            from training.trainer import HybridGATLSTM
+            from models.stgt import STGTModel
             
-            # Load GAT+LSTM model
+            # Load STGT model
             if self.debug:
-                print("Loading GAT+LSTM Hybrid model for prediction...")
+                print("Loading STGT model for prediction...")
             architecture = model_doc['architecture']
-            model = HybridGATLSTM(
-                in_channels=1,
-                max_timesteps=architecture['max_timesteps'],
-                gat_hidden=architecture['gat_hidden'],
-                gat_heads=architecture['gat_heads'],
-                lstm_hidden=architecture['lstm_hidden'],
-                dropout=float(architecture['dropout'])
+            model = STGTModel(
+                max_timesteps=int(architecture.get('max_timesteps', 14)),
+                d_model=int(architecture.get('d_model', 64)),
+                spatial_heads=int(architecture.get('spatial_heads', 4)),
+                dropout=float(architecture.get('dropout', 0.3))
             )
             model.load_state_dict(model_state)
             model.eval()
@@ -443,7 +450,7 @@ class DemandPredictor:
                 'company_id': company_id,
                 'requested_product': requested_product,
                 'matched_node': matched_node,
-                'model_type': 'GAT-LSTM Hybrid',
+                'model_type': 'STGT',
                 'forecast_days': forecast_days,
                 'prediction': daily_predictions,
                 'prediction_series': daily_predictions,
@@ -471,7 +478,7 @@ class DemandPredictor:
         """Generate demand prediction using autoregressive rollout for N days for ALL nodes simultaneously.
         
         Returns a dictionary mapping node_id (product name) to its prediction result.
-        Also caches results in MongoDB.
+        Also caches results in DynamoDB.
         """
         try:
             if self.debug:
@@ -485,12 +492,29 @@ class DemandPredictor:
             if not node_list and model_doc.get('node_to_idx'):
                 node_list = list(model_doc['node_to_idx'].keys())
             scalers = model_doc.get('scalers', {})
-            max_timesteps = model_doc.get('architecture', {}).get('max_timesteps', 5)
+            max_timesteps = int(model_doc.get('architecture', {}).get('max_timesteps', 14))
             
             # 2. Load company's data and prepare initial input
             sales_df, edges_df, nodes_df = self._load_company_data(company_id)
             x = self._prepare_time_series_from_sales(sales_df, node_list, max_timesteps, scalers)
             edge_index = self._build_edge_index_from_edges(edges_df, node_list)
+            
+            # 2b. Parse node types for prediction forward pass
+            node_types_list = model_doc.get('node_types', [])
+            if not node_types_list:
+                node_types_list = []
+                for node in node_list:
+                    if node.startswith("REG_"):
+                        node_types_list.append(0)
+                    elif node.startswith("CITY_"):
+                        node_types_list.append(1)
+                    elif node.startswith("STORE_"):
+                        node_types_list.append(2)
+                    elif node.startswith("FAM_"):
+                        node_types_list.append(3)
+                    else:
+                        node_types_list.append(3)
+            node_types = torch.tensor(node_types_list, dtype=torch.long).to(x.device)
             
             # 3. Parse forecast days
             try:
@@ -507,7 +531,7 @@ class DemandPredictor:
             with torch.no_grad():
                 for day in range(forecast_days):
                     # Forward pass — get next-day prediction for all nodes
-                    pred = model(current_x, edge_index)  # (num_nodes, 1)
+                    pred = model(current_x, edge_index, node_types)  # (num_nodes, 1)
                     
                     for i, node in enumerate(node_list):
                         scaled_pred = pred[i].item()

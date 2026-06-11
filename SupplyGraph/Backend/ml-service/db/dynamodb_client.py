@@ -152,7 +152,7 @@ class S3ModelStore:
     Upload and download raw model bytes (pickle of PyTorch state dicts) to S3.
 
     Bucket layout:
-      models/base/base_gat_lstm_model.pkl       ← base pre-trained model
+      models/base/base_stgt_model.pkl           ← base pre-trained STGT model
       models/<companyId>/model_weights.pkl      ← fine-tuned company model
     """
 

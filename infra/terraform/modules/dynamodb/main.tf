@@ -57,3 +57,29 @@ output "table_name" {
 output "table_arn" {
   value = aws_dynamodb_table.main.arn
 }
+
+resource "aws_dynamodb_table" "sessions" {
+  name         = "${var.app_name}-Prod-Sessions"
+  billing_mode = "PAY_PER_REQUEST"
+  hash_key     = "id"
+
+  attribute {
+    name = "id"
+    type = "S"
+  }
+
+  point_in_time_recovery {
+    enabled = true
+  }
+
+  tags = {
+    Name        = "${var.app_name}-Prod-Sessions"
+    Application = var.app_name
+    ManagedBy   = "Terraform"
+  }
+}
+
+output "sessions_table_arn" {
+  value = aws_dynamodb_table.sessions.arn
+}
+

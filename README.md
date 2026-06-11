@@ -1,10 +1,10 @@
 # SupplyGraph: GNN-Based Supply Chain Forecasting
 
-A full-stack application that leverages **Graph Attention Networks (GAT) combined with LSTM** to provide accurate demand forecasting for supply chain management. The system uses graph neural networks to model supply chain relationships and predict future demand with high accuracy.
+A full-stack application that leverages **Spatio-Temporal Graph Transformers (STGT)** to provide accurate demand forecasting for supply chain management. The system uses spatio-temporal graph neural networks to model supply chain relationships and predict future demand with high accuracy.
 
 ## 🚀 Features
 
-- **GAT+LSTM Hybrid Model**: Combines Graph Attention Networks with LSTM for superior forecasting accuracy.
+- **STGT (Spatio-Temporal Graph Transformer) Model**: Combines self-attention over temporal trends with graph transformer layers for superior forecasting accuracy.
 - **Cognitive Command Center (Dashboard)**: Real-time tracking of neural engine status, forecast accuracies, products-at-risk, micro-trendlines, and interactive neural model diagnostic panels.
 - **Reorder Intelligence Engine**: Combines GNN predictions with live inventory snapshots to compute Reorder Points (ROP), daily average demands, coverage days, suggested order quantities, and demand anomalies (Spikes/Drops).
 - **Team & Workspace Management**: Cryptographically signed invite-only token generation (7-day TTL) for teammates to link to the company account, with access revocation controls.
@@ -31,7 +31,7 @@ The application is structured as a multi-tenant cloud-native system:
    - AWS SQS messaging client for job dispatch and Flask orchestration.
 
 3. **ML Service** (Python + PyTorch + Flask)
-   - Graph Attention Network (GAT) + LSTM deep learning architectures.
+   - Spatio-Temporal Graph Transformer (STGT) deep learning architectures.
    - Company-specific model fine-tuning and state transition tracking.
    - MongoDB-backed GridFS model weight synchronization and prediction caching.
 
@@ -188,23 +188,23 @@ The system automatically detects and converts data to the required format (nodes
 
 ## 🧠 Model Architecture
 
-### GAT+LSTM Hybrid Model
+### STGT (Spatio-Temporal Graph Transformer) Model
 
 The model combines:
 
-1. **Graph Attention Network (GAT)**: Processes supply chain graph structure
+1. **Temporal Attention Component**: Processes temporal sequences
+   - Learns patterns in time-series demand data using multi-head self-attention
+   - Captures temporal trends across sliding windows of historical inputs
+   - Projects temporal representations for each node
+
+2. **Spatial Component (Graph Transformer)**: Processes supply chain graph structure
    - Captures relationships between nodes (plants, distributors, stores)
-   - Attention mechanism focuses on relevant connections
-   - Handles variable graph structures
+   - Uses multi-head Transformer convolutions to perform spatial message passing
+   - Dynamically incorporates node type embeddings (Region, City, Store, Family)
 
-2. **LSTM (Long Short-Term Memory)**: Processes temporal sequences
-   - Learns patterns in time-series demand data
-   - Captures long-term dependencies
-   - Handles variable sequence lengths
-
-3. **Hybrid Architecture**:
+3. **Spatio-Temporal Architecture**:
    ```
-   Input (Time Series) → LSTM → Graph Features → GAT Layers → Output
+   Input (Time Series) → Temporal Attention + Node Embeddings → Graph Transformer Layers → Output
    ```
 
 ### Training Process
@@ -228,7 +228,7 @@ The model combines:
 3. User uploads dataset (single CSV or wide/long formats)
 4. Backend splits and converts data into three files: `nodes.csv`, `edges.csv`, 
 `demand.csv`
-5. ML service fine-tunes the base GAT+LSTM for company-specific patterns
+5. ML service fine-tunes the base STGT model for company-specific patterns
 6. Start prediction: request demand forecasts for selected products
 7. Inventory management dashboard shows top products and trends
 
@@ -294,5 +294,5 @@ For issues, questions, or contributions, please open an issue on GitHub.
 
 ---
 
-**Built with ❤️ using GAT+LSTM for Supply Chain Forecasting**
+**Built with ❤️ using STGT for Supply Chain Forecasting**
 

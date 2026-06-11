@@ -1,1 +1,0 @@
-{"input_dim": 8, "min_val": 0.0, "max_val": 127.47926920266758, "categorical_columns": ["node_type"], "numerical_columns": ["capacity", "reliability", "location_x", "location_y"]}

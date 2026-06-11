@@ -10,7 +10,7 @@ import numpy as np
 from datetime import datetime
 from dotenv import load_dotenv
 from training.trainer import ModelTrainer
-from prediction.predictor import DemandPredictor
+from prediction.predictor import DemandPredictor, LegacyModelError
 import time
 
 # Simple memory cache to dramatically speed up Dashboard loading
@@ -352,6 +352,13 @@ def training_status(company_id):
 def model_info(company_id):
     try:
         info = trainer.get_model_info(company_id)
+        # Flag legacy model so frontend can show an upgrade banner
+        if info.get('model_type') and info['model_type'] != 'STGT':
+            info['legacy_upgrade_required'] = True
+            info['upgrade_message'] = (
+                "Your model was trained on the legacy GAT-LSTM architecture. "
+                "Please retrain your data to unlock STGT predictions."
+            )
         return jsonify(info)
     except Exception as e:
         return jsonify({"error": str(e)}), 500
@@ -384,6 +391,14 @@ def generate_prediction():
         prediction = predictor.predict(company_id, input_data, forecast_days=forecast_days)
         return jsonify({"prediction": prediction})
     
+    except LegacyModelError as e:
+        return jsonify({
+            "error": "Model upgrade required",
+            "details": str(e),
+            "action": "retrain",
+            "legacy_upgrade_required": True
+        }), 409
+
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
@@ -546,6 +561,9 @@ def get_trending_inventory(company_id):
         # O(1) batch prediction for all products
         try:
             batch_predictions = predictor.predict_all(company_id, forecast_days=30)
+        except LegacyModelError:
+            # Legacy model can't predict — return trending based on historical data only
+            batch_predictions = {}
         except Exception as e:
             if DEBUG_LOG:
                 print(f"Batch prediction failed: {e}")

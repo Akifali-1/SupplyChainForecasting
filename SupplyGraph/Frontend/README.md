@@ -1,6 +1,6 @@
 # SupplyGraph Frontend
 
-Modern React-based frontend application for supply chain demand forecasting with GAT+LSTM models.
+Modern React-based frontend application for supply chain demand forecasting with STGT models.
 
 ## 🚀 Features
 

@@ -521,7 +521,7 @@ class ModelTrainer:
             
             # Store last_x for prediction bootstrap
             if last_x is not None:
-                item['last_x'] = last_x.numpy().tolist()
+                item['last_x'] = float_to_decimal(last_x.numpy().tolist())
             
             self.dynamo.put_item(item)
             print(f"Model metadata saved to DynamoDB for company {company_id}")

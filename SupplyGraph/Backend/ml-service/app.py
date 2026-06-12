@@ -292,39 +292,40 @@ def start_fine_tuning():
         if company_id in ANALYTICS_CACHE:
             del ANALYTICS_CACHE[company_id]
 
-        # Start fine-tuning process with full paths
-        result = trainer.fine_tune_company_model(
+        # Start fine-tuning process in background thread to prevent HTTP timeouts
+        import threading
+        
+        # Initialize status immediately so client polling gets correct state
+        trainer._update_training_status(
             company_id,
-            nodes_full_path,
-            edges_full_path,
-            sales_full_path,
-            force_retrain
+            "starting",
+            0,
+            "Initializing model training in the background..."
         )
+        
+        def run_async_training():
+            try:
+                trainer.fine_tune_company_model(
+                    company_id=company_id,
+                    nodes_path=nodes_full_path,
+                    edges_path=edges_full_path,
+                    sales_path=sales_full_path,
+                    force_retrain=force_retrain
+                )
+            except Exception as thread_err:
+                print(f"Background fine-tuning error for company {company_id}: {thread_err}")
+                import traceback
+                traceback.print_exc()
 
-        # Normalise return payload from trainer (legacy versions return bool)
-        success = False
-        payload = {}
-        if isinstance(result, dict):
-            success = result.get("success", False)
-            payload = result
-        elif isinstance(result, bool):
-            success = result
-            payload = {
-                "success": success,
-                "company_id": company_id
-            } if success else {}
+        training_thread = threading.Thread(target=run_async_training)
+        training_thread.start()
 
-        if success:
-            return jsonify({
-                **payload,
-                "success": True,
-                "message": payload.get("message", "Fine-tuning completed"),
-                "company_id": company_id,
-                "model_path": payload.get("model_path", f"atlas_model_{company_id}")
-            })
-        else:
-            error_message = payload.get("error", "Fine-tuning failed")
-            return jsonify({"error": error_message}), 500
+        return jsonify({
+            "success": True,
+            "message": "Fine-tuning started successfully in the background",
+            "company_id": company_id,
+            "status": "training_started"
+        })
     
     except Exception as e:
         print(f"Error in fine-tuning: {e}")

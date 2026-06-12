@@ -233,8 +233,8 @@ class DemandPredictor:
                 for i, node_id in enumerate(node_list):
                     if node_id in scalers:
                         scaler_data = scalers[node_id]
-                        mean = np.array(scaler_data['mean_'])
-                        scale = np.array(scaler_data['scale_'])
+                        mean = np.array(scaler_data['mean_'], dtype=float)
+                        scale = np.array(scaler_data['scale_'], dtype=float)
                         
                         # Apply scaling: (x - mean) / scale
                         time_series_x[i, :, 0] = (time_series_x[i, :, 0] - mean) / (scale + 1e-8)
@@ -538,8 +538,8 @@ class DemandPredictor:
                         real_pred = scaled_pred
                         if scalers and node in scalers:
                             scaler_data = scalers[node]
-                            mean = np.array(scaler_data.get('mean_', [0.0]))
-                            scale = np.array(scaler_data.get('scale_', [1.0]))
+                            mean = np.array(scaler_data.get('mean_', [0.0]), dtype=float)
+                            scale = np.array(scaler_data.get('scale_', [1.0]), dtype=float)
                             real_pred = scaled_pred * (scale[0] if scale.size else 1.0) + (mean[0] if mean.size else 0.0)
                         
                         real_pred = max(0.0, real_pred)

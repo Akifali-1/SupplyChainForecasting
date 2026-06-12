@@ -501,7 +501,9 @@ class DemandPredictor:
             
             # 2b. Parse node types for prediction forward pass
             node_types_list = model_doc.get('node_types', [])
-            if not node_types_list:
+            if node_types_list:
+                node_types_list = [int(x) for x in node_types_list]
+            else:
                 node_types_list = []
                 for node in node_list:
                     if node.startswith("REG_"):

@@ -271,7 +271,7 @@ class ModelTrainer:
             edge_index = torch.tensor(edge_list, dtype=torch.long).t().contiguous()
             print(f"Created {len(edge_list)} edges")
             
-            # Reconstruct node types for GNN spatial attention
+            # Reconstruct node types for STGT spatial attention
             node_types_list = []
             if 'Plant' in nodes_df.columns:
                 plants = set(str(n).strip() for n in nodes_df['Plant'].dropna().unique())

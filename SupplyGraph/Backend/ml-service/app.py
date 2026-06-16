@@ -357,7 +357,7 @@ def model_info(company_id):
         if info.get('model_type') and info['model_type'] != 'STGT':
             info['legacy_upgrade_required'] = True
             info['upgrade_message'] = (
-                "Your model was trained on the legacy GAT-LSTM architecture. "
+                "Your model was trained on the legacy GNN architecture. "
                 "Please retrain your data to unlock STGT predictions."
             )
         return jsonify(info)

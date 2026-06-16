@@ -528,7 +528,7 @@ const Upload = () => {
             Supply Chain Dataset ingestion
           </h1>
           <p className="text-base md:text-lg text-slate-500 dark:text-slate-400 max-w-2xl mx-auto leading-relaxed">
-            Feed nodes, edges, and transactional sales demand into the deep forecasting GNN
+            Feed nodes, edges, and transactional sales demand into the deep forecasting STGT model
           </p>
         </div>
 
@@ -839,13 +839,13 @@ const Upload = () => {
 
                 <div className="max-w-md mx-auto">
                   <p className="text-slate-600 dark:text-slate-350 text-sm leading-relaxed mb-4">
-                    Ready to initiate localized GNN weights adjustment. This runs a spatial convolution backprop tailored to your network topology configuration.
+                    Ready to initiate localized STGT weights adjustment. This runs a spatial convolution backprop tailored to your network topology configuration.
                   </p>
 
                   {fineTuning && (
                     <div className="space-y-4 animate-fade-in pt-2">
                       <div className="flex items-center justify-between">
-                        <span className="text-xs font-semibold text-slate-700 dark:text-slate-300">GNN Fine-Tuning Calibration...</span>
+                        <span className="text-xs font-semibold text-slate-700 dark:text-slate-300">STGT Fine-Tuning Calibration...</span>
                         <span className="text-xs font-bold text-[#7B2FBE] font-mono">{Math.round(fineTuningProgress)}%</span>
                       </div>
                       <div className="relative w-full h-2 bg-slate-200/50 dark:bg-white/[0.04] rounded-full overflow-hidden border border-slate-300 dark:border-white/[0.06]">
@@ -907,7 +907,7 @@ const Upload = () => {
                     ) : (
                       <>
                         <Zap className="mr-2 h-4 w-4" />
-                        <span>Boot GNN Optimization</span>
+                        <span>Boot STGT Optimization</span>
                         <ArrowRight className="ml-2 h-4 w-4 group-hover:translate-x-1 transition-transform" />
                       </>
                     )}

@@ -38,17 +38,18 @@ const Navbar = () => {
     logout();
     navigate('/');
   };
-
   const isActive = (path) => location.pathname === path;
   const isAdmin = user?.role === 'admin';
   const displayName = user?.name || user?.email?.split('@')[0] || 'User';
   const companyName = user?.companyName || '';
+  const isAuthPage = location.pathname === '/login' || location.pathname === '/register';
+  const showAuthLinks = isAuthenticated && !isAuthPage;
 
   return (
     <div className="fixed top-6 left-0 right-0 w-full px-6 md:px-12 z-50 flex items-center justify-between pointer-events-none">
 
       {/* ── LEFT: Floating Logo Bubble ── */}
-      <div className="pointer-events-auto flex items-center gap-2 bg-white/80 dark:bg-black/60 backdrop-blur-xl border border-slate-200 dark:border-white/10 rounded-full px-4 py-2 hover:border-slate-350 dark:hover:border-white/20 transition-all duration-300 shadow-xl">
+      <div className="pointer-events-auto flex items-center gap-2 bg-white/80 dark:bg-black/65 backdrop-blur-xl border border-slate-200 dark:border-white/10 rounded-full px-4 py-2 hover:border-slate-350 dark:hover:border-white/20 transition-all duration-300 shadow-xl">
         <Link to="/" className="flex items-center gap-2 hover:opacity-90 transition-opacity">
           <div className="w-[28px] h-[28px] rounded-full bg-slate-100 dark:bg-white/10 flex items-center justify-center">
             <TrendingUp className="w-[15px] h-[15px] text-[#00B4D8]" />
@@ -61,7 +62,7 @@ const Navbar = () => {
       <div className="pointer-events-auto flex items-center bg-white/80 dark:bg-black/65 backdrop-blur-xl border border-slate-200 dark:border-white/10 rounded-full p-1.5 pl-6 gap-6 md:gap-8 max-w-max shadow-2xl">
 
         {/* Nav links (authenticated only) */}
-        {isAuthenticated && (
+        {showAuthLinks && (
           <div className="hidden lg:flex items-center gap-6">
             <NavLink to="/dashboard" active={isActive('/dashboard')}>Dashboard</NavLink>
             <NavLink to="/prediction" active={isActive('/prediction')}>Predictions</NavLink>
@@ -121,7 +122,7 @@ const Navbar = () => {
         </button>
 
         {/* Auth pill */}
-        {isAuthenticated ? (
+        {showAuthLinks ? (
           <button
             onClick={handleLogout}
             className="bg-slate-950 dark:bg-white hover:bg-slate-900 dark:hover:bg-white/90 text-white dark:text-black font-semibold text-[10px] uppercase tracking-wider px-4 py-2 rounded-full transition-all duration-200 flex items-center gap-1.5 shadow-lg select-none"

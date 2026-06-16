@@ -408,7 +408,7 @@ const Prediction = () => {
               <div>
                 <h4 className="font-semibold text-xs text-slate-900 dark:text-white uppercase font-mono tracking-wider mb-1">Forecast Directives</h4>
                 <ul className="text-[11px] font-mono text-slate-500 dark:text-slate-400 space-y-1">
-                  <li>• GNN maps dependencies based on historical nodes.</li>
+                  <li>• STGT maps dependencies based on historical nodes.</li>
                   <li>• If anomalies are returned, check reorder directives.</li>
                 </ul>
               </div>
@@ -473,7 +473,7 @@ const Prediction = () => {
                       <div className="text-3xl font-extrabold text-green-500 dark:text-green-400 mb-1.5 tracking-tight">
                         {prediction.confidence}
                       </div>
-                      <p className="text-[10px] font-mono uppercase tracking-wider text-slate-550 dark:text-slate-500">GNN Stability Confidence</p>
+                      <p className="text-[10px] font-mono uppercase tracking-wider text-slate-550 dark:text-slate-500">STGT Stability Confidence</p>
                       <div className="mt-3.5 h-1 bg-gradient-to-r from-green-500 to-emerald-500 rounded-full"></div>
                     </div>
                   </div>

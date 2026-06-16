@@ -68,7 +68,7 @@ const PIPELINE_CARDS: PipelineCardData[] = [
     description: "Model supply chains as dynamic heterogeneous graphs, mapping nodes (warehouses/SKUs) and relations (routes)."
   },
   {
-    stage: "05", name: "GNN Retraining", icon: Brain, accent: "#EC4899",
+    stage: "05", name: "STGT Retraining", icon: Brain, accent: "#EC4899",
     description: "Train Graph Neural Networks to learn complex relational patterns and spatial dependencies across the network."
   },
   {

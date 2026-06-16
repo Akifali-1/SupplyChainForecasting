@@ -160,10 +160,10 @@ The ML service runs as a separate Flask application on port 5001.
 3. **Output**: Demand predictions per node
 
 ### Training Process:
-1. Load base model from MongoDB Atlas
+1. Load base model from AWS S3
 2. Fine-tune on company-specific data
-3. Save fine-tuned model back to Atlas (GridFS)
-4. Store metadata in company_models collection
+3. Save fine-tuned model weights back to AWS S3
+4. Store metadata in DynamoDB (SupplyGraph-Prod table)
 
 ## 🔐 Security
 
@@ -231,9 +231,9 @@ ML_SERVICE_URL=http://localhost:5001
 
 ## 📝 Notes
 
-- The backend uses **STGT** exclusively (SimpleGCN/GAT-LSTM removed)
+- The backend uses **STGT** exclusively (SimpleGCN/GAT-LSTM legacy models removed)
 - Base model ID is standardized: `"base_stgt_model"`
-- All model storage uses MongoDB GridFS for large files
+- All model storage uses AWS S3 and DynamoDB instead of GridFS
 - CSV processing handles multiple formats automatically
 - ML service logging controlled by `ML_DEBUG` environment variable
 

@@ -172,7 +172,7 @@ const Dashboard = () => {
                 <span className={`w-1.5 h-1.5 rounded-full mr-2 inline-block ${
                   modelStatus === 'active' ? 'bg-green-555 bg-green-500 dark:bg-green-400 animate-pulse' : modelStatus === 'training' ? 'bg-amber-500 dark:bg-amber-400 animate-ping' : 'bg-red-500 dark:bg-red-400'
                 }`} />
-                {modelStatus === 'active' ? 'GNN Engine: Active' : modelStatus === 'training' ? 'GNN: Training' : 'GNN: Offline'}
+                {modelStatus === 'active' ? 'STGT Engine: Active' : modelStatus === 'training' ? 'STGT: Training' : 'STGT: Offline'}
               </Badge>
               {modelTrained && (
                 <span className="text-[10px] font-mono text-slate-500 flex items-center pr-2">
@@ -276,10 +276,10 @@ const Dashboard = () => {
             </CardHeader>
             <CardContent className="p-4 space-y-2.5">
               {[
-                { label: 'Run Prediction Engine', desc: 'Analyse future GNN demand models', icon: Eye, route: '/prediction', gradient: 'from-[#00B4D8]/10 to-blue-500/[0.01] dark:from-[#00B4D8]/20 dark:to-blue-500/5 hover:border-[#00B4D8]/30 dark:hover:border-[#00B4D8]/20', iconColor: 'text-[#00B4D8]', adminOnly: false },
+                { label: 'Run Prediction Engine', desc: 'Analyse future STGT demand models', icon: Eye, route: '/prediction', gradient: 'from-[#00B4D8]/10 to-blue-500/[0.01] dark:from-[#00B4D8]/20 dark:to-blue-500/5 hover:border-[#00B4D8]/30 dark:hover:border-[#00B4D8]/20', iconColor: 'text-[#00B4D8]', adminOnly: false },
                 { label: 'Inventory Control Center', desc: 'Optimize current safety stock levels', icon: Package, route: '/inventory', gradient: 'from-green-500/10 to-emerald-500/[0.01] dark:from-green-500/20 dark:to-emerald-500/5 hover:border-green-500/30 dark:hover:border-green-500/20', iconColor: 'text-green-600 dark:text-green-400', adminOnly: false },
                 { label: 'Ingest New Dataset', desc: 'Upload CSV or connect ERP database', icon: Upload, route: '/upload', gradient: 'from-orange-500/10 to-amber-500/[0.01] dark:from-orange-500/20 dark:to-amber-500/5 hover:border-orange-500/30 dark:hover:border-orange-500/20', iconColor: 'text-orange-500 dark:text-orange-400', adminOnly: true },
-                { label: 'Execute GNN Retraining', desc: 'Optimize weights on updated nodes', icon: Brain, route: '/upload', gradient: 'from-purple-500/10 to-pink-500/[0.01] dark:from-purple-500/20 dark:to-pink-500/5 hover:border-purple-500/30 dark:hover:border-purple-500/20', iconColor: 'text-purple-650 dark:text-purple-400', adminOnly: true },
+                { label: 'Execute STGT Retraining', desc: 'Optimize weights on updated nodes', icon: Brain, route: '/upload', gradient: 'from-purple-500/10 to-pink-500/[0.01] dark:from-purple-500/20 dark:to-pink-500/5 hover:border-purple-500/30 dark:hover:border-purple-500/20', iconColor: 'text-purple-650 dark:text-purple-400', adminOnly: true },
               ].filter(action => !action.adminOnly || user?.role === 'admin').map(({ label, desc, icon: Icon, route, gradient, iconColor }) => (
                 <button 
                   key={label} 
@@ -300,7 +300,7 @@ const Dashboard = () => {
           </Card>
         </div>
 
-        {/* Model Health / GNN Radar sweep */}
+        {/* Model Health / STGT Radar sweep */}
         <Card className="border border-slate-200 dark:border-white/[0.06] bg-white dark:bg-white/[0.015] backdrop-blur-2xl overflow-hidden shadow-sm dark:shadow-2xl">
           <CardHeader className="border-b border-slate-200 dark:border-white/[0.05] bg-slate-50/50 dark:bg-white/[0.01] px-6 py-4">
             <CardTitle className="flex items-center space-x-2 text-slate-900 dark:text-white">
@@ -330,7 +330,7 @@ const Dashboard = () => {
                   </div>
                 </div>
 
-                {/* Animated GNN Neural Radar visualization */}
+                {/* Animated STGT Neural Radar visualization */}
                 <div className="flex items-center justify-center lg:justify-end">
                   <div className="relative w-28 h-28 flex items-center justify-center bg-slate-50 dark:bg-white/[0.01] border border-slate-200 dark:border-white/[0.06] rounded-full">
                     {/* Pulsing Sweep Rings */}

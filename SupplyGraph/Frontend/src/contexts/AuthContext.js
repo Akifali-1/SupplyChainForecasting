@@ -32,7 +32,24 @@ export const AuthProvider = ({ children }) => {
             localStorage.setItem('companyId', userData.companyId);
           }
         } else {
-          // Fallback to localStorage for backward compatibility
+          // No active session: clear state
+          setUser(null);
+          setIsAuthenticated(false);
+          localStorage.removeItem('user');
+          localStorage.removeItem('companyId');
+        }
+      } catch (error) {
+        console.log('No active session found or connection error');
+        // If it's a network error (like connection refused), we can fall back to local storage for offline mock mode.
+        // If the backend is active but rejected us, or returned 401, we want to clear the state.
+        const isNetworkError = error.message && (
+          error.message.includes('Failed to fetch') || 
+          error.message.includes('NetworkError') || 
+          error.message.includes('network') ||
+          error.message.includes('connect')
+        );
+        
+        if (isNetworkError) {
           const localUserData = localStorage.getItem('user');
           if (localUserData) {
             const parsedUser = JSON.parse(localUserData);
@@ -41,20 +58,15 @@ export const AuthProvider = ({ children }) => {
             if (parsedUser.companyId) {
               localStorage.setItem('companyId', parsedUser.companyId);
             }
+            return;
           }
         }
-      } catch (error) {
-        console.log('No active session found');
-        // Fallback to localStorage for backward compatibility
-        const localUserData = localStorage.getItem('user');
-        if (localUserData) {
-          const parsedUser = JSON.parse(localUserData);
-          setUser(parsedUser);
-          setIsAuthenticated(true);
-          if (parsedUser.companyId) {
-            localStorage.setItem('companyId', parsedUser.companyId);
-          }
-        }
+        
+        // Otherwise, clear state
+        setUser(null);
+        setIsAuthenticated(false);
+        localStorage.removeItem('user');
+        localStorage.removeItem('companyId');
       } finally {
         setLoading(false);
       }

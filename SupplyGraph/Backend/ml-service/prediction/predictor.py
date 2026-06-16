@@ -8,7 +8,7 @@ from db.dynamodb_client import DynamoDBClient, S3ModelStore
 
 
 class LegacyModelError(Exception):
-    """Raised when a company's saved model was trained on the legacy GAT-LSTM architecture.
+    """Raised when a company's saved model was trained on the legacy GNN architecture.
     The model cannot be used for inference and must be retrained with STGT."""
     pass
 
@@ -53,10 +53,10 @@ class DemandPredictor:
             if not model_doc:
                 raise Exception(f"Company model not found for company {company_id}")
             
-            # Only STGT models are supported; legacy GAT-LSTM needs retrain
+            # Only STGT models are supported; legacy GNN needs retrain
             if model_doc.get('model_type') != 'STGT':
                 raise LegacyModelError(
-                    f"Your model was trained on the legacy GAT-LSTM architecture and is no longer "
+                    f"Your model was trained on the legacy GNN architecture and is no longer "
                     f"compatible. Please retrain your model to upgrade to STGT."
                 )
             

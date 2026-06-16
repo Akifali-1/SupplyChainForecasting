@@ -1,16 +1,19 @@
-# SupplyGraph: GNN-Based Supply Chain Forecasting
+# SupplyGraph: STGT-Based Supply Chain Forecasting
 
-A full-stack application that leverages **Spatio-Temporal Graph Transformers (STGT)** to provide accurate demand forecasting for supply chain management. The system uses spatio-temporal graph neural networks to model supply chain relationships and predict future demand with high accuracy.
+A full-stack application that leverages **Spatio-Temporal Graph Transformers (STGT)** to provide accurate demand forecasting and autonomous inventory replenishment. The system models supply chain networks as spatial-temporal graphs, combining deep forecasting with multi-agent reorder automation.
 
 ## 🚀 Features
 
 - **STGT (Spatio-Temporal Graph Transformer) Model**: Combines self-attention over temporal trends with graph transformer layers for superior forecasting accuracy.
 - **Cognitive Command Center (Dashboard)**: Real-time tracking of neural engine status, forecast accuracies, products-at-risk, micro-trendlines, and interactive neural model diagnostic panels.
-- **Reorder Intelligence Engine**: Combines GNN predictions with live inventory snapshots to compute Reorder Points (ROP), daily average demands, coverage days, suggested order quantities, and demand anomalies (Spikes/Drops).
+- **Reorder Intelligence Engine**: Combines STGT predictions with live inventory snapshots to compute Reorder Points (ROP), daily average demands, coverage days, suggested order quantities, and demand anomalies (Spikes/Drops).
+- **Autonomous Multi-Agent Procurement**:
+  - **Auditor Agent**: Scans reorder parameters (ROP, safety stock, lead times) and inventory positions to propose replenishment actions.
+  - **Vendor Negotiator Agent**: Computes optimized order volumes against MOQ constraints and simulated bulk volume discount brackets, drafting automated negotiation emails for approval.
 - **Team & Workspace Management**: Cryptographically signed invite-only token generation (7-day TTL) for teammates to link to the company account, with access revocation controls.
-- **Role-Based Access Control (RBAC)**: Secure multi-tenant architecture with distinct User and Admin roles protecting data ingestion, GNN model retraining, and admin configuration endpoints.
+- **Role-Based Access Control (RBAC)**: Secure multi-tenant architecture with distinct User and Admin roles protecting data ingestion, STGT model retraining, and admin configuration endpoints.
 - **Flexible Data Input**: Automatically converts wide, long, and single-dataset CSV formats to graph nodes and edges.
-- **MongoDB Atlas Integration**: GridFS-backed model weight storage, logging analytics, and prediction cache synchronizations.
+- **AWS DynamoDB & S3 Integration**: High-performance single-table DynamoDB for transactional metadata/invite records, and S3 for direct presigned-URL dataset ingestion and model weights storage.
 
 ## 🏗️ Architecture
 
@@ -20,20 +23,20 @@ The application is structured as a multi-tenant cloud-native system:
 
 1. **Frontend** (React + Tailwind CSS)
    - Command Center Dashboard with live SVG telemetry and micro-animations.
-   - Interactive Reorder Control Center for inventory uploads and order triggering.
+   - Interactive Reorder Control Center for inventory uploads, proposal review, and order triggering.
    - Team space management UI (invite creation, active teammate rosters, revocation).
    - Historical analytical filters and node-specific forecasting charts.
 
-2. **Backend** (Node.js + Express + Mongoose)
+2. **Backend** (Node.js + Express + DynamoDB)
    - RESTful API gateway with tenant isolation guards.
    - Role authentication via Google OAuth (Passport.js) and session state tracking.
-   - Secure CSV ingestion, validation, and storage.
+   - Secure CSV ingestion via S3 presigned URLs, validation, and storage.
    - AWS SQS messaging client for job dispatch and Flask orchestration.
 
 3. **ML Service** (Python + PyTorch + Flask)
    - Spatio-Temporal Graph Transformer (STGT) deep learning architectures.
    - Company-specific model fine-tuning and state transition tracking.
-   - MongoDB-backed GridFS model weight synchronization and prediction caching.
+   - AWS S3 model weight synchronization and DynamoDB metadata/prediction caching.
 
 ## 📋 Prerequisites
 
@@ -42,8 +45,7 @@ Before you begin, ensure you have the following installed:
 - **Node.js** (v18 or higher)
 - **Python** (v3.8 or higher)
 - **npm** or **yarn**
-- **pip** (Python package manager)
-- **MongoDB Atlas** account (for cloud database)
+- **AWS Account** (for DynamoDB, S3 buckets, and SQS queue access)
 
 ## 🛠️ Installation
 
@@ -64,18 +66,22 @@ npm install
 **Environment Variables** - Create a `.env` file in the `Backend` directory:
 
 ```env
-# MongoDB Configuration
-MONGO_URI=your_mongodb_atlas_connection_string
-MONGO_DB=supplychain
+# Google OAuth Configuration
+GOOGLE_CLIENT_ID=your_google_client_id
+GOOGLE_CLIENT_SECRET=your_google_client_secret
 
 # Session Configuration
 SESSION_SECRET=your_secure_random_session_secret
 
-# Google OAuth Configuration
-GOOGLE_CLIENT_ID=your_google_client_id
-GOOGLE_CLIENT_SECRET=your_google_client_secret
-```
+# AWS & DynamoDB Configuration
+AWS_REGION=us-east-1
+DYNAMODB_TABLE=SupplyGraph-Prod
+S3_MODELS_BUCKET=your_s3_models_bucket_here
+SQS_QUEUE_URL=your_sqs_queue_url_here
 
+# ML Service URL
+ML_SERVICE_URL=http://localhost:5001
+```
 
 ### 3. ML Service Setup
 
@@ -84,7 +90,7 @@ cd Backend/ml-service
 pip install -r requirements.txt
 ```
 
-The ML service uses the same `MONGO_URI` from environment variables.
+The ML service uses the same AWS environment variables for DynamoDB and S3 access.
 
 ### 4. Frontend Setup
 
@@ -211,7 +217,7 @@ The model combines:
 
 1. **Base Model**: Pre-trained on general supply chain patterns
 2. **Fine-Tuning**: Adapts to company-specific data
-3. **Storage**: Models stored in MongoDB Atlas via GridFS
+3. **Storage**: Model weights stored in AWS S3, metadata and configurations stored in AWS DynamoDB
 
 ## 🔐 Security
 
@@ -223,14 +229,14 @@ The model combines:
 
 ## 🔄 Workflow
 
-1. Base model trained in Colab and saved to MongoDB Atlas
+1. Base model trained and stored in AWS S3
 2. User (company) logs in via Google OAuth
 3. User uploads dataset (single CSV or wide/long formats)
 4. Backend splits and converts data into three files: `nodes.csv`, `edges.csv`, 
-`demand.csv`
-5. ML service fine-tunes the base STGT model for company-specific patterns
+`demand.csv` and uploads them to S3
+5. ML service fine-tunes the base STGT model for company-specific patterns via an SQS message queue
 6. Start prediction: request demand forecasts for selected products
-7. Inventory management dashboard shows top products and trends
+7. Inventory management dashboard shows top products, reorder points, and agent proposals
 
 ## 🧪 Testing
 
@@ -254,7 +260,7 @@ Sample datasets are available in `Backend/test_data/`:
 1. **ML Service Not Starting**
    - Check Python version (`python --version`)
    - Ensure all dependencies installed: `pip install -r requirements.txt`
-   - Verify MongoDB connection string in environment variables
+   - Verify AWS credentials and S3/DynamoDB permissions in environment variables
 
 2. **Frontend Not Connecting to Backend**
    - Verify `REACT_APP_API_BASE` in Frontend `.env`
@@ -266,13 +272,14 @@ Sample datasets are available in `Backend/test_data/`:
    - Check callback URL matches Google Cloud Console settings
    - See `Backend/OAUTH_SETUP.md` for detailed setup
 
-4. **MongoDB Connection Errors**
-   - Verify `MONGO_URI` is correctly set
-   - Check network access (MongoDB Atlas whitelist)
-   - Ensure database name is correct
+4. **AWS / DynamoDB Connection Errors**
+   - Verify local AWS credentials (`~/.aws/credentials`) or environment variables (`AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`)
+   - Check `DYNAMODB_TABLE`, `S3_MODELS_BUCKET` and `SQS_QUEUE_URL` are set correctly
+   - Verify network access to AWS services
 
 ## 📚 Documentation
 
+- **Interview Prep & Audit Guide**: [INTERVIEW_AUDIT_GUIDE.md](file:///C:/Users/AKIF/.gemini/antigravity-ide/brain/6810b4eb-a8ba-4948-965a-6e4659c3eaf9/interview_audit_guide.md) - Detailed system audit and prep questions for technical architecture interviews
 - **Deployment Guide**: [DEPLOYMENT_GUIDE.md](file:///c:/PROJECTS/SupplyChain/GNN_SupplyChainForecasting/DEPLOYMENT_GUIDE.md) - Deep-dive infrastructure, scale strategy, and DevOps interview concepts
 - **Backend README**: [Backend README.md](file:///c:/PROJECTS/SupplyChain/GNN_SupplyChainForecasting/SupplyGraph/Backend/README.md) - Detailed backend architecture
 - **OAuth Setup**: [OAuth Setup Guide](file:///c:/PROJECTS/SupplyChain/GNN_SupplyChainForecasting/SupplyGraph/Backend/OAUTH_SETUP.md) - Google OAuth configuration guide

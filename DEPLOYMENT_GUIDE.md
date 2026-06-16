@@ -1,6 +1,6 @@
 # SupplyGraph: Production Cloud Deployment & Scaling Guide
 
-This guide provides a comprehensive breakdown of the production deployment architecture for the **SupplyGraph GNN-Based Supply Chain Forecasting** application. It details **how** the system is deployed, **why** these services were selected, and **how to design, scale, and automate** this system for high availability in a DevOps production setting.
+This guide provides a comprehensive breakdown of the production deployment architecture for the **SupplyGraph STGT-Based Supply Chain Forecasting** application. It details **how** the system is deployed, **why** these services were selected, and **how to design, scale, and automate** this system for high availability in a DevOps production setting.
 
 ---
 
@@ -60,7 +60,7 @@ SupplyGraph is deployed on **Amazon Web Services (AWS)** using a decoupled front
 3. **Backend Host**: An **Amazon EC2 (t3.small)** instance runs Docker Compose, housing:
    - **Nginx Reverse Proxy**: Receives HTTP traffic on port 80 and routes `/api/*` queries to port 5000.
    - **Node.js Express App**: Handles business logic, authentication, uploads, and dispatches heavy operations.
-   - **Flask ML Service**: Manages STGT configurations, prediction caching, and GNN retraining steps.
+   - **Flask ML Service**: Manages STGT configurations, prediction caching, and STGT retraining steps.
 4. **Asynchronous Queues**: **Amazon SQS** queues long-running ML jobs to protect backend processes from timeouts.
 5. **Database**: **Amazon DynamoDB** serves as the central serverless database using a single-table design (`SupplyGraph-Prod`). Large ML model weights are stored in **Amazon S3** under the models folder.
 6. **Log Audits**: Docker streams container output directly to **AWS CloudWatch** via the native `awslogs` driver.
@@ -116,7 +116,7 @@ For a DevOps interview, you must justify *why* you chose specific technologies o
 | :--- | :--- | :--- |
 | **S3 + CloudFront CDN** | Hosting frontend on EC2 (Nginx) | **Decoupling, Performance, and Security.** Serving files from EC2 wastes CPU, RAM, and bandwidth. Placing them on S3 + CloudFront ensures <10ms edge caching globally, 99.999% availability, and automatic HTTPS termination. Crucially, the EC2 instance is protected: no direct internet traffic reaches EC2 port 80; CloudFront serves as the single ingress point. |
 | **EC2 + Docker Compose** | AWS ECS (Fargate) or Kubernetes (EKS) | **Cost Control & Pragmatic Simplicity.** In early stages, ECS Fargate requires NAT Gateways, Application Load Balancers (ALBs), and container storage, running a base cost of $50–$100/month. An EC2 `t3.small` runs for ~$15/month. Docker Compose packages all services cleanly, allowing us to migrate to ECS/EKS with minimal config changes later. |
-| **AWS SQS (Simple Queue Queue)** | In-Memory Queue (e.g. BullMQ / Redis) | **Durability & Decoupling.** GNN retraining runs are intensive and can take up to 15 minutes. An in-memory queue crashes if the Node container restarts. SQS is a serverless, highly durable queue with a 15-minute visibility timeout. If a worker goes offline mid-train, the message is returned to the queue or sent to a Dead-Letter Queue (DLQ) for analysis. |
+| **AWS SQS (Simple Queue Queue)** | In-Memory Queue (e.g. BullMQ / Redis) | **Durability & Decoupling.** STGT retraining runs are intensive and can take up to 15 minutes. An in-memory queue crashes if the Node container restarts. SQS is a serverless, highly durable queue with a 15-minute visibility timeout. If a worker goes offline mid-train, the message is returned to the queue or sent to a Dead-Letter Queue (DLQ) for analysis. |
 | **SSM Parameter Store** | Git-committed `.env` files | **Security.** Never commit secrets to source control. SSM Parameter Store encrypts configurations at rest (using KMS) and supports granular IAM access. GitHub Actions and EC2 retrieve credentials dynamically on demand. |
 
 ---
@@ -249,4 +249,4 @@ Be prepared to answer these questions using the concepts from this guide:
 * **A**: Stateless services (like our Node API) do not store data locally. We can scale them horizontally inside an Auto Scaling Group behind an ALB instantly. Stateful services (like DynamoDB or Redis sessions) hold memory and data. They require managed configurations (like DynamoDB on-demand scaling or DAX caching) and session store clustering to scale.
 
 **Q: SQS visibility timeout is set to 900 seconds (15 minutes). Why?**
-* **A**: GNN model training can take up to 10–12 minutes. If the SQS visibility timeout was set to the default 30 seconds, another worker would assume the active training job had failed, pulling the message and starting a duplicate training task. Setting it to 15 minutes ensures the processing worker has sufficient time to complete training and delete the message from the queue.
+* **A**: STGT model training can take up to 10–12 minutes. If the SQS visibility timeout was set to the default 30 seconds, another worker would assume the active training job had failed, pulling the message and starting a duplicate training task. Setting it to 15 minutes ensures the processing worker has sufficient time to complete training and delete the message from the queue.

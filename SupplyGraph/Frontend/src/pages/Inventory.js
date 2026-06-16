@@ -219,7 +219,7 @@ const Inventory = () => {
             <h1 className="text-3xl md:text-5xl font-extrabold tracking-tight bg-gradient-to-r from-slate-900 via-slate-800 to-slate-700 dark:from-white dark:to-slate-400 bg-clip-text text-transparent">
               Inventory Intelligence
             </h1>
-            <p className="text-slate-600 dark:text-slate-400 mt-2 text-sm md:text-base">GNN recommendations for nodes safety-stock level and flow optimization models.</p>
+            <p className="text-slate-600 dark:text-slate-400 mt-2 text-sm md:text-base">STGT recommendations for nodes safety-stock level and flow optimization models.</p>
           </div>
           
           <div className="flex items-center space-x-3 bg-slate-100 dark:bg-white/[0.02] border border-slate-200 dark:border-white/[0.08] p-2.5 rounded-2xl backdrop-blur-lg">
@@ -290,7 +290,7 @@ const Inventory = () => {
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="p-6">
-                  <p className="text-xs text-slate-600 dark:text-slate-400 font-mono mb-4">GNN neural models forecast substantial demand declines at these nodes. Excess capacity risks holding cost spikes. Avoid replenishment.</p>
+                  <p className="text-xs text-slate-600 dark:text-slate-400 font-mono mb-4">STGT neural models forecast substantial demand declines at these nodes. Excess capacity risks holding cost spikes. Avoid replenishment.</p>
                   <div className="flex flex-wrap gap-2">
                     {decisions.filter(d => d.action === 'Reduce').map(g => (
                       <Badge key={g.product} variant="outline" className="bg-slate-50 dark:bg-white/[0.01] border-slate-200 dark:border-white/[0.08] hover:border-red-500/30 text-slate-700 dark:text-slate-300 font-mono text-xs px-3 py-1 rounded-lg transition-colors">
@@ -554,7 +554,7 @@ const Inventory = () => {
                         {[
                           { key: 'product', label: 'Product Node' },
                           { key: 'current', label: 'Current Demand' },
-                          { key: 'predicted', label: 'GNN Prediction' },
+                          { key: 'predicted', label: 'STGT Prediction' },
                           { key: 'delta', label: 'Delta (Δ)' },
                           { key: 'ratio', label: 'Ratio' },
                           { key: 'trend', label: 'Trend' },

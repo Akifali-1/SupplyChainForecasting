@@ -19,6 +19,7 @@ import {
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
 import ParticleField from '../components/ParticleField';
+import WaveBackground from '../components/WaveBackground';
 import FadeIn from '../components/FadeIn';
 import StackingCard from '../components/StackingCard';
 import { motion, useScroll, useTransform, useSpring } from 'framer-motion';
@@ -426,8 +427,11 @@ export const Homepage: React.FC = () => {
       {/* 1. HERO SECTION */}
       <section className="relative h-screen w-full flex flex-col justify-between overflow-hidden bg-white dark:bg-black text-slate-900 dark:text-white z-0">
         
-        {/* Animated Particle Field */}
-        <ParticleField />
+        {/* Animated Particle Field — replaced by Three.js wave */}
+        {/* <ParticleField /> */}
+
+        {/* Three.js Settled Particle Wave — mouse-interactive, purple/pink/white */}
+        <WaveBackground />
 
         {/* Floating Capsule Navbar */}
         <div className="fixed top-6 left-0 right-0 w-full px-6 md:px-12 z-50 flex items-center justify-between pointer-events-none">
@@ -554,22 +558,20 @@ export const Homepage: React.FC = () => {
         </div>
 
         {/* 3D Spline Robot — High-tech Black Holographic Chamber panel */}
-        <div 
+        {/* COMMENTED OUT — replaced with Three.js particle wave background */}
+        {/* <div 
           ref={robotContainerRef}
           className="absolute inset-0 w-full h-full z-0 flex items-center justify-center overflow-hidden bg-white dark:bg-black border-0 rounded-none shadow-none transition-all duration-500 scale-100"
           onMouseLeave={() => setIsRobotInteractive(false)}
         >
           {isMobile ? (
-            /* Mobile: static placeholder, zero GPU cost */
             <div className="absolute inset-0 flex items-end justify-center">
               <div className="w-[260px] h-[380px] rounded-[40px] bg-gradient-to-b from-[#00B4D8]/10 via-[#7B2FBE]/5 to-transparent border border-white/[0.06] flex items-center justify-center">
                 <div className="w-2 h-2 rounded-full bg-[#00B4D8]/50 animate-pulse" />
               </div>
             </div>
           ) : (
-            /* Desktop: Mount dual-layer system inside strictly black container */
             <>
-              {/* Layer 1: Glowing Glassmorphic Image Proxy (Instant visual presence) */}
               <div 
                 className={`absolute inset-0 transition-all duration-700 flex items-end justify-center pointer-events-none ${
                   iframeLoaded ? 'opacity-0 scale-95' : 'opacity-100 scale-100'
@@ -583,16 +585,12 @@ export const Homepage: React.FC = () => {
                       className={`w-full h-full object-cover scale-[1.09] -translate-y-[12px] ${theme === 'dark' ? 'opacity-75' : 'opacity-90'}`}
                     />
                   </div>
- 
-                  {/* Soft cyberpunk WebGL status pill */}
                   <div className="absolute bottom-8 left-1/2 -translate-x-1/2 bg-white/80 dark:bg-black/60 backdrop-blur-md border border-slate-200 dark:border-white/10 px-4 py-2 rounded-full flex items-center gap-2">
                     <div className="w-1.5 h-1.5 rounded-full bg-[#00B4D8] animate-ping" />
                     <span className="text-[10px] text-slate-700 dark:text-white/90 uppercase tracking-widest font-mono select-none">Booting WebGL...</span>
                   </div>
                 </div>
               </div>
- 
-              {/* Layer 2: WebGL Engine (Mounts only in viewport, fades in smoothly when fully loaded) */}
               {isRobotVisible && (
                 <>
                   {!isRobotInteractive && (
@@ -627,7 +625,7 @@ export const Homepage: React.FC = () => {
               )}
             </>
           )}
-        </div>
+        </div> */}
 
         {/* Scroll Indicator */}
         <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-10 flex flex-col items-center gap-1.5 opacity-60">

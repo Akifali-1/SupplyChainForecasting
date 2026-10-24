@@ -1,295 +1,232 @@
 import React, { useEffect, useRef } from 'react';
 import * as THREE from 'three';
+import { useTheme } from '../contexts/ThemeContext';
 
-/**
- * WaveBackground
- * ─────────────
- * Optimized Three.js GPU particle wave — always in the "settled" state (uMorph = 1).
- * The wave breathes gently via sin(time) in the vertex shader, and responds
- * to mouse position by tilting the camera target slightly.
- *
- * Color palette: white → pink → purple (no green).
- */
 const WaveBackground: React.FC = () => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const { theme } = useTheme();
+  const isDarkRef = useRef(theme === 'dark');
+
+  useEffect(() => {
+    isDarkRef.current = theme === 'dark';
+  }, [theme]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
 
-    // ── Renderer ────────────────────────────────────────────────────────────
     const renderer = new THREE.WebGLRenderer({
       canvas,
-      antialias: false, // Disabling antialiasing saves substantial fragment shading resources
+      antialias: true,
       alpha: true,
-      powerPreference: 'high-performance', // Request dedicated GPU if available
-      precision: 'mediump', // Use medium precision for faster math calculations
+      powerPreference: 'high-performance',
     });
-    renderer.setPixelRatio(Math.min(devicePixelRatio, 1.5)); // Capped at 1.5 to reduce Retina fill-rate bottleneck
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
     renderer.setSize(canvas.clientWidth, canvas.clientHeight);
 
     const scene = new THREE.Scene();
     const camera = new THREE.PerspectiveCamera(
-      55,
+      40,
       canvas.clientWidth / canvas.clientHeight,
       0.1,
       100
     );
-    camera.position.set(0, 3.4, 6);
+    camera.position.set(0.0, 4.2, 9.5);
+    camera.lookAt(0.0, -0.3, 0.0);
 
-    // ── Geometry ────────────────────────────────────────────────────────────
-    const N = 35000; // Increased to 35,000 for ultra-dense premium spotlight details
-    const W = 16;
-    const D = 9;
+    // 72 Continuous Topographical Demand Horizon Ribbons (Zero Particles)
+    const NUM_LINES = 72;
+    const SEGMENTS = 220;
+    const WIDTH = 22;
+    const DEPTH = 11;
 
-    const orderA  = new Float32Array(N * 3);
-    const chaosA  = new Float32Array(N * 3); // kept but unused (uMorph = 1)
-    const sclA    = new Float32Array(N);
+    const totalVertices = NUM_LINES * SEGMENTS;
+    const positions = new Float32Array(totalVertices * 3);
+    const lineIndices = new Float32Array(totalVertices);
+    const uvs = new Float32Array(totalVertices * 2);
+    const indices: number[] = [];
 
-    for (let i = 0; i < N; i++) {
-      const v = new THREE.Vector3()
-        .randomDirection()
-        .multiplyScalar(2 + Math.pow(Math.random(), 0.5) * 7);
-      chaosA.set([v.x, v.y * 0.7, v.z], i * 3);
+    let vIdx = 0;
+    for (let l = 0; l < NUM_LINES; l++) {
+      const v = l / (NUM_LINES - 1);
+      const z = (v - 0.5) * DEPTH;
 
-      const x = (Math.random() - 0.5) * W;
-      const z = (Math.random() - 0.5) * D;
-      const y =
-        Math.sin(x * 0.9) * 0.7 +
-        Math.sin(x * 2.2 + z) * 0.3 +
-        Math.cos(z * 1.6) * 0.35 +
-        x * 0.09;
+      for (let s = 0; s < SEGMENTS; s++) {
+        const u = s / (SEGMENTS - 1);
+        const x = (u - 0.5) * WIDTH;
 
-      orderA.set([x, y, z], i * 3);
-      sclA[i] = 0.4 + Math.random() * 1.5; // Slightly larger range to compensate for lower count
+        positions[vIdx * 3] = x;
+        positions[vIdx * 3 + 1] = 0;
+        positions[vIdx * 3 + 2] = z;
+
+        lineIndices[vIdx] = v;
+        uvs[vIdx * 2] = u;
+        uvs[vIdx * 2 + 1] = v;
+
+        if (s < SEGMENTS - 1) {
+          indices.push(vIdx, vIdx + 1);
+        }
+        vIdx++;
+      }
     }
 
-    const geo = new THREE.BufferGeometry();
-    geo.setAttribute('position', new THREE.BufferAttribute(chaosA, 3));
-    geo.setAttribute('aOrder',   new THREE.BufferAttribute(orderA, 3));
-    geo.setAttribute('aScale',   new THREE.BufferAttribute(sclA,   1));
+    const geometry = new THREE.BufferGeometry();
+    geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+    geometry.setAttribute('aLineIndex', new THREE.BufferAttribute(lineIndices, 1));
+    geometry.setAttribute('uv', new THREE.BufferAttribute(uvs, 2));
+    geometry.setIndex(indices);
 
-    // ── Uniforms — cyan / deep-blue / white-cyan palette ─────────────────────
     const uniforms = {
-      uTime:        { value: 0 },
-      uMorph:       { value: 1 },                              // always settled
-      uSize:        { value: 20 * renderer.getPixelRatio() },  // Optimized size for 35k particles density
-      uIn:          { value: new THREE.Color('#d8faff') },     // bright white-cyan (peaks)
-      uMid:         { value: new THREE.Color('#00f0ff') },     // vivid neon cyan (mid)
-      uOut:         { value: new THREE.Color('#0022cc') },     // deep electric blue (valleys)
-      uScan:        { value: -W / 2 },
-      uMouseWorld:  { value: new THREE.Vector3(0, 0, 0) },     // Projected mouse world coordinate
-      uMouseActive: { value: 0.0 },                            // Dynamic reveal opacity
-      uMouseRadius: { value: 3.8 },                            // Spotlight reach radius
+      uTime: { value: 0 },
+      uMouse: { value: new THREE.Vector2(2.5, 0.0) },
+      uIsDark: { value: isDarkRef.current ? 1.0 : 0.0 },
+      uColorPrimary: { value: new THREE.Color('#00B4D8') },
+      uColorSecondary: { value: new THREE.Color('#6366F1') },
+      uColorPeak: { value: new THREE.Color('#E0F2FE') },
     };
 
     const material = new THREE.ShaderMaterial({
       uniforms,
       transparent: true,
       depthWrite: false,
-      blending: THREE.AdditiveBlending,
+      blending: isDarkRef.current ? THREE.AdditiveBlending : THREE.NormalBlending,
       vertexShader: /* glsl */ `
-        uniform float uTime, uMorph, uSize, uScan;
-        uniform vec3  uIn, uMid, uOut;
-        uniform vec3  uMouseWorld;
-        uniform float uMouseActive;
-        uniform float uMouseRadius;
-
-        attribute vec3  aOrder;
-        attribute float aScale;
-
-        varying vec3  vColor;
-        varying float vGlow;
-        varying float vVisibility;
-
-        float hash(vec3 p) {
-          return fract(sin(dot(p, vec3(127.1, 311.7, 74.7))) * 43758.5453);
-        }
+        uniform float uTime;
+        uniform vec2 uMouse;
+        attribute float aLineIndex;
+        varying float vElevation;
+        varying vec2 vUv;
+        varying float vTextZoneMask;
+        varying float vPulse;
 
         void main() {
-          // Settled wave with gentle time-driven ripple
-          vec3 wave = aOrder;
-          wave.y += sin(uTime * 1.4 + aOrder.x * 1.2 + aOrder.z) * 0.12 * uMorph;
+          vUv = uv;
+          vec3 pos = position;
 
-          vec4 mv = modelViewMatrix * vec4(wave, 1.0);
-          gl_Position  = projectionMatrix * mv;
-          
-          // Clamp Point Size to prevent massive overdraw/fill-rate spikes when particles get near the camera
-          gl_PointSize = clamp(uSize * aScale / (-mv.z), 1.0, 48.0);
+          // Multi-horizon spatio-temporal wave interference (smooth silk manifold)
+          float w1 = sin(pos.x * 0.48 + uTime * 0.55 + pos.z * 0.35) * 0.55;
+          float w2 = cos(pos.x * 0.28 - uTime * 0.38 + pos.z * 0.65) * 0.42;
+          float w3 = sin(pos.x * 0.85 + pos.z * 0.9 + uTime * 0.7) * 0.18;
 
-          // Tri-color gradient: valley = deep blue, mid = cyan, peak = white-cyan
-          // Adjust height threshold based on x coordinate to pull more dark blue onto the rising right side
-          float heightAdjust = wave.x * 0.15;
-          float t = clamp((wave.y - heightAdjust + 1.6) / 3.2, 0.0, 1.0);
-          
-          // Split at 0.6 (favoring dark blue for 60% of height) and apply power curve to bias the blend
-          vec3 col = t < 0.6
-            ? mix(uOut, uMid, pow(t / 0.6, 1.3))
-            : mix(uMid, uIn,  (t - 0.6) / 0.4);
-          vColor = col;
+          // Interactive cursor gravity well / peak
+          float distToMouse = length(pos.xz - uMouse);
+          float mouseWave = exp(-distToMouse * distToMouse * 0.18) * 0.95;
 
-          // Scan-line glow
-          vGlow = 1.0 - smoothstep(0.0, 1.4, abs(wave.x - uScan));
+          // Rise smoothly toward the right side of the screen (forecast horizon)
+          float horizonSlope = smoothstep(-6.0, 7.0, pos.x) * 0.85;
 
-          // Interactive spotlight reveal around mouse
-          float dist = distance(wave.xz, uMouseWorld.xz);
-          float reveal = 1.0 - smoothstep(0.4, uMouseRadius, dist);
-          
-          // Ambient visibility is very low (0.01) so wave is barely trace-visible in the dark
-          vVisibility = mix(0.01, 1.0, reveal) * uMouseActive;
+          pos.y = (w1 + w2 + w3) * (0.45 + horizonSlope * 0.65) + mouseWave + horizonSlope * 0.5 - 0.6;
+
+          vElevation = clamp((pos.y + 1.2) / 2.6, 0.0, 1.0);
+
+          // Traveling forecast signal pulse along the x-axis
+          float pulsePos = mod(uTime * 0.28 + aLineIndex * 0.35, 1.4) - 0.2;
+          vPulse = smoothstep(0.18, 0.0, abs(uv.x - pulsePos));
+
+          // Softly dim the lines directly behind the left-middle headline so text is 100% legible
+          vec2 textCenter = vec2(-4.8, 0.8);
+          float textDist = length((pos.xz - textCenter) * vec2(0.32, 0.55));
+          vTextZoneMask = smoothstep(0.65, 2.2, textDist);
+
+          gl_Position = projectionMatrix * modelViewMatrix * vec4(pos, 1.0);
         }
       `,
       fragmentShader: /* glsl */ `
-        varying vec3  vColor;
-        varying float vGlow;
-        varying float vVisibility;
+        uniform float uIsDark;
+        uniform vec3 uColorPrimary;
+        uniform vec3 uColorSecondary;
+        uniform vec3 uColorPeak;
+        varying float vElevation;
+        varying vec2 vUv;
+        varying float vTextZoneMask;
+        varying float vPulse;
 
         void main() {
-          // Discard fragments outside the spotlight to completely skip GPU blending and pixel write operations
-          if (vVisibility < 0.015) {
-            discard;
+          // Smooth edge vignette so lines fade into infinity at all 4 borders
+          float edgeX = smoothstep(0.0, 0.14, vUv.x) * smoothstep(1.0, 0.86, vUv.x);
+          float edgeZ = smoothstep(0.0, 0.18, vUv.y) * smoothstep(1.0, 0.82, vUv.y);
+          float vignette = edgeX * edgeZ;
+
+          // Blend from deep indigo in valleys to cyan on slopes to ice-white on peaks
+          vec3 baseCol = mix(uColorSecondary, uColorPrimary, smoothstep(0.15, 0.7, vElevation));
+          baseCol = mix(baseCol, uColorPeak, smoothstep(0.68, 1.0, vElevation) * 0.75 + vPulse * 0.55);
+
+          // In Light Mode, shift to deeper slate/cobalt so lines contrast cleanly on white
+          vec3 lightModeCol = mix(vec3(0.28, 0.33, 0.45), vec3(0.01, 0.52, 0.78), vElevation);
+          vec3 finalCol = mix(lightModeCol, baseCol, uIsDark);
+
+          // Emphasize every 6th contour line as a primary "isoline"
+          float isMajorLine = step(0.84, fract(vUv.y * 12.0));
+          float baseAlpha = mix(0.22, 0.58, isMajorLine) + vPulse * 0.35 + vElevation * 0.2;
+
+          float alpha = baseAlpha * vignette * mix(0.22, 1.0, vTextZoneMask);
+          if (uIsDark < 0.5) {
+            alpha *= 0.65;
           }
-          float a = 1.0 - smoothstep(0.0, 0.5, length(gl_PointCoord - 0.5));
-          // Add cyan-white shimmer at glow peaks
-          vec3 c = vColor + vec3(0.85, 0.98, 1.0) * vGlow * 0.65;
-          gl_FragColor  = vec4(c, a * a * 0.88 * vVisibility);
+
+          gl_FragColor = vec4(finalCol, clamp(alpha, 0.0, 0.88));
         }
       `,
     });
 
-    scene.add(new THREE.Points(geo, material));
+    const linesMesh = new THREE.LineSegments(geometry, material);
+    scene.add(linesMesh);
 
-    // ── Stars (soft purple-tinted) ──────────────────────────────────────────
-    const starCount = 400; // Reduced from 2,000 to 400 to save processing
-    const starPos = new Float32Array(starCount * 3);
-    for (let i = 0; i < starCount; i++) {
-      const v = new THREE.Vector3()
-        .randomDirection()
-        .multiplyScalar(22 + Math.random() * 26);
-      starPos.set([v.x, v.y, v.z], i * 3);
-    }
-    const starGeo = new THREE.BufferGeometry();
-    starGeo.setAttribute('position', new THREE.BufferAttribute(starPos, 3));
-    scene.add(
-      new THREE.Points(
-        starGeo,
-        new THREE.PointsMaterial({
-          size: 0.04,
-          color: '#a5f3fc', // cyan-tinted stars matching the new palette
-          transparent: true,
-          opacity: 0.4,
-        })
-      )
-    );
-
-    // ── Mouse & Raycast Tracking ────────────────────────────────────────────
+    // Smooth cursor projection onto the y=0 plane
     const raycaster = new THREE.Raycaster();
-    const ndcMouse = new THREE.Vector2(0, 0); // Start NDC mouse at center
-    const targetPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0); // Flat wave sheet at y = 0
-    const intersectionPoint = new THREE.Vector3(0, 0, 0);
-    const mouseWorld = new THREE.Vector3(0, 0, 0);
-    let mouseActive = 0.0;
-    let mouseActiveTarget = 1.0; // Spotlight fades in on mount and stays active
-    let mouseInfluence = 0.0;
-    let mouseInfluenceTarget = 0.0; // Starts at 0 (idle center orbit active)
-    let mouseInWindow = false; // Tracks if mouse is actively inside the window
+    const ndcMouse = new THREE.Vector2(0.35, 0.0);
+    const groundPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
+    const hitPoint = new THREE.Vector3(2.5, 0, 0);
+    const smoothedMouse = new THREE.Vector2(2.5, 0);
 
     const onMouseMove = (e: MouseEvent) => {
       ndcMouse.x = (e.clientX / window.innerWidth) * 2 - 1;
       ndcMouse.y = -(e.clientY / window.innerHeight) * 2 + 1;
-      mouseInWindow = true;
     };
-
-    const onMouseLeave = () => {
-      mouseInWindow = false;
-    };
-
-    const onTouchMove = (e: TouchEvent) => {
-      if (e.touches.length > 0) {
-        ndcMouse.x = (e.touches[0].clientX / window.innerWidth) * 2 - 1;
-        ndcMouse.y = -(e.touches[0].clientY / window.innerHeight) * 2 + 1;
-        mouseInWindow = true;
-      }
-    };
-
     window.addEventListener('mousemove', onMouseMove, { passive: true });
-    window.addEventListener('mouseleave', onMouseLeave, { passive: true });
-    window.addEventListener('touchstart', onTouchMove, { passive: true });
-    window.addEventListener('touchmove', onTouchMove, { passive: true });
-    window.addEventListener('touchend', onMouseLeave, { passive: true });
 
-    // ── Resize ──────────────────────────────────────────────────────────────
     const onResize = () => {
+      if (!canvas) return;
       camera.aspect = canvas.clientWidth / canvas.clientHeight;
       camera.updateProjectionMatrix();
       renderer.setSize(canvas.clientWidth, canvas.clientHeight);
     };
     window.addEventListener('resize', onResize, { passive: true });
 
-    // ── Visibility & Intersection Guards ────────────────────────────────────
-    let tabVisible = !document.hidden;
-    let elementIntersecting = true;
-
-    const onVisibility = () => { tabVisible = !document.hidden; };
-    document.addEventListener('visibilitychange', onVisibility);
-
+    let isIntersecting = true;
     const observer = new IntersectionObserver(
       ([entry]) => {
-        elementIntersecting = entry.isIntersecting;
+        isIntersecting = entry.isIntersecting;
       },
-      { threshold: 0 } // Triggers immediately when any part enters/leaves the viewport
+      { threshold: 0 }
     );
     observer.observe(canvas);
 
-    // ── Render loop ─────────────────────────────────────────────────────────
     const clock = new THREE.Clock();
     let rafId = 0;
 
     const tick = () => {
       rafId = requestAnimationFrame(tick);
-      
-      // Stop rendering work entirely if tab is hidden or canvas is scrolled out of view
-      if (!tabVisible || !elementIntersecting) return;
+      if (!isIntersecting || document.hidden) return;
 
       const t = clock.getElapsedTime();
-      uniforms.uTime.value  = t;
-      uniforms.uScan.value  = ((t * 2.0) % (W + 6)) - (W / 2 + 3);
+      uniforms.uTime.value = t;
+      uniforms.uIsDark.value = isDarkRef.current ? 1.0 : 0.0;
+      material.blending = isDarkRef.current ? THREE.AdditiveBlending : THREE.NormalBlending;
 
-      // Perform camera raycasting to project screen coordinates to y=0 world plane
       raycaster.setFromCamera(ndcMouse, camera);
-      raycaster.ray.intersectPlane(targetPlane, intersectionPoint);
+      raycaster.ray.intersectPlane(groundPlane, hitPoint);
 
-      // Idle orbit animation shifted slightly to the left-middle (behind the text area)
-      const centerAnimX = -2.5 + Math.sin(t * 0.4) * 1.5;
-      const centerAnimZ = Math.cos(t * 0.3) * 0.6;
+      const clampedX = Math.max(-8, Math.min(8, hitPoint.x));
+      const clampedZ = Math.max(-4.5, Math.min(4.5, hitPoint.z));
+      smoothedMouse.x += (clampedX - smoothedMouse.x) * 0.06;
+      smoothedMouse.y += (clampedZ - smoothedMouse.y) * 0.06;
+      uniforms.uMouse.value.copy(smoothedMouse);
 
-      // Check if projected mouse coordinate falls inside active wave bounds
-      const isInsideWave =
-        intersectionPoint.x >= -9.0 &&
-        intersectionPoint.x <= 9.0 &&
-        intersectionPoint.z >= -5.5 &&
-        intersectionPoint.z <= 5.5;
-
-      // Spotlight follows mouse only if it is inside the viewport AND within the wave bounds
-      mouseInfluenceTarget = (mouseInWindow && isInsideWave) ? 1.0 : 0.0;
-
-      // Smoothly blend between idle orbit and cursor coordinates
-      mouseInfluence += (mouseInfluenceTarget - mouseInfluence) * 0.05;
-      
-      const targetX = THREE.MathUtils.lerp(centerAnimX, intersectionPoint.x, mouseInfluence);
-      const targetZ = THREE.MathUtils.lerp(centerAnimZ, intersectionPoint.z, mouseInfluence);
-
-      // Smoothly chase the blended coordinates (with physics-damping inertia)
-      mouseWorld.x += (targetX - mouseWorld.x) * 0.08;
-      mouseWorld.z += (targetZ - mouseWorld.z) * 0.08;
-      uniforms.uMouseWorld.value.copy(mouseWorld);
-
-      // Elegant spotlight fade-in on mount
-      mouseActive += (mouseActiveTarget - mouseActive) * 0.03;
-      uniforms.uMouseActive.value = mouseActive;
-
-      // Gentle camera look-at drift from mouse coordinates (scaled for subtlety)
-      camera.lookAt(ndcMouse.x * 0.3, 0.4 + ndcMouse.y * 0.15, 0);
+      // Subtle camera breathing
+      camera.position.x += (ndcMouse.x * 0.45 - camera.position.x) * 0.03;
+      camera.position.y += (4.2 + ndcMouse.y * 0.25 - camera.position.y) * 0.03;
+      camera.lookAt(0.2, -0.35, 0.0);
 
       renderer.render(scene, camera);
     };
@@ -299,25 +236,19 @@ const WaveBackground: React.FC = () => {
     return () => {
       cancelAnimationFrame(rafId);
       window.removeEventListener('mousemove', onMouseMove);
-      window.removeEventListener('mouseleave', onMouseLeave);
-      window.removeEventListener('touchstart', onTouchMove);
-      window.removeEventListener('touchmove', onTouchMove);
-      window.removeEventListener('touchend', onMouseLeave);
       window.removeEventListener('resize', onResize);
-      document.removeEventListener('visibilitychange', onVisibility);
       observer.disconnect();
       renderer.dispose();
-      geo.dispose();
+      geometry.dispose();
       material.dispose();
-      starGeo.dispose();
     };
   }, []);
 
   return (
     <canvas
       ref={canvasRef}
-      className="absolute inset-0 w-full h-full"
-      style={{ zIndex: 0, pointerEvents: 'none', transform: 'translateZ(0)' }}
+      className="absolute inset-0 w-full h-full pointer-events-none"
+      style={{ zIndex: 0, transform: 'translateZ(0)' }}
     />
   );
 };

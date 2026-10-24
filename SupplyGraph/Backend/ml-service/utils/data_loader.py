@@ -25,17 +25,23 @@ class DataLoader:
             
             # Load edges
             edges_path = os.path.join(company_path, "edges.csv")
+            enhanced_edges_path = os.path.join(company_path, "Edges (Plant).csv")
             if os.path.exists(edges_path):
                 edges_df = pd.read_csv(edges_path)
+            elif os.path.exists(enhanced_edges_path):
+                edges_df = pd.read_csv(enhanced_edges_path)
             else:
-                raise Exception(f"Edges file not found: {edges_path}")
+                raise Exception(f"Edges file not found: {edges_path} or {enhanced_edges_path}")
             
             # Load demand
             demand_path = os.path.join(company_path, "demand.csv")
+            enhanced_demand_path = os.path.join(company_path, "Sales Order.csv")
             if os.path.exists(demand_path):
                 demand_df = pd.read_csv(demand_path)
+            elif os.path.exists(enhanced_demand_path):
+                demand_df = pd.read_csv(enhanced_demand_path)
             else:
-                raise Exception(f"Demand file not found: {demand_path}")
+                raise Exception(f"Demand file not found: {demand_path} or {enhanced_demand_path}")
             
             return {
                 "nodes": nodes_df,
@@ -105,9 +111,25 @@ class DataLoader:
                 validation_results["score"] -= 10
             
             # Check for orphaned nodes
-            all_node_ids = set(nodes_df['node_id'])
-            source_nodes = set(edges_df['source_id'])
-            target_nodes = set(edges_df['target_id'])
+            node_column = 'node_id' if 'node_id' in nodes_df.columns else 'Node'
+            source_column = 'source_id' if 'source_id' in edges_df.columns else 'node1'
+            target_column = 'target_id' if 'target_id' in edges_df.columns else 'node2'
+            missing_columns = [
+                name for name, column in (
+                    ('nodes', node_column), ('source', source_column), ('target', target_column)
+                ) if column not in (nodes_df.columns if name == 'nodes' else edges_df.columns)
+            ]
+            if missing_columns:
+                validation_results["errors"].append(
+                    f"Missing graph identifier columns: {missing_columns}"
+                )
+                validation_results["is_valid"] = False
+                validation_results["score"] = 0
+                return validation_results
+
+            all_node_ids = set(nodes_df[node_column])
+            source_nodes = set(edges_df[source_column].dropna())
+            target_nodes = set(edges_df[target_column].dropna())
             connected_nodes = source_nodes.union(target_nodes)
             orphaned_nodes = all_node_ids - connected_nodes
             

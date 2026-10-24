@@ -81,6 +81,12 @@ class DemandPredictor:
             if self.debug:
                 print("Loading STGT model for prediction...")
             architecture = model_doc['architecture']
+            node_list = model_doc.get('node_list', [])
+            node_types = model_doc.get('node_types', [])
+            if not node_list:
+                raise ValueError("Company model metadata contains no node_list")
+            if node_types and len(node_types) != len(node_list):
+                raise ValueError("Company model node_types do not align with node_list")
             model = STGTModel(
                 max_timesteps=int(architecture.get('max_timesteps', 14)),
                 d_model=int(architecture.get('d_model', 64)),
@@ -91,7 +97,7 @@ class DemandPredictor:
             model.eval()
             
             if self.debug:
-                print(f"✓ Model loaded with {len(model_doc.get('node_list', []))} nodes")
+                print(f"✓ Model loaded with {len(node_list)} nodes")
             
             return model, model_doc
             
@@ -125,8 +131,9 @@ class DemandPredictor:
                             print(f"Downloading {s3_key} from S3 bucket {s3_bucket} to {local_path}...")
                         s3_client.download_file(s3_bucket, s3_key, local_path)
                     except ClientError as e:
-                        if self.debug:
-                            print(f"Error downloading {s3_key} from S3: {e}")
+                        raise FileNotFoundError(
+                            f"Required company data is unavailable at s3://{s3_bucket}/{s3_key}"
+                        ) from e
             else:
                 backend_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
                 uploads_dir = os.path.join(backend_dir, 'uploads', company_id)
@@ -406,6 +413,8 @@ class DemandPredictor:
             node_list = model_doc.get('node_list', [])
             if not node_list and model_doc.get('node_to_idx'):
                 node_list = list(model_doc['node_to_idx'].keys())
+            if not node_list:
+                raise ValueError("Company model metadata contains no node_list")
             
             # Find requested product
             requested_product = None
@@ -444,7 +453,7 @@ class DemandPredictor:
             
             # Fetch shape for metadata
             sales_df, _, _ = self._load_company_data(company_id)
-            max_timesteps = model_doc.get('architecture', {}).get('max_timesteps', 5)
+            max_timesteps = int(model_doc.get('architecture', {}).get('max_timesteps', 14))
             
             result = {
                 'company_id': company_id,
@@ -503,6 +512,8 @@ class DemandPredictor:
             node_types_list = model_doc.get('node_types', [])
             if node_types_list:
                 node_types_list = [int(x) for x in node_types_list]
+                if len(node_types_list) != len(node_list):
+                    raise ValueError("Saved node_types length does not match node_list")
             else:
                 node_types_list = []
                 for node in node_list:
@@ -517,6 +528,8 @@ class DemandPredictor:
                     else:
                         node_types_list.append(3)
             node_types = torch.tensor(node_types_list, dtype=torch.long).to(x.device)
+            if node_types.numel() and (node_types.min() < 0 or node_types.max() >= 4):
+                raise ValueError("Saved/inferred node types must be in the range [0, 3]")
             
             # 3. Parse forecast days
             try:
@@ -547,19 +560,10 @@ class DemandPredictor:
                         real_pred = max(0.0, real_pred)
                         daily_predictions[node].append(round(real_pred, 2))
                     
-                    # Shift window
+                    # Shift window using the model prediction itself. Inference
+                    # must be deterministic; injecting random noise here made
+                    # identical requests return different forecasts.
                     new_step = pred.unsqueeze(-1)  # (num_nodes, 1, 1)
-                    
-                    # Inject noise + momentum to prevent autoregressive mean collapse
-                    if day > 1:
-                        noise_scale = 0.03 * (1 + day * 0.01)
-                        noise = torch.randn_like(new_step) * noise_scale
-                        if day > 3:
-                            running_mean = current_x.mean(dim=1, keepdim=True)
-                            new_step = 0.85 * new_step + 0.15 * running_mean + noise
-                        else:
-                            new_step = new_step + noise
-                            
                     current_x = torch.cat([current_x[:, 1:, :], new_step], dim=1)
             
             # 5. Build results dictionary

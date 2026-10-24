@@ -44,7 +44,15 @@ router.get("/upload-url/:companyId", requireAuth, requireRole(["admin"]), async 
       return res.status(500).json({ error: "S3 uploads bucket is not configured" });
     }
 
-    const s3Key = `raw/${companyId}/${Date.now()}-${filename}`;
+    const safeFilename = path.basename(String(filename).trim());
+    if (safeFilename !== filename || !safeFilename.toLowerCase().endsWith('.csv')) {
+      return res.status(400).json({
+        error: "Invalid filename",
+        details: "Filename must be a single CSV filename without path components."
+      });
+    }
+
+    const s3Key = `raw/${companyId}/${Date.now()}-${safeFilename}`;
     const command = new PutObjectCommand({
       Bucket: BUCKET_NAME,
       Key: s3Key,
@@ -87,6 +95,19 @@ router.post("/convert/:companyId", requireAuth, requireRole(["admin"]), idempote
       return res.status(400).json({
         error: "Missing S3 key",
         details: "Please provide the s3Key of the uploaded file."
+      });
+    }
+
+    const expectedRawPrefix = `raw/${companyId}/`;
+    if (
+      typeof s3Key !== 'string' ||
+      !s3Key.startsWith(expectedRawPrefix) ||
+      s3Key.includes('..') ||
+      s3Key.includes('\\')
+    ) {
+      return res.status(403).json({
+        error: "Invalid S3 key",
+        details: "The uploaded object must belong to this company's raw dataset prefix."
       });
     }
 

@@ -427,10 +427,7 @@ export const Homepage: React.FC = () => {
       {/* 1. HERO SECTION */}
       <section className="relative h-screen w-full flex flex-col justify-between overflow-hidden bg-white dark:bg-black text-slate-900 dark:text-white z-0">
         
-        {/* Animated Particle Field — replaced by Three.js wave */}
-        {/* <ParticleField /> */}
-
-        {/* Three.js Settled Particle Wave — mouse-interactive, purple/pink/white */}
+        {/* GLSL Topographical Demand Horizon Shader */}
         <WaveBackground />
 
         {/* Floating Capsule Navbar */}
@@ -537,10 +534,10 @@ export const Homepage: React.FC = () => {
           </div>
         </div>
 
-        {/* Hero Content */}
+        {/* Clean Original Hero Typography — Zero AI Slop */}
         <div className="absolute top-[42vh] md:top-[46vh] left-8 md:left-16 max-w-4xl z-10 select-none pr-8 pointer-events-none">
           <FadeIn delay={0.15} y={40}>
-            <h1 
+            <h1
               className="text-slate-900 dark:text-white font-bold leading-[0.9] tracking-tighter"
               style={{ fontSize: 'clamp(2.5rem, 6.5vw, 5.5rem)' }}
             >
@@ -548,7 +545,7 @@ export const Homepage: React.FC = () => {
             </h1>
           </FadeIn>
           <FadeIn delay={0.3} y={40}>
-            <h1 
+            <h1
               className="text-slate-900 dark:text-white font-bold leading-[0.9] tracking-tighter mt-4"
               style={{ fontSize: 'clamp(2.5rem, 6.5vw, 5.5rem)' }}
             >
@@ -557,77 +554,7 @@ export const Homepage: React.FC = () => {
           </FadeIn>
         </div>
 
-        {/* 3D Spline Robot — High-tech Black Holographic Chamber panel */}
-        {/* COMMENTED OUT — replaced with Three.js particle wave background */}
-        {/* <div 
-          ref={robotContainerRef}
-          className="absolute inset-0 w-full h-full z-0 flex items-center justify-center overflow-hidden bg-white dark:bg-black border-0 rounded-none shadow-none transition-all duration-500 scale-100"
-          onMouseLeave={() => setIsRobotInteractive(false)}
-        >
-          {isMobile ? (
-            <div className="absolute inset-0 flex items-end justify-center">
-              <div className="w-[260px] h-[380px] rounded-[40px] bg-gradient-to-b from-[#00B4D8]/10 via-[#7B2FBE]/5 to-transparent border border-white/[0.06] flex items-center justify-center">
-                <div className="w-2 h-2 rounded-full bg-[#00B4D8]/50 animate-pulse" />
-              </div>
-            </div>
-          ) : (
-            <>
-              <div 
-                className={`absolute inset-0 transition-all duration-700 flex items-end justify-center pointer-events-none ${
-                  iframeLoaded ? 'opacity-0 scale-95' : 'opacity-100 scale-100'
-                }`}
-              >
-                <div className="w-[380px] h-[580px] flex items-center justify-center relative overflow-hidden">
-                  <div className="absolute inset-0 overflow-hidden flex items-center justify-center">
-                    <img 
-                      src={theme === 'dark' ? "/models/spline robo model.png" : "/models/spline robo model white bg.png"} 
-                      alt="Nexbot Concept Preview" 
-                      className={`w-full h-full object-cover scale-[1.09] -translate-y-[12px] ${theme === 'dark' ? 'opacity-75' : 'opacity-90'}`}
-                    />
-                  </div>
-                  <div className="absolute bottom-8 left-1/2 -translate-x-1/2 bg-white/80 dark:bg-black/60 backdrop-blur-md border border-slate-200 dark:border-white/10 px-4 py-2 rounded-full flex items-center gap-2">
-                    <div className="w-1.5 h-1.5 rounded-full bg-[#00B4D8] animate-ping" />
-                    <span className="text-[10px] text-slate-700 dark:text-white/90 uppercase tracking-widest font-mono select-none">Booting WebGL...</span>
-                  </div>
-                </div>
-              </div>
-              {isRobotVisible && (
-                <>
-                  {!isRobotInteractive && (
-                    <div 
-                      onClick={() => setIsRobotInteractive(true)}
-                      className="absolute inset-0 z-20 cursor-pointer pointer-events-auto"
-                    />
-                  )}
-                  {!isRobotInteractive && (iframeLoaded || showPrompt) && (
-                    <div className="absolute bottom-24 left-1/2 -translate-x-1/2 z-30 bg-white/80 dark:bg-black/60 backdrop-blur-md border border-slate-200 dark:border-[#00B4D8]/30 px-4 py-2 rounded-full flex items-center gap-2 animate-bounce pointer-events-none shadow-lg shadow-cyan-500/10 dark:shadow-cyan-500/5">
-                      <div className="w-1.5 h-1.5 rounded-full bg-[#00B4D8] animate-ping" />
-                      <span className="text-[10px] text-slate-700 dark:text-white/90 uppercase tracking-widest font-mono select-none">Click to interact with robo</span>
-                    </div>
-                  )}
-                  <iframe
-                    src="https://my.spline.design/nexbotrobotcharacterconceptforpersonaluse-v8tp6nPDwio23WZ3bXL8KlWY/?background=0"
-                    frameBorder="0"
-                    width="100%"
-                    loading="eager"
-                    title="Spline Nexbot 3D Robot Concept"
-                    onLoad={() => {
-                      setIframeLoaded(true);
-                      setShowPrompt(true);
-                    }}
-                    className={`absolute w-full h-[calc(100%+200px)] -top-[100px] transition-all duration-1000 ${
-                      isRobotInteractive ? 'pointer-events-auto' : 'pointer-events-none'
-                    } ${
-                      iframeLoaded ? 'opacity-95 translate-y-0 scale-100' : 'opacity-0 translate-y-4 scale-95'
-                    }`}
-                  />
-                </>
-              )}
-            </>
-          )}
-        </div> */}
-
-        {/* Scroll Indicator */}
+        {/* Minimal Scroll Indicator */}
         <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-10 flex flex-col items-center gap-1.5 opacity-60">
           <div className={`w-[24px] h-[40px] border-2 ${isDark ? 'border-white/30' : 'border-slate-350'} rounded-full flex justify-center pt-2`}>
             <div className={`w-[6px] h-[10px] ${isDark ? 'bg-white' : 'bg-slate-800'} rounded-full scroll-dot`} />

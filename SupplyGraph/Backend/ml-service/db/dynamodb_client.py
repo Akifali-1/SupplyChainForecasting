@@ -76,6 +76,8 @@ class DynamoDBClient:
         """
         if not self.is_connected:
             raise RuntimeError("DynamoDB not connected")
+        if not updates:
+            raise ValueError("At least one attribute update is required")
 
         set_expr = ", ".join(f"#a{i} = :v{i}" for i, _ in enumerate(updates))
         expr_names = {f"#a{i}": k for i, k in enumerate(updates)}
@@ -114,8 +116,14 @@ class DynamoDBClient:
                     boto3.dynamodb.conditions.Key("PK").eq(pk)
                     & boto3.dynamodb.conditions.Key("SK").begins_with(sk_prefix)
                 )
-            resp = self._table.query(**kwargs)
-            return resp.get("Items", [])
+            items = []
+            while True:
+                resp = self._table.query(**kwargs)
+                items.extend(resp.get("Items", []))
+                last_key = resp.get("LastEvaluatedKey")
+                if not last_key:
+                    return items
+                kwargs["ExclusiveStartKey"] = last_key
         except ClientError as e:
             print(f"DynamoDB query error: {e}")
             return []
@@ -138,8 +146,14 @@ class DynamoDBClient:
                     boto3.dynamodb.conditions.Key("GSI1_PK").eq(gsi1_pk)
                     & boto3.dynamodb.conditions.Key("GSI1_SK").eq(gsi1_sk)
                 )
-            resp = self._table.query(**kwargs)
-            return resp.get("Items", [])
+            items = []
+            while True:
+                resp = self._table.query(**kwargs)
+                items.extend(resp.get("Items", []))
+                last_key = resp.get("LastEvaluatedKey")
+                if not last_key:
+                    return items
+                kwargs["ExclusiveStartKey"] = last_key
         except ClientError as e:
             print(f"DynamoDB GSI1 query error: {e}")
             return []
@@ -188,12 +202,19 @@ class S3ModelStore:
         """Download model bytes from an S3 URI (s3://bucket/key)."""
         if not self.is_configured:
             raise RuntimeError("S3ModelStore not configured")
+        if not isinstance(s3_uri, str) or not s3_uri.strip():
+            raise ValueError("A non-empty S3 model URI or key is required")
         # Parse URI
         if s3_uri.startswith("s3://"):
             parts = s3_uri[5:].split("/", 1)
+            if len(parts) != 2 or not parts[0] or not parts[1]:
+                raise ValueError(f"Invalid S3 URI: {s3_uri}")
             bucket, key = parts[0], parts[1]
         else:
             bucket, key = self.bucket, s3_uri  # Treat as bare key
+
+        if bucket != self.bucket:
+            raise ValueError("Cross-bucket model downloads are not permitted")
 
         response = self._client.get_object(Bucket=bucket, Key=key)
         data = response["Body"].read()

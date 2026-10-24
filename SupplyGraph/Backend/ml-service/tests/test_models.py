@@ -40,3 +40,29 @@ def test_stgt_model_forward_shape():
         
     # Output should predict 1 future value per node: (10, 1)
     assert out.shape == (10, 1)
+
+
+def test_stgt_persists_architecture_and_rejects_wrong_window_shape():
+    model = STGTModel(max_timesteps=6, d_model=12, spatial_heads=3, dropout=0.0)
+    assert model.d_model == 12
+    assert model.spatial_heads == 3
+    assert model.dropout_rate == 0.0
+
+    x = torch.randn(4, 5, 1)
+    edge_index = torch.tensor([[0, 1], [1, 0]], dtype=torch.long)
+    node_types = torch.zeros(4, dtype=torch.long)
+    with pytest.raises(ValueError, match="exactly 6 timesteps"):
+        model(x, edge_index, node_types)
+
+
+def test_stgt_is_deterministic_in_eval_mode():
+    torch.manual_seed(7)
+    model = STGTModel(max_timesteps=4, d_model=8, spatial_heads=2, dropout=0.0)
+    model.eval()
+    x = torch.randn(3, 4, 1)
+    edge_index = torch.tensor([[0, 1, 1, 2], [1, 0, 2, 1]], dtype=torch.long)
+    node_types = torch.tensor([0, 2, 3], dtype=torch.long)
+    with torch.no_grad():
+        first = model(x, edge_index, node_types)
+        second = model(x, edge_index, node_types)
+    assert torch.equal(first, second)

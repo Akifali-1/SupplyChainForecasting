@@ -24,6 +24,8 @@ const cleanupInterval = setInterval(() => {
     }
   }
 }, 5 * 60 * 1000);
+// Do not keep short-lived CLI/test processes alive solely for cache cleanup.
+cleanupInterval.unref?.();
 
 /**
  * Generate idempotency key from request

@@ -19,7 +19,13 @@ class TemporalAttention(nn.Module):
 
     def forward(self, x):
         # x shape: [num_nodes, max_timesteps, in_channels]
-        x = self.input_projection(x) + self.pos_encoder
+        if x.ndim != 3:
+            raise ValueError("TemporalAttention expects [nodes, timesteps, channels]")
+        if x.shape[1] != self.pos_encoder.shape[1]:
+            raise ValueError(
+                f"Expected exactly {self.pos_encoder.shape[1]} timesteps, received {x.shape[1]}"
+            )
+        x = self.input_projection(x) + self.pos_encoder[:, :x.shape[1], :]
         x = self.transformer_encoder(x)  # [num_nodes, max_timesteps, d_model]
         # Pool across the time dimension to get a single representation per node
         x = x.transpose(1, 2)  # [num_nodes, d_model, max_timesteps]
@@ -31,6 +37,14 @@ class STGTModel(nn.Module):
     def __init__(self, max_timesteps=14, d_model=64, spatial_heads=4, dropout=0.3):
         super(STGTModel, self).__init__()
         self.max_timesteps = max_timesteps
+        self.d_model = d_model
+        self.spatial_heads = spatial_heads
+        self.dropout_rate = dropout
+
+        if max_timesteps < 1:
+            raise ValueError("max_timesteps must be positive")
+        if spatial_heads < 1 or d_model < 1 or d_model % spatial_heads != 0:
+            raise ValueError("d_model must be divisible by a positive spatial_heads")
         
         # 1. Temporal Component
         self.temporal_encoder = TemporalAttention(
@@ -56,6 +70,16 @@ class STGTModel(nn.Module):
 
     def forward(self, x, edge_index, node_types):
         # x shape: [num_nodes, max_timesteps, 1]
+        if x.ndim != 3 or x.shape[1] != self.max_timesteps or x.shape[2] != 1:
+            raise ValueError(
+                f"STGT expects [nodes, {self.max_timesteps}, 1], received {tuple(x.shape)}"
+            )
+        if node_types.ndim != 1 or node_types.shape[0] != x.shape[0]:
+            raise ValueError("node_types must contain one value per graph node")
+        if node_types.numel() and (node_types.min() < 0 or node_types.max() >= 4):
+            raise ValueError("node_types must contain values in the range [0, 3]")
+        if edge_index.ndim != 2 or edge_index.shape[0] != 2:
+            raise ValueError("edge_index must have shape [2, num_edges]")
         
         # Capture temporal dependencies
         h_temp = self.temporal_encoder(x)  # [num_nodes, d_model]

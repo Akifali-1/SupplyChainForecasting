@@ -10,8 +10,18 @@ variable "frontend_bucket_arn" {
   type = string
 }
 
-variable "ec2_public_dns" {
+variable "frontend_bucket_regional_domain_name" {
   type = string
+}
+
+variable "ec2_public_dns" {
+  type    = string
+  default = ""
+}
+
+variable "ec2_public_ip" {
+  type    = string
+  default = ""
 }
 
 resource "aws_cloudfront_origin_access_control" "frontend" {
@@ -28,13 +38,13 @@ resource "aws_cloudfront_distribution" "frontend" {
   price_class         = "PriceClass_100" # North America + Europe only (cheapest)
 
   origin {
-    domain_name              = "${var.frontend_bucket_id}.s3.amazonaws.com"
+    domain_name              = var.frontend_bucket_regional_domain_name
     origin_id                = "S3-${var.frontend_bucket_id}"
     origin_access_control_id = aws_cloudfront_origin_access_control.frontend.id
   }
 
   origin {
-    domain_name = var.ec2_public_dns
+    domain_name = var.ec2_public_dns != "" ? var.ec2_public_dns : "ec2-${replace(var.ec2_public_ip, ".", "-")}.compute-1.amazonaws.com"
     origin_id   = "EC2-backend"
 
     custom_origin_config {

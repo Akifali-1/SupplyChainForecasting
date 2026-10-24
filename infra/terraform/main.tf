@@ -43,11 +43,13 @@ module "ec2" {
 }
 
 module "cloudfront" {
-  source              = "./modules/cloudfront"
-  app_name            = var.app_name
-  frontend_bucket_id  = module.s3.frontend_bucket_id
-  frontend_bucket_arn = module.s3.frontend_bucket_arn
-  ec2_public_dns      = module.ec2.public_dns
+  source                               = "./modules/cloudfront"
+  app_name                             = var.app_name
+  frontend_bucket_id                   = module.s3.frontend_bucket_id
+  frontend_bucket_arn                  = module.s3.frontend_bucket_arn
+  frontend_bucket_regional_domain_name = module.s3.frontend_bucket_regional_domain_name
+  ec2_public_dns                       = module.ec2.public_dns
+  ec2_public_ip                        = module.ec2.public_ip
 }
 
 module "dynamodb" {

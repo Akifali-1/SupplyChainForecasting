@@ -16,5 +16,14 @@
 **/.env.local
 **/.env.production
 **/.env.development
-# Local logs
+# Local logs & scratch
 logs.json
+.college-ml-env/
+Untitled*
+infra/set_ssm.py
+
+# Base model training & local artifacts
+*.pkl
+*.pt
+*.pth
+SupplyGraph/Backend/ml-service/colab_training/

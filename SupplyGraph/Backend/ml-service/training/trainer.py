@@ -88,16 +88,10 @@ class ModelTrainer:
             return model, node_list, scalers, node_to_idx
             
         except Exception as e:
-            print(f"Error loading base model: {e}")
-            print("Creating new STGT model from scratch as fallback")
-            fallback_model = STGTModel(
-                max_timesteps=14,
-                d_model=64,
-                spatial_heads=4,
-                dropout=0.3
-            )
-            print("Created fallback STGT model")
-            return fallback_model, [], {}, {}
+            # Fine-tuning from scratch after an S3/DynamoDB failure silently
+            # produces a different experiment and can overwrite a company
+            # model with uninitialized weights. Fail closed instead.
+            raise RuntimeError(f"Unable to load the required STGT base model: {e}") from e
     
     def _validate_csv_data(self, nodes, edges, sales):
         """Validate CSV data structure"""
@@ -235,13 +229,12 @@ class ModelTrainer:
             scaled_series = np.zeros_like(series, dtype=float)
             for i, node in enumerate(node_list):
                 train_portion = series[i, :train_end]
-                if np.std(train_portion) > 0:
-                    scaler = StandardScaler().fit(train_portion.reshape(-1, 1))
-                    scalers[node] = scaler
-                    scaled_series[i] = scaler.transform(series[i].reshape(-1, 1)).flatten()
-                else:
-                    scalers[node] = StandardScaler()
-                    scaled_series[i] = series[i]
+                # StandardScaler handles constant training series by using a
+                # unit scale. It must still be fitted so mean_/scale_ metadata
+                # is available for inverse scaling during prediction.
+                scaler = StandardScaler().fit(train_portion.reshape(-1, 1))
+                scalers[node] = scaler
+                scaled_series[i] = scaler.transform(series[i].reshape(-1, 1)).flatten()
             
             print(f"Scalers fit on training data only (first {train_end} of {num_times} timesteps)")
             
@@ -316,6 +309,8 @@ class ModelTrainer:
             train_datas = create_datas(max_timesteps, train_end)
             val_datas = create_datas(max(train_end, max_timesteps), val_end)
             test_datas = create_datas(max(val_end, max_timesteps), num_times)
+            if not train_datas or not val_datas:
+                raise ValueError("Training and validation splits must each contain at least one window")
             print(f"Train windows: {len(train_datas)}, Val: {len(val_datas)}, Test: {len(test_datas)}")
             
             # Store for later use
@@ -357,6 +352,7 @@ class ModelTrainer:
             best_model_state = None
             wait = 0
             train_losses = []
+            val_mape = 0.0
             
             if len(train_datas) == 0:
                 raise ValueError("No training windows available")

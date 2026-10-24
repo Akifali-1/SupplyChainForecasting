@@ -76,20 +76,26 @@ if (isProduction && (!process.env.SESSION_SECRET || process.env.SESSION_SECRET =
   process.exit(1);
 }
 
-// Set up DynamoDB session store
-const dynamoStoreOptions = {
-  table: (process.env.DYNAMODB_TABLE || "SupplyGraph-Prod") + "-Sessions",
-  AWSConfigJSON: {
-    region: process.env.AWS_REGION || "us-east-1"
-  },
-  reapInterval: 24 * 60 * 60 * 1000,  // Reap expired sessions daily
-  ttl: 24 * 60 * 60                    // 1-day TTL on session records
-};
-
-const sessionStore = new DynamoDBStore(dynamoStoreOptions);
-sessionStore.on("error", (error) => {
-  console.error("❌ DynamoDB Session Store Error:", error.message || error);
-});
+// Set up DynamoDB session store (production or when explicitly enabled)
+let sessionStore = null;
+if (isProduction || process.env.USE_DYNAMODB_SESSION === 'true') {
+  try {
+    const dynamoStoreOptions = {
+      table: (process.env.DYNAMODB_TABLE || "SupplyGraph-Prod") + "-Sessions",
+      AWSConfigJSON: {
+        region: process.env.AWS_REGION || "us-east-1"
+      },
+      reapInterval: 24 * 60 * 60 * 1000,  // Reap expired sessions daily
+      ttl: 24 * 60 * 60                    // 1-day TTL on session records
+    };
+    sessionStore = new DynamoDBStore(dynamoStoreOptions);
+    sessionStore.on("error", (error) => {
+      console.error("❌ DynamoDB Session Store Error:", error.message || error);
+    });
+  } catch (err) {
+    console.warn("⚠️ DynamoDB session store init failed, using in-memory store:", err.message);
+  }
+}
 
 // ✅ Session middleware (needed for passport)
 const sessionConfig = {
@@ -98,7 +104,7 @@ const sessionConfig = {
   resave: false,
   saveUninitialized: false,
   proxy: true,
-  store: sessionStore,
+  ...(sessionStore ? { store: sessionStore } : {}),
   cookie: {
     secure: isProduction, // HTTPS required in production
     sameSite: isProduction ? 'none' : 'lax', // 'none' allows cross-origin cookies
@@ -182,7 +188,7 @@ app.post("/api/company/register", async (req, res) => {
 app.get("/api/health", async (req, res) => {
   try {
     const ML_SERVICE_URL = process.env.ML_SERVICE_URL || "http://ml-service:5001";
-    const mlResponse = await axios.get(`${ML_SERVICE_URL}/health`);
+    const mlResponse = await axios.get(`${ML_SERVICE_URL}/health`, { timeout: 2000 });
     res.json({
       backend: "healthy",
       ml_service: mlResponse.data,

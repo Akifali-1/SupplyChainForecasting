@@ -53,7 +53,7 @@ router.param("companyId", (req, res, next, companyId) => {
 // Health check
 router.get("/health", async (req, res) => {
   try {
-    const mlResponse = await axios.get(`${ML_SERVICE_URL}/health`);
+    const mlResponse = await axios.get(`${ML_SERVICE_URL}/health`, { timeout: 2000 });
     res.json({
       backend: "healthy",
       ml_service: mlResponse.data,
@@ -169,13 +169,15 @@ router.post("/fine-tune/:companyId", requireRole(["admin"]), idempotencyMiddlewa
         console.error("Warning: Failed to update training status in DB:", dbErr.message);
       }
 
-      const sqsPayload = {
-        company_id: companyId,
-        nodes: nodes.startsWith("processed/") ? nodes : `processed/${companyId}/nodes.csv`,
-        edges: edges.startsWith("processed/") ? edges : `processed/${companyId}/Edges (Plant).csv`,
-        demand: demand.startsWith("processed/") ? demand : `processed/${companyId}/Sales Order.csv`,
-        force_retrain: !!force_retrain
-      };
+       // Never trust client-supplied processed keys for a queued job. The
+       // worker must read only the canonical objects for this company.
+       const sqsPayload = {
+         company_id: companyId,
+         nodes: `processed/${companyId}/nodes.csv`,
+         edges: `processed/${companyId}/Edges (Plant).csv`,
+         demand: `processed/${companyId}/Sales Order.csv`,
+         force_retrain: !!force_retrain
+       };
 
       const command = new SendMessageCommand({
         QueueUrl: SQS_QUEUE_URL,
@@ -192,6 +194,16 @@ router.post("/fine-tune/:companyId", requireRole(["admin"]), idempotencyMiddlewa
       });
     } else {
       console.log("SQS queue URL not configured. Falling back to synchronous HTTP call...");
+      const allowedPrefix = `uploads/${companyId}/`;
+      const localPaths = [nodes, edges, demand];
+      if (localPaths.some((filePath) =>
+        !filePath.startsWith(allowedPrefix) || filePath.includes("..") || filePath.includes("\\")
+      )) {
+        return res.status(403).json({
+          error: "Invalid dataset path",
+          details: "Dataset paths must remain inside the requesting company's upload directory."
+        });
+      }
       const mlResponse = await axios.post(`${ML_SERVICE_URL}/fine-tune`, {
         company_id: companyId,
         nodes: nodes,

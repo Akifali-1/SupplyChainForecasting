@@ -20,7 +20,15 @@
 logs.json
 .college-ml-env/
 Untitled*
-infra/set_ssm.py
+scratch/
+
+# Pytest & testing cache
+.pytest_cache/
+**/.pytest_cache/
+
+# User uploads & runtime storage
+uploads/
+**/uploads/
 
 # Base model training & local artifacts
 *.pkl

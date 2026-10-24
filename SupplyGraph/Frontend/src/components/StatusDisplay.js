@@ -18,9 +18,14 @@ const StatusDisplay = ({ companyId }) => {
   const [loading, setLoading] = useState(true);
   const [statusText, setStatusText] = useState("loading");
   const pollRef = useRef(null);
+  const requestInFlightRef = useRef(false);
 
   useEffect(() => {
-    if (!companyId) return;
+    if (!companyId) {
+      setLoading(false);
+      setCompany(null);
+      return undefined;
+    }
 
     const fetchCompany = async () => {
       try {
@@ -42,6 +47,8 @@ const StatusDisplay = ({ companyId }) => {
     // Start polling until completed
     if (pollRef.current) clearInterval(pollRef.current);
     pollRef.current = setInterval(async () => {
+      if (requestInFlightRef.current) return;
+      requestInFlightRef.current = true;
       try {
         const data = await getTrainingStatus(companyId);
         const status = data?.ml_status?.status || data?.status || "unknown";
@@ -50,7 +57,11 @@ const StatusDisplay = ({ companyId }) => {
         if (status === "completed") {
           clearInterval(pollRef.current);
         }
-      } catch (_) { }
+      } catch (_) { 
+        // Keep the last known state while a transient poll fails.
+      } finally {
+        requestInFlightRef.current = false;
+      }
     }, 3000);
 
     return () => {

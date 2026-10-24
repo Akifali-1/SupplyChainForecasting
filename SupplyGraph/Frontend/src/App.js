@@ -1,21 +1,31 @@
-import React, { useEffect } from "react";
+import React, { lazy, Suspense, useEffect } from "react";
 import "./App.css";
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-router-dom";
 import { AuthProvider, useAuth } from "./contexts/AuthContext";
 import { ThemeProvider } from "./contexts/ThemeContext";
 import Navbar from "./components/Navbar";
-import Homepage from "./pages/Homepage";
-import Registration from "./pages/Registration";
-import Login from "./pages/Login";
-import Upload from "./pages/Upload";
-import Dashboard from "./pages/Dashboard";
-import Prediction from "./pages/Prediction";
-import Inventory from "./pages/Inventory";
-import InvitePage from "./pages/InvitePage";
-import UserManagement from "./pages/UserManagement";
-import SetupCompany from "./pages/SetupCompany"; // ✅ First-login onboarding
-import ReorderIntelligence from "./pages/ReorderIntelligence"; // ✅ Reorder Intelligence
 import { Toaster } from "./components/ui/toaster";
+
+// Keep the initial bundle small. The homepage pulls in Three.js and the
+// authenticated pages pull in charts/forms that are not needed on first load.
+const Homepage = lazy(() => import("./pages/Homepage"));
+const Registration = lazy(() => import("./pages/Registration"));
+const Login = lazy(() => import("./pages/Login"));
+const Upload = lazy(() => import("./pages/Upload"));
+const Dashboard = lazy(() => import("./pages/Dashboard"));
+const Prediction = lazy(() => import("./pages/Prediction"));
+const Inventory = lazy(() => import("./pages/Inventory"));
+const InvitePage = lazy(() => import("./pages/InvitePage"));
+const UserManagement = lazy(() => import("./pages/UserManagement"));
+const SetupCompany = lazy(() => import("./pages/SetupCompany"));
+const ReorderIntelligence = lazy(() => import("./pages/ReorderIntelligence"));
+const InfoPage = lazy(() => import("./pages/InfoPage"));
+
+const RouteFallback = () => (
+  <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-black">
+    <div className="h-10 w-10 rounded-full border-2 border-slate-300 border-t-[#00B4D8] animate-spin" />
+  </div>
+);
 
 // OAuth Callback Handler
 const OAuthCallback = () => {
@@ -49,14 +59,14 @@ const OAuthCallback = () => {
 // Protected Route component (waits for auth to hydrate)
 const ProtectedRoute = ({ children }) => {
   const { isAuthenticated, loading } = useAuth();
-  if (loading) return null;
+  if (loading) return <RouteFallback />;
   return isAuthenticated ? children : <Navigate to="/login" />;
 };
 
 // Admin-only Route component (requires admin role)
 const AdminRoute = ({ children }) => {
   const { isAuthenticated, user, loading } = useAuth();
-  if (loading) return null;
+  if (loading) return <RouteFallback />;
   return isAuthenticated && user?.role === 'admin' ? children : <Navigate to="/dashboard" />;
 };
 
@@ -79,6 +89,7 @@ function App() {
           <BrowserRouter>
             <Navbar />
             <PageWrapper>
+            <Suspense fallback={<RouteFallback />}>
             <Routes>
               <Route path="/" element={<Homepage />} />
               <Route path="/register" element={<Registration />} />
@@ -123,7 +134,18 @@ function App() {
                 </ProtectedRoute>
               } />
               <Route path="/inventory-optimization" element={<Navigate to="/inventory" />} />
+              {/* Footer Information & Legal Routes */}
+              <Route path="/about" element={<InfoPage />} />
+              <Route path="/features" element={<InfoPage />} />
+              <Route path="/pricing" element={<InfoPage />} />
+              <Route path="/blog" element={<InfoPage />} />
+              <Route path="/help" element={<InfoPage />} />
+              <Route path="/contact" element={<InfoPage />} />
+              <Route path="/privacy" element={<InfoPage />} />
+              <Route path="/terms" element={<InfoPage />} />
+              <Route path="/legal" element={<InfoPage />} />
             </Routes>
+            </Suspense>
             </PageWrapper>
             <Toaster />
           </BrowserRouter>

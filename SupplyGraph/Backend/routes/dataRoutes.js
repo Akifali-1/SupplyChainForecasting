@@ -52,7 +52,18 @@ router.get("/upload-url/:companyId", requireAuth, requireRole(["admin"]), async 
       });
     }
 
-    const s3Key = `raw/${companyId}/${Date.now()}-${safeFilename}`;
+    let s3Key;
+    const targetType = req.query.targetType;
+    if (targetType === 'nodes') {
+      s3Key = `processed/${companyId}/nodes.csv`;
+    } else if (targetType === 'edges') {
+      s3Key = `processed/${companyId}/Edges (Plant).csv`;
+    } else if (targetType === 'demand' || targetType === 'sales') {
+      s3Key = `processed/${companyId}/Sales Order.csv`;
+    } else {
+      s3Key = `raw/${companyId}/${Date.now()}-${safeFilename}`;
+    }
+
     const command = new PutObjectCommand({
       Bucket: BUCKET_NAME,
       Key: s3Key,
@@ -65,6 +76,58 @@ router.get("/upload-url/:companyId", requireAuth, requireRole(["admin"]), async 
   } catch (err) {
     console.error("❌ Error generating presigned URL:", err);
     res.status(500).json({ error: "Failed to generate upload URL", details: err.message });
+  }
+});
+
+// Endpoint to directly save multiple separate files (nodes, edges, demand)
+router.post("/upload-separate/:companyId", requireAuth, requireRole(["admin"]), express.json({ limit: "50mb" }), async (req, res) => {
+  try {
+    const { companyId } = req.params;
+    const { nodesContent, edgesContent, demandContent } = req.body;
+
+    if (!companyId || !/^[a-zA-Z0-9_-]+$/.test(companyId)) {
+      return res.status(400).json({ error: "Invalid Company ID" });
+    }
+    if (!req.user.companyId || req.user.companyId.toString() !== companyId) {
+      return res.status(403).json({ error: "Forbidden" });
+    }
+    if (!nodesContent || !edgesContent || !demandContent) {
+      return res.status(400).json({ error: "All three files (nodes, edges, demand) are required." });
+    }
+
+    if (BUCKET_NAME) {
+      const uploadString = async (content, key) => {
+        await s3Client.send(new PutObjectCommand({
+          Bucket: BUCKET_NAME,
+          Key: key,
+          Body: Buffer.from(content, "utf-8"),
+          ContentType: "text/csv"
+        }));
+      };
+      await uploadString(nodesContent, `processed/${companyId}/nodes.csv`);
+      await uploadString(edgesContent, `processed/${companyId}/Edges (Plant).csv`);
+      await uploadString(demandContent, `processed/${companyId}/Sales Order.csv`);
+    }
+
+    const backendDir = path.dirname(__dirname);
+    const companyDir = path.join(backendDir, "uploads", companyId);
+    fs.mkdirSync(companyDir, { recursive: true });
+    fs.writeFileSync(path.join(companyDir, "nodes.csv"), nodesContent, "utf-8");
+    fs.writeFileSync(path.join(companyDir, "Edges (Plant).csv"), edgesContent, "utf-8");
+    fs.writeFileSync(path.join(companyDir, "Sales Order.csv"), demandContent, "utf-8");
+
+    res.json({
+      success: true,
+      message: "Separate files uploaded and processed successfully",
+      files: {
+        nodes: `uploads/${companyId}/nodes.csv`,
+        edges: `uploads/${companyId}/Edges (Plant).csv`,
+        demand: `uploads/${companyId}/Sales Order.csv`
+      }
+    });
+  } catch (err) {
+    console.error("❌ Separate files upload failed:", err);
+    res.status(500).json({ error: "Failed to upload separate files", details: err.message });
   }
 });
 

@@ -43,9 +43,9 @@ class DynamoDBClient:
             self._table = dynamodb.Table(self.table_name)
             # Probe the table to confirm connectivity (raises if unreachable)
             self._table.table_status  # Triggers a DescribeTable call
-            print(f"✅ Connected to DynamoDB table: {self.table_name}")
+            print(f"[OK] Connected to DynamoDB table: {self.table_name}")
         except Exception as e:
-            print(f"⚠️  DynamoDB connection failed: {e}")
+            print(f"[WARN] DynamoDB connection failed: {e}")
             self._table = None
 
     @property
@@ -175,10 +175,10 @@ class S3ModelStore:
         self.region = os.getenv("AWS_REGION", "us-east-1")
         if self.bucket:
             self._client = boto3.client("s3", region_name=self.region)
-            print(f"✅ S3ModelStore: using bucket {self.bucket}")
+            print(f"[OK] S3ModelStore: using bucket {self.bucket}")
         else:
             self._client = None
-            print("⚠️  S3_MODELS_BUCKET not set — model storage disabled")
+            print("[WARN] S3_MODELS_BUCKET not set — model storage disabled")
 
     @property
     def is_configured(self):
@@ -195,7 +195,7 @@ class S3ModelStore:
             ContentType="application/octet-stream",
         )
         uri = f"s3://{self.bucket}/{s3_key}"
-        print(f"✅ Model uploaded to {uri} ({len(model_bytes) / 1024 / 1024:.2f} MB)")
+        print(f"[OK] Model uploaded to {uri} ({len(model_bytes) / 1024 / 1024:.2f} MB)")
         return uri
 
     def download(self, s3_uri: str) -> bytes:

@@ -98,22 +98,23 @@ export const AuthProvider = ({ children }) => {
   const register = async (companyName, email, password) => {
     setLoading(true);
     try {
-      // Backend registration: create company and store companyId
-      const res = await registerCompany(companyName);
+      // Backend registration: create company, admin user, and active backend session
+      const res = await registerCompany(companyName, email);
       const companyId = res && res._id;
-
-      const userPayload = {
+      const userPayload = res?.user || {
         companyName,
         email,
         companyId,
+        role: 'admin'
       };
+
       setUser(userPayload);
       setIsAuthenticated(true);
       localStorage.setItem('user', JSON.stringify(userPayload));
       if (companyId) localStorage.setItem('companyId', companyId);
       return { success: true };
     } catch (error) {
-      return { success: false, error: 'Registration failed' };
+      return { success: false, error: error.message || 'Registration failed' };
     } finally {
       setLoading(false);
     }

@@ -75,7 +75,9 @@ const Inventory = () => {
   }, [items]);
 
   const filtered = useMemo(() => {
-    let result = decisions;
+    // Never sort the memoized source array in place; doing so makes later
+    // filter/sort changes reuse a mutated value.
+    let result = decisions.slice();
     if (searchTerm) result = result.filter(d => d.product.toLowerCase().includes(searchTerm.toLowerCase()));
     if (actionFilter !== 'all') result = result.filter(d => d.action === actionFilter);
     result.sort((a, b) => {
@@ -99,10 +101,15 @@ const Inventory = () => {
   const exportCsv = () => {
     const header = ['product','current','predicted','delta','ratio','trend','risk','action'];
     const rows = filtered.map(d => [d.product, d.current, d.predicted, d.delta.toFixed(2), d.ratio.toFixed(2), d.trend, d.risk, d.action]);
-    const csv = [header, ...rows].map(r => r.join(',')).join('\n');
+    const csvCell = value => `"${String(value ?? '').replace(/"/g, '""')}"`;
+    const csv = [header, ...rows].map(r => r.map(csvCell).join(',')).join('\n');
     const blob = new Blob([csv], { type: 'text/csv' });
-    const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
-    a.download = `inventory_${HORIZON}.csv`; a.click();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `inventory_${HORIZON}.csv`;
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(url), 0);
   };
 
   const ActionBadge = ({ action }) => {

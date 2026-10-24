@@ -72,7 +72,7 @@ class STGTModel(nn.Module):
         # x shape: [num_nodes, max_timesteps, 1]
         if x.ndim != 3 or x.shape[1] != self.max_timesteps or x.shape[2] != 1:
             raise ValueError(
-                f"STGT expects [nodes, {self.max_timesteps}, 1], received {tuple(x.shape)}"
+                f"STGT expects [nodes, exactly {self.max_timesteps} timesteps, 1], received {tuple(x.shape)}"
             )
         if node_types.ndim != 1 or node_types.shape[0] != x.shape[0]:
             raise ValueError("node_types must contain one value per graph node")

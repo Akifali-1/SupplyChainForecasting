@@ -34,12 +34,12 @@ async function apiFetch(url, options = {}) {
   return res;
 }
 
-export async function registerCompany(name) {
-  logger.info('API', 'Registering company', { name });
-  const res = await fetch(`${API_BASE}/api/company/register`, {
+export async function registerCompany(name, email) {
+  logger.info('API', 'Registering company', { name, email });
+  const res = await apiFetch(`${API_BASE}/api/company/register`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ name })
+    body: JSON.stringify({ name, email })
   });
   if (!res.ok) throw new Error("Failed to register company");
   return res.json();
@@ -91,6 +91,37 @@ export async function convertRaw(companyId, file) {
 
   const result = await res.json();
   logger.info('API', 'File conversion completed', result);
+  return result;
+}
+
+export async function uploadSeparateFiles(companyId, { nodesFile, edgesFile, demandFile }) {
+  logger.info('API', 'Uploading separate CSV files', { companyId });
+  const readFileText = (file) => new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = reject;
+    reader.readAsText(file);
+  });
+
+  const [nodesContent, edgesContent, demandContent] = await Promise.all([
+    readFileText(nodesFile),
+    readFileText(edgesFile),
+    readFileText(demandFile)
+  ]);
+
+  const res = await apiFetch(`${API_BASE}/api/data/upload-separate/${companyId}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ nodesContent, edgesContent, demandContent })
+  });
+
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.details || err.error || "Failed to upload separate files");
+  }
+
+  const result = await res.json();
+  logger.info('API', 'Separate files uploaded successfully', result);
   return result;
 }
 

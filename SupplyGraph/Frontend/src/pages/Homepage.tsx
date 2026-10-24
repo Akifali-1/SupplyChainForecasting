@@ -18,7 +18,6 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
-import ParticleField from '../components/ParticleField';
 import WaveBackground from '../components/WaveBackground';
 import FadeIn from '../components/FadeIn';
 import StackingCard from '../components/StackingCard';

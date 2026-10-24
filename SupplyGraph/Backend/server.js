@@ -145,17 +145,17 @@ app.get("/api/debug/db", (req, res) => {
   res.json({ table: TABLE_NAME, backend: "DynamoDB" });
 });
 
-// Company registration (name -> DynamoDB)
+// Company registration (name, email -> DynamoDB & establish active session)
 app.post("/api/company/register", async (req, res) => {
   try {
-    const { name } = req.body || {};
+    const { name, email } = req.body || {};
     if (!name) return res.status(400).json({ error: "name is required" });
 
     const companyId = `company_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
     const now = new Date().toISOString();
+    const userEmail = email ? email.trim().toLowerCase() : `admin@${name.toLowerCase().replace(/[^a-z0-9]/g, '') || 'company'}.com`;
 
-    // Check if company name already exists would require a Scan (expensive) so
-    // we use a conditional put with a well-known name key as GSI1_PK instead.
+    // 1. Write Company metadata
     await docClient.send(new PutCommand({
       TableName: TABLE_NAME,
       Item: {
@@ -170,13 +170,36 @@ app.post("/api/company/register", async (req, res) => {
         createdAt: now,
         updatedAt: now
       },
-      ConditionExpression: 'attribute_not_exists(PK)'  // prevent duplicate writes
+      ConditionExpression: 'attribute_not_exists(PK)'
     })).catch(err => {
-      // If condition fails the company key already exists — that's OK on idempotent calls
       if (err.name !== 'ConditionalCheckFailedException') throw err;
     });
 
-    return res.json({ _id: companyId, name, status: 'new' });
+    // 2. Write Admin User record in DynamoDB
+    const userDoc = {
+      PK: `COMPANY#${companyId}`,
+      SK: `USER#${userEmail}`,
+      userId: `user_${Date.now()}_${Math.random().toString(36).substr(2, 7)}`,
+      email: userEmail,
+      name: `${name} Admin`,
+      companyId,
+      companyName: name,
+      role: 'admin',
+      status: 'active',
+      createdAt: now,
+      updatedAt: now
+    };
+
+    await docClient.send(new PutCommand({
+      TableName: TABLE_NAME,
+      Item: userDoc
+    }));
+
+    // 3. Establish session with passport so page refreshes stay authenticated
+    req.login(userDoc, (loginErr) => {
+      if (loginErr) console.warn("⚠️  Auto-login session warning:", loginErr);
+      return res.json({ _id: companyId, name, status: 'new', user: userDoc });
+    });
   } catch (err) {
     console.error("❌ Register company failed", err);
     return res.status(500).json({ error: "Failed to register company" });

@@ -21,7 +21,9 @@ const WaveBackground: React.FC = () => {
       alpha: true,
       powerPreference: 'high-performance',
     });
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+    // Full-resolution WebGL is expensive on high-DPI screens and does not
+    // materially improve this decorative background.
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, window.innerWidth < 768 ? 1 : 1.5));
     renderer.setSize(canvas.clientWidth, canvas.clientHeight);
 
     const scene = new THREE.Scene();
@@ -193,21 +195,14 @@ const WaveBackground: React.FC = () => {
     };
     window.addEventListener('resize', onResize, { passive: true });
 
-    let isIntersecting = true;
-    const observer = new IntersectionObserver(
-      ([entry]) => {
-        isIntersecting = entry.isIntersecting;
-      },
-      { threshold: 0 }
-    );
-    observer.observe(canvas);
-
     const clock = new THREE.Clock();
     let rafId = 0;
+    let isIntersecting = true;
+    let isLoopRunning = false;
 
     const tick = () => {
+      if (!isLoopRunning) return;
       rafId = requestAnimationFrame(tick);
-      if (!isIntersecting || document.hidden) return;
 
       const t = clock.getElapsedTime();
       uniforms.uTime.value = t;
@@ -231,12 +226,34 @@ const WaveBackground: React.FC = () => {
       renderer.render(scene, camera);
     };
 
-    tick();
+    const syncLoopState = () => {
+      const shouldRun = isIntersecting && !document.hidden;
+      if (shouldRun && !isLoopRunning) {
+        isLoopRunning = true;
+        tick();
+      } else if (!shouldRun && isLoopRunning) {
+        isLoopRunning = false;
+        cancelAnimationFrame(rafId);
+      }
+    };
+
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        isIntersecting = entry.isIntersecting;
+        syncLoopState();
+      },
+      { threshold: 0 }
+    );
+    observer.observe(canvas);
+    document.addEventListener('visibilitychange', syncLoopState);
+    syncLoopState();
 
     return () => {
+      isLoopRunning = false;
       cancelAnimationFrame(rafId);
       window.removeEventListener('mousemove', onMouseMove);
       window.removeEventListener('resize', onResize);
+      document.removeEventListener('visibilitychange', syncLoopState);
       observer.disconnect();
       renderer.dispose();
       geometry.dispose();

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import { Button } from '../components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import { Badge } from '../components/ui/badge';
@@ -42,10 +42,16 @@ const ProductSearch = ({ nodeList, value, onChange }) => {
   // Sync external value
   React.useEffect(() => { setQuery(value || ''); }, [value]);
 
-  const sorted = [...nodeList].sort((a, b) => a.localeCompare(b));
-  const filtered = query
-    ? sorted.filter(n => n.toLowerCase().includes(query.toLowerCase()))
-    : sorted;
+  const sorted = useMemo(
+    () => [...nodeList].sort((a, b) => a.localeCompare(b)),
+    [nodeList]
+  );
+  const filtered = useMemo(() => {
+    const normalizedQuery = query.trim().toLowerCase();
+    return normalizedQuery
+      ? sorted.filter(n => n.toLowerCase().includes(normalizedQuery))
+      : sorted;
+  }, [query, sorted]);
 
   return (
     <div ref={ref} className="relative">

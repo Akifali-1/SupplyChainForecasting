@@ -7,7 +7,7 @@ import { Input } from '../components/ui/input';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs';
 import { Progress } from '../components/ui/progress';
 import { useToast } from '../hooks/use-toast';
-import { convertRaw, fineTune, getTrainingStatus, createSample, cancelTraining } from '../lib/api';
+import { convertRaw, uploadSeparateFiles, fineTune, getTrainingStatus, createSample, cancelTraining } from '../lib/api';
 import StatusDisplay from '../components/StatusDisplay';
 import {
   Upload as UploadIcon,
@@ -58,7 +58,6 @@ const Upload = () => {
           if (user) companyId = JSON.parse(user).companyId;
         }
         if (!companyId) return;
-        const { getTrainingStatus } = await import('../lib/api');
         const statusData = await getTrainingStatus(companyId);
         const mlStatus = statusData?.ml_status || statusData || {};
         const status = mlStatus.status;
@@ -99,7 +98,7 @@ const Upload = () => {
                 toast({ title: 'Training Failed', description: s?.error || 'Unknown error', variant: 'destructive' });
               }
             } catch (e) { /* continue polling */ }
-          }, 1000);
+          }, 1500);
         } else if (status === 'completed') {
           // Already done — show brief notification
           setUploadComplete(true);
@@ -191,10 +190,21 @@ const Upload = () => {
         setUploadProgress(100);
         toast({ title: 'Success!', description: 'Dataset processed into nodes/edges/demand.' });
       } else {
-        // Multiple files path (UI keeps them client-side). Here we mark complete only.
+        // Multiple files path: send nodes, edges, demand files to backend
+        const res = await uploadSeparateFiles(companyId, {
+          nodesFile: files.nodes,
+          edgesFile: files.edges,
+          demandFile: files.demand
+        });
+        setConvertedPaths(res.files);
+        setManualPaths({
+          nodes: res.files?.nodes || '',
+          edges: res.files?.edges || '',
+          demand: res.files?.demand || ''
+        });
         setUploadComplete(true);
         setUploadProgress(100);
-        toast({ title: 'Success!', description: 'Files staged. You can proceed to fine-tune.' });
+        toast({ title: 'Success!', description: 'All 3 files uploaded and saved to server.' });
       }
     } catch (error) {
       toast({
@@ -358,7 +368,7 @@ const Upload = () => {
           console.error('[Training] Training timeout');
           setTrainingStatusMessage('Training timeout - please check status manually');
         }
-      }, 500); // Poll every 500ms for faster real-time updates
+      }, 1500); // Training status does not need sub-second polling
 
       try {
         // Start fine-tuning

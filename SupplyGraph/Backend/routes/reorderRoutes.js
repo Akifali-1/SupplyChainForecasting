@@ -104,7 +104,7 @@ router.get(
         Key: { PK: `COMPANY#${req.params.companyId}`, SK: "INVENTORY" }
       }));
       const snap = result.Item;
-      if (!snap) return res.status(404).json({ error: "No inventory snapshot found" });
+      if (!snap) return res.status(200).json({ hasSnapshot: false, error: "No inventory snapshot found" });
       return res.json({ uploadedAt: snap.uploadedAt, items: snap.items });
     } catch (err) {
       return res.status(500).json({ error: err.message });
@@ -254,7 +254,8 @@ router.get(
       const companyId = req.params.companyId;
       const intelligence = await getReorderIntelligenceInternal(companyId);
       if (!intelligence) {
-        return res.status(404).json({
+        return res.status(200).json({
+          hasSnapshot: false,
           error: "No inventory snapshot uploaded yet.",
           hint: "Upload an inventory_snapshot.csv first.",
         });

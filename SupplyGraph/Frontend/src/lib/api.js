@@ -456,6 +456,10 @@ export async function getInventorySnapshot(companyId) {
     const err = await res.json().catch(() => ({}));
     throw new Error(err.error || `Fetch failed (${res.status})`);
   }
+  const contentType = res.headers.get("content-type") || "";
+  if (contentType.includes("text/html")) {
+    return { hasSnapshot: false, error: "No inventory snapshot found" };
+  }
   return res.json();
 }
 
@@ -465,6 +469,10 @@ export async function getReorderIntelligence(companyId) {
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
     throw new Error(err.error || `Intelligence fetch failed (${res.status})`);
+  }
+  const contentType = res.headers.get("content-type") || "";
+  if (contentType.includes("text/html")) {
+    return { hasSnapshot: false, error: "No inventory snapshot uploaded yet." };
   }
   return res.json();
 }

@@ -264,7 +264,12 @@ export default function ReorderIntelligence() {
     setError(null);
     try {
       const result = await getReorderIntelligence(companyId);
-      setData(result);
+      if (result && result.hasSnapshot === false) {
+        setData(null);
+        setError(result.error || 'No inventory snapshot uploaded yet.');
+      } else {
+        setData(result);
+      }
     } catch (err) {
       setError(err.message);
     } finally {

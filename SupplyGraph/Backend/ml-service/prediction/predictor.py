@@ -27,20 +27,20 @@ class DemandPredictor:
                 print("DynamoDB not available for prediction")
                 self.dynamo = None
             elif self.debug:
-                print("✓ Connected to DynamoDB for prediction")
+                print("[OK] Connected to DynamoDB for prediction")
         except Exception as e:
             if self.debug:
-                print(f"✗ Failed to init DynamoDB: {e}")
+                print(f"[ERROR] Failed to init DynamoDB: {e}")
             self.dynamo = None
 
         try:
             self.s3store = S3ModelStore()
             if not self.s3store.is_configured:
-                print("⚠️  S3ModelStore not configured for prediction")
+                print("[WARN]  S3ModelStore not configured for prediction")
                 self.s3store = None
         except Exception as e:
             if self.debug:
-                print(f"✗ Failed to init S3ModelStore: {e}")
+                print(f"[ERROR] Failed to init S3ModelStore: {e}")
             self.s3store = None
     
     def _load_company_model(self, company_id):
@@ -73,7 +73,7 @@ class DemandPredictor:
             model_bytes = self.s3store.download(s3_uri)
             model_state = pickle.loads(model_bytes)
             if self.debug:
-                print(f"✓ Loaded company model from S3: {len(model_bytes) / (1024*1024):.2f} MB")
+                print(f"[OK] Loaded company model from S3: {len(model_bytes) / (1024*1024):.2f} MB")
             
             from models.stgt import STGTModel
             
@@ -97,12 +97,12 @@ class DemandPredictor:
             model.eval()
             
             if self.debug:
-                print(f"✓ Model loaded with {len(node_list)} nodes")
+                print(f"[OK] Model loaded with {len(node_list)} nodes")
             
             return model, model_doc
             
         except Exception as e:
-            print(f"✗ Error loading company model: {e}")
+            print(f"[ERROR] Error loading company model: {e}")
             raise
     
     def _load_company_data(self, company_id):
@@ -162,17 +162,17 @@ class DemandPredictor:
                 nodes_df = pd.read_csv(nodes_path)
             
             if self.debug:
-                print(f"✓ Loaded sales: {len(sales_df)} rows")
+                print(f"[OK] Loaded sales: {len(sales_df)} rows")
                 print(f"  Columns: {list(sales_df.columns)}")
                 if edges_df is not None:
-                    print(f"✓ Loaded edges: {len(edges_df)} rows")
+                    print(f"[OK] Loaded edges: {len(edges_df)} rows")
                 if nodes_df is not None:
-                    print(f"✓ Loaded nodes: {len(nodes_df)} rows")
+                    print(f"[OK] Loaded nodes: {len(nodes_df)} rows")
             
             return sales_df, edges_df, nodes_df
             
         except Exception as e:
-            print(f"✗ Error loading company data: {e}")
+            print(f"[ERROR] Error loading company data: {e}")
             raise
     
     def _prepare_time_series_from_sales(self, sales_df, node_list, max_timesteps, scalers=None):
@@ -186,7 +186,7 @@ class DemandPredictor:
         """
         try:
             if self.debug:
-                print(f"\n🔧 Preparing time series for {len(node_list)} nodes, {max_timesteps} timesteps")
+                print(f"\n[INFO] Preparing time series for {len(node_list)} nodes, {max_timesteps} timesteps")
             
             # Initialize output
             time_series_x = np.zeros((len(node_list), max_timesteps, 1))
@@ -206,14 +206,14 @@ class DemandPredictor:
                     sales_copy = sales_copy.sort_values(date_col)
                 except Exception as e:
                     if self.debug:
-                        print(f"  ⚠️  Could not parse dates: {e}")
+                        print(f"  [WARN]  Could not parse dates: {e}")
             
             # Extract time series for each node (product)
             for i, node_id in enumerate(node_list):
                 # Check if this node/product exists as a column
                 if node_id not in sales_copy.columns:
                     if self.debug:
-                        print(f"  ⚠️  Node {node_id} not found in Sales Order columns")
+                        print(f"  [WARN]  Node {node_id} not found in Sales Order columns")
                     continue
                 
                 # Get sales values for this product
@@ -235,7 +235,7 @@ class DemandPredictor:
             # Apply scalers if available (IMPORTANT: use SAME scalers as training)
             if scalers:
                 if self.debug:
-                    print("\n🔧 Applying scalers (same as training)...")
+                    print("\n[INFO] Applying scalers (same as training)...")
                 
                 for i, node_id in enumerate(node_list):
                     if node_id in scalers:
@@ -252,18 +252,18 @@ class DemandPredictor:
             # Data quality checks
             non_zero_nodes = np.sum(np.abs(time_series_x).sum(axis=(1, 2)) > 0)
             if self.debug:
-                print(f"\n✓ Prepared time series: {time_series_x.shape}")
+                print(f"\n[OK] Prepared time series: {time_series_x.shape}")
                 print(f"  Non-zero nodes: {non_zero_nodes}/{len(node_list)}")
                 print(f"  Value range: [{time_series_x.min():.2f}, {time_series_x.max():.2f}]")
                 print(f"  Mean: {time_series_x.mean():.2f}")
             
             if non_zero_nodes == 0:
-                print("⚠️  WARNING: All time series are zero! Check your Sales Order data.")
+                print("[WARN]  WARNING: All time series are zero! Check your Sales Order data.")
             
             return torch.tensor(time_series_x, dtype=torch.float)
             
         except Exception as e:
-            print(f"✗ Error preparing time series: {e}")
+            print(f"[ERROR] Error preparing time series: {e}")
             import traceback
             traceback.print_exc()
             raise
@@ -545,7 +545,7 @@ class DemandPredictor:
             
             with torch.no_grad():
                 for day in range(forecast_days):
-                    # Forward pass — get next-day prediction for all nodes
+                    # Forward pass - get next-day prediction for all nodes
                     pred = model(current_x, edge_index, node_types)  # (num_nodes, 1)
                     
                     for i, node in enumerate(node_list):
@@ -590,9 +590,9 @@ class DemandPredictor:
                     }
                     self.dynamo.put_item(cache_item)
                     if self.debug:
-                        print("✓ Cached predictions to PREDICTION_CACHE in DynamoDB")
+                        print("[OK] Cached predictions to PREDICTION_CACHE in DynamoDB")
                 except Exception as cache_err:
-                    print(f"⚠️ Failed to cache predictions to DynamoDB: {cache_err}")
+                    print(f"[WARN] Failed to cache predictions to DynamoDB: {cache_err}")
             
             return results
             

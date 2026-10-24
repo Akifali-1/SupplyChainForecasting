@@ -218,7 +218,7 @@ class S3ModelStore:
 
         response = self._client.get_object(Bucket=bucket, Key=key)
         data = response["Body"].read()
-        print(f"✅ Model downloaded from s3://{bucket}/{key} ({len(data) / 1024 / 1024:.2f} MB)")
+        print(f"[OK] Model downloaded from s3://{bucket}/{key} ({len(data) / 1024 / 1024:.2f} MB)")
         return data
 
     def delete(self, s3_key: str):

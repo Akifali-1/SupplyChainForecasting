@@ -27,7 +27,7 @@ class ModelTrainer:
         try:
             self.dynamo = DynamoDBClient()
             if not self.dynamo.is_connected:
-                print("DynamoDB not available — training metadata will be in-memory only")
+                print("DynamoDB not available - training metadata will be in-memory only")
                 self.dynamo = None
         except Exception as e:
             print(f"Failed to init DynamoDB: {e}")
@@ -36,7 +36,7 @@ class ModelTrainer:
         try:
             self.s3store = S3ModelStore()
             if not self.s3store.is_configured:
-                print("S3ModelStore not configured — model persistence disabled")
+                print("S3ModelStore not configured - model persistence disabled")
                 self.s3store = None
         except Exception as e:
             print(f"Failed to init S3ModelStore: {e}")
@@ -201,7 +201,7 @@ class ModelTrainer:
             num_times = len(sales_df)
             print(f"Number of time steps (days): {num_times}")
             
-            # Build node list — only keep nodes that have sales data with variance
+            # Build node list - only keep nodes that have sales data with variance
             node_list = []
             series = []
             for node in nodes_df['Node']:
@@ -491,7 +491,7 @@ class ModelTrainer:
             s3_key = f"models/{company_id}/model_weights.pkl"
             s3_uri = self.s3store.upload(model_bytes, s3_key)
             
-            # Build DynamoDB item (metadata only — no binary blob)
+            # Build DynamoDB item (metadata only - no binary blob)
             item = {
                 'PK': f"COMPANY#{company_id}",
                 'SK': 'MODEL',
@@ -538,7 +538,7 @@ class ModelTrainer:
             print(f"Starting {action} for company {company_id} (force_retrain={force_retrain})")
             self._update_training_status(company_id, "starting", 0, f"Initializing {'re' if force_retrain else ''}training...")
             
-            # Check existing model — skipped entirely when force_retrain=True
+            # Check existing model - skipped entirely when force_retrain=True
             if not force_retrain:
                 existing_model = self.check_company_model_exists(company_id)
                 if existing_model.get("exists", False):
@@ -678,7 +678,7 @@ class ModelTrainer:
                 print(f"Failed to save status to DynamoDB: {e}")
 
     def get_training_status(self, company_id):
-        """Get training status — memory first, then DynamoDB"""
+        """Get training status - memory first, then DynamoDB"""
         try:
             if company_id in self.training_status:
                 return self.training_status[company_id]
@@ -757,13 +757,13 @@ class ModelTrainer:
     def diagnose_training_data(self, nodes_path, edges_path, sales_path):
         """Diagnose training data"""
         try:
-            print("🔍 DIAGNOSING TRAINING DATA...")
+            print("[INFO] DIAGNOSING TRAINING DATA...")
             
             nodes = pd.read_csv(nodes_path)
             edges = pd.read_csv(edges_path)
             sales = pd.read_csv(sales_path)
             
-            print(f"📊 DATA SUMMARY:")
+            print(f"[INFO] DATA SUMMARY:")
             print(f"  Nodes: {len(nodes)} rows, columns: {list(nodes.columns)}")
             print(f"  Edges: {len(edges)} rows, columns: {list(edges.columns)}")
             print(f"  Sales: {len(sales)} rows, columns: {list(sales.columns)}")
